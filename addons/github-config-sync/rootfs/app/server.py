@@ -10,7 +10,7 @@ from flask import Flask, jsonify, request, send_from_directory
 from sync import SyncConfig, SyncEngine
 from sync.errors import SyncError
 
-APP_VERSION = "0.1.2"
+APP_VERSION = "0.1.3"
 APP_PORT = 8099
 
 DATA_DIR = Path("/data")
