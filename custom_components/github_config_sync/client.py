@@ -13,6 +13,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 API_BASE = "https://api.github.com"
+OAUTH_BASE = "https://github.com"
 
 
 class GitHubError(Exception):
@@ -33,7 +34,7 @@ class GitHubBackupClient:
         return await self._request("GET", "/user")
 
     async def async_start_device_flow(self, client_id: str) -> dict[str, Any]:
-        return await self._request(
+        return await self._oauth_request(
             "POST",
             "/login/device/code",
             json={"client_id": client_id, "scope": "repo"},
@@ -44,7 +45,7 @@ class GitHubBackupClient:
     ) -> str:
         deadline = asyncio.get_event_loop().time() + timeout
         while True:
-            response = await self._request(
+            response = await self._oauth_request(
                 "POST",
                 "/login/oauth/access_token",
                 json={
@@ -180,6 +181,26 @@ class GitHubBackupClient:
             destination.write_bytes(decoded)
             synced += 1
         return {"synced": synced}
+
+    async def _oauth_request(
+        self,
+        method: str,
+        path: str,
+        *,
+        json: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        headers = {"Accept": "application/json"}
+        async with self.session.request(
+            method,
+            f"{OAUTH_BASE}{path}",
+            headers=headers,
+            json=json,
+            timeout=60,
+        ) as response:
+            data = await response.json(content_type=None)
+            if response.status >= 400:
+                raise GitHubError(str(data))
+            return data
 
     async def _request(
         self,
