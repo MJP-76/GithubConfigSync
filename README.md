@@ -10,7 +10,8 @@ Home Assistant custom integration for syncing the Home Assistant config folder t
 - Auto-generate a Home Assistant-friendly `.gitignore`
 - Let you add extra ignore patterns from setup
 - Manual sync button in Home Assistant
-- Scheduled syncs at a configurable interval
+- Scheduled syncs every 24 hours by default
+- Customizable sync start time and repeat interval
 - Ignore patterns for files you do not want uploaded
 
 ## Notes

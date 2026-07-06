@@ -1,12 +1,15 @@
 DOMAIN = "github_config_sync"
 
+CONF_GITHUB_CLIENT_ID = "github_client_id"
 CONF_GITHUB_TOKEN = "github_token"
 CONF_REPOSITORY = "repository"
-CONF_BACKUP_INTERVAL_MINUTES = "backup_interval_minutes"
+CONF_BACKUP_INTERVAL_HOURS = "backup_interval_hours"
+CONF_SYNC_START_TIME = "sync_start_time"
 CONF_IGNORE_PATTERNS = "ignore_patterns"
 CONF_EXTRA_IGNORE_PATTERNS = "extra_ignore_patterns"
 
-DEFAULT_BACKUP_INTERVAL_MINUTES = 60
+DEFAULT_BACKUP_INTERVAL_HOURS = 24
+DEFAULT_SYNC_START_TIME = "03:00"
 DEFAULT_REMOTE_PATH = "."
 DEFAULT_IGNORE_PATTERNS = [
     "home-assistant_v2.db",

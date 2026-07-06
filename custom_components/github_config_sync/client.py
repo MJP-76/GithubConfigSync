@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import base64
 import fnmatch
+import asyncio
+import urllib.parse
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -30,6 +32,45 @@ class GitHubBackupClient:
 
     async def async_validate(self) -> dict[str, Any]:
         return await self._request("GET", "/user")
+
+    async def async_start_device_flow(self, client_id: str) -> dict[str, Any]:
+        return await self._request(
+            "POST",
+            "/login/device/code",
+            json={"client_id": client_id, "scope": "repo"},
+            accept_json=False,
+        )
+
+    async def async_exchange_device_code(
+        self, client_id: str, device_code: str, interval: int = 5, timeout: int = 600
+    ) -> str:
+        deadline = asyncio.get_event_loop().time() + timeout
+        while True:
+            response = await self._request(
+                "POST",
+                "/login/oauth/access_token",
+                json={
+                    "client_id": client_id,
+                    "device_code": device_code,
+                    "grant_type": "urn:ietf:params:oauth:grant-type:device_code",
+                },
+                accept_json=False,
+            )
+            payload = urllib.parse.parse_qs(response.get("text", ""))
+            if "access_token" in payload:
+                return payload["access_token"][0]
+            error = payload.get("error", [None])[0]
+            if error == "authorization_pending":
+                if asyncio.get_event_loop().time() >= deadline:
+                    raise GitHubError("Timed out waiting for GitHub authorization")
+                await asyncio.sleep(interval)
+                continue
+            if error == "slow_down":
+                interval += 5
+                await asyncio.sleep(interval)
+                continue
+            description = payload.get("error_description", [error or "Auth failed"])[0]
+            raise GitHubError(description)
 
     async def async_get_repository(self) -> dict[str, Any]:
         return await self._request("GET", f"/repos/{self.repository}")
@@ -150,6 +191,7 @@ class GitHubBackupClient:
         *,
         json: dict[str, Any] | None = None,
         allow_statuses: set[int] | None = None,
+        accept_json: bool = True,
     ) -> dict[str, Any]:
         allow_statuses = allow_statuses or set()
         url = f"{API_BASE}{path}"
@@ -166,7 +208,7 @@ class GitHubBackupClient:
             if response.status >= 400:
                 text = await response.text()
                 raise GitHubError(f"GitHub API error {response.status}: {text}")
-            if response.content_type == "application/json":
+            if response.content_type == "application/json" and accept_json:
                 return await response.json()
             return {"text": await response.text()}
 
