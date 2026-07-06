@@ -20,6 +20,7 @@ from .const import (
     DEFAULT_IGNORE_PATTERNS,
     DEFAULT_SYNC_START_TIME,
     DOMAIN,
+    GITHUB_OAUTH_CLIENT_ID,
 )
 
 DEFAULT_REPOSITORY_NAME = "ha-config"
@@ -29,7 +30,7 @@ class GitHubConfigSyncFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
     VERSION = 1
 
     def __init__(self) -> None:
-        self._client_id: str | None = None
+        self._client_id: str | None = GITHUB_OAUTH_CLIENT_ID or None
         self._token: str | None = None
         self._interval_hours = DEFAULT_BACKUP_INTERVAL_HOURS
         self._start_time = DEFAULT_SYNC_START_TIME
@@ -44,42 +45,54 @@ class GitHubConfigSyncFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             if not _is_valid_hh_mm(start_time):
                 errors[CONF_SYNC_START_TIME] = "invalid_time"
             else:
-                self._client_id = user_input[CONF_GITHUB_CLIENT_ID]
-                self._interval_hours = user_input[CONF_BACKUP_INTERVAL_HOURS]
-                self._start_time = start_time
-                self._ignore_patterns = [
-                    pattern.strip()
-                    for pattern in user_input[CONF_IGNORE_PATTERNS].splitlines()
-                    if pattern.strip()
-                ]
-                self._extra_ignore_patterns = user_input[CONF_EXTRA_IGNORE_PATTERNS]
-                try:
-                    self._device_flow = await GitHubBackupClient(
-                        self.hass, token="", repository="octocat/hello-world"
-                    ).async_start_device_flow(self._client_id)
-                except GitHubError:
-                    errors["base"] = "invalid_auth"
+                self._client_id = GITHUB_OAUTH_CLIENT_ID or user_input.get(
+                    CONF_GITHUB_CLIENT_ID, ""
+                ).strip()
+                if not self._client_id:
+                    errors[CONF_GITHUB_CLIENT_ID] = "required"
                 else:
-                    return await self.async_step_device_auth()
+                    self._interval_hours = user_input[CONF_BACKUP_INTERVAL_HOURS]
+                    self._start_time = start_time
+                    self._ignore_patterns = [
+                        pattern.strip()
+                        for pattern in user_input[CONF_IGNORE_PATTERNS].splitlines()
+                        if pattern.strip()
+                    ]
+                    self._extra_ignore_patterns = user_input[CONF_EXTRA_IGNORE_PATTERNS]
+                    try:
+                        self._device_flow = await GitHubBackupClient(
+                            self.hass, token="", repository="octocat/hello-world"
+                        ).async_start_device_flow(self._client_id)
+                    except GitHubError:
+                        errors["base"] = "invalid_auth"
+                    else:
+                        return await self.async_step_device_auth()
 
-        schema = vol.Schema(
-            {
-                vol.Required(CONF_GITHUB_CLIENT_ID): str,
+        schema_data: dict[vol.Marker, object] = {
+            vol.Required(
+                CONF_BACKUP_INTERVAL_HOURS,
+                default=self._interval_hours,
+            ): vol.All(vol.Coerce(int), vol.Range(min=1)),
+            vol.Required(
+                CONF_SYNC_START_TIME,
+                default=self._start_time,
+            ): str,
+            vol.Optional(
+                CONF_IGNORE_PATTERNS,
+                default="\n".join(self._ignore_patterns),
+            ): str,
+            vol.Optional(CONF_EXTRA_IGNORE_PATTERNS, default=""): str,
+        }
+        if not GITHUB_OAUTH_CLIENT_ID:
+            schema_data = {
                 vol.Required(
-                    CONF_BACKUP_INTERVAL_HOURS,
-                    default=self._interval_hours,
-                ): vol.All(vol.Coerce(int), vol.Range(min=1)),
-                vol.Required(
-                    CONF_SYNC_START_TIME,
-                    default=self._start_time,
+                    CONF_GITHUB_CLIENT_ID,
+                    default=self._client_id or "",
                 ): str,
-                vol.Optional(
-                    CONF_IGNORE_PATTERNS,
-                    default="\n".join(self._ignore_patterns),
-                ): str,
-                vol.Optional(CONF_EXTRA_IGNORE_PATTERNS, default=""): str,
+                **schema_data,
             }
-        )
+
+        schema = vol.Schema(schema_data)
         return self.async_show_form(step_id="user", data_schema=schema, errors=errors)
 
     async def async_step_device_auth(self, user_input=None):
@@ -174,7 +187,6 @@ class GitHubConfigSyncFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
 
     def _build_entry_data(self, repository: str) -> dict[str, object]:
         return {
-            CONF_GITHUB_CLIENT_ID: self._client_id,
             CONF_GITHUB_TOKEN: self._token,
             CONF_REPOSITORY: repository,
             CONF_BACKUP_INTERVAL_HOURS: self._interval_hours,
@@ -185,6 +197,11 @@ class GitHubConfigSyncFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                 for line in self._extra_ignore_patterns.splitlines()
                 if line.strip()
             ],
+            **(
+                {CONF_GITHUB_CLIENT_ID: self._client_id}
+                if not GITHUB_OAUTH_CLIENT_ID
+                else {}
+            ),
         }
 
 

@@ -11,6 +11,9 @@ CONF_EXTRA_IGNORE_PATTERNS = "extra_ignore_patterns"
 DEFAULT_BACKUP_INTERVAL_HOURS = 24
 DEFAULT_SYNC_START_TIME = "03:00"
 DEFAULT_REMOTE_PATH = "."
+# Optional fixed OAuth app client ID for GitHub Device Flow.
+# Leave empty to prompt for client ID in the config flow.
+GITHUB_OAUTH_CLIENT_ID = ""
 DEFAULT_IGNORE_PATTERNS = [
     "home-assistant_v2.db",
     "home-assistant.log",

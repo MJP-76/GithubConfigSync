@@ -12,7 +12,7 @@ Home Assistant custom integration for syncing the Home Assistant config folder t
 
 ## Features
 
-- GitHub personal access token login
+- GitHub OAuth Device Flow login (approve on github.com)
 - Create a new repository or use an existing one
 - Sync the Home Assistant config folder into GitHub
 - Auto-generate a Home Assistant-friendly `.gitignore`
@@ -30,3 +30,4 @@ Home Assistant custom integration for syncing the Home Assistant config folder t
 - A managed `.gitignore` is created with Home Assistant defaults and your extra patterns.
 - Keep the repository private if the config contains sensitive data.
 - The uploaded base was adapted into this folder-sync implementation.
+- If `GITHUB_OAUTH_CLIENT_ID` is set in `custom_components/github_config_sync/const.py`, the flow uses it and skips asking for client ID.
