@@ -1,6 +1,14 @@
 # Github Config Sync
+[![Validate](https://github.com/MJP-76/GithubConfigSync/actions/workflows/validate.yml/badge.svg)](https://github.com/MJP-76/GithubConfigSync/actions/workflows/validate.yml)
+[![HACS](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://github.com/hacs/integration)
 
 Home Assistant custom integration for syncing the Home Assistant config folder to GitHub.
+
+## Installation (HACS)
+
+1. Open HACS in Home Assistant.
+2. Add `MJP-76/GithubConfigSync` as a custom repository (category: Integration).
+3. Install **Github Config Sync** and restart Home Assistant.
 
 ## Features
 
