@@ -1,4 +1,4 @@
-# GitHub HA Config Sync
+# Github Config Sync
 
 Home Assistant custom integration for syncing the Home Assistant config folder to GitHub.
 
