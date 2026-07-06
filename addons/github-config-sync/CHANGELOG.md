@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.5
+
+- Fixed web UI JSON parsing to handle non-JSON API responses without breaking page load.
+- Improved device-flow status handling when auth endpoints are unavailable during upgrade transitions.
+
 ## 0.1.4
 
 - Added GitHub OAuth Device Flow to the add-on web UI (start + complete login).
