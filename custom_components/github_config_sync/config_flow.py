@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import datetime as dt
-import urllib.parse
 
 import voluptuous as vol
 
@@ -36,7 +35,7 @@ class GitHubConfigSyncFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         self._start_time = DEFAULT_SYNC_START_TIME
         self._ignore_patterns = list(DEFAULT_IGNORE_PATTERNS)
         self._extra_ignore_patterns = ""
-        self._device_flow: dict[str, str] | None = None
+        self._device_flow: dict[str, object] | None = None
 
     async def async_step_user(self, user_input=None):
         errors: dict[str, str] = {}
@@ -100,34 +99,31 @@ class GitHubConfigSyncFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             return await self.async_step_user()
 
         if user_input is not None:
-            client = GitHubBackupClient(
-                self.hass, token="", repository="octocat/hello-world"
-            )
-            try:
-                self._token = await client.async_exchange_device_code(
-                    self._client_id,
-                    self._device_flow["device_code"],
-                    interval=int(self._device_flow.get("interval", "5")),
-                )
-            except GitHubError:
-                return self.async_show_form(
-                    step_id="device_auth",
-                    data_schema=vol.Schema({vol.Required("confirm"): bool}),
-                    errors={"base": "invalid_auth"},
-                )
-            return await self.async_step_repo_choice()
+            return self.async_external_step_done(next_step_id="device_auth_done")
 
-        verification_uri = self._device_flow.get("verification_uri")
-        user_code = self._device_flow.get("user_code")
-        schema = vol.Schema({vol.Required("confirm", default=True): bool})
-        return self.async_show_form(
+        verification_uri = self._device_flow.get(
+            "verification_uri_complete"
+        ) or self._device_flow.get("verification_uri")
+        return self.async_external_step(
             step_id="device_auth",
-            data_schema=schema,
-            description_placeholders={
-                "verification_uri": verification_uri,
-                "user_code": user_code,
-            },
+            url=str(verification_uri or "https://github.com/login/device"),
         )
+
+    async def async_step_device_auth_done(self, _user_input=None):
+        if self._device_flow is None:
+            return await self.async_step_user()
+
+        client = GitHubBackupClient(self.hass, token="", repository="octocat/hello-world")
+        try:
+            self._token = await client.async_exchange_device_code(
+                self._client_id,
+                str(self._device_flow["device_code"]),
+                interval=int(self._device_flow.get("interval", 5)),
+            )
+        except GitHubError:
+            return self.async_abort(reason="invalid_auth")
+
+        return await self.async_step_repo_choice()
 
     async def async_step_repo_choice(self, user_input=None):
         if user_input is not None:

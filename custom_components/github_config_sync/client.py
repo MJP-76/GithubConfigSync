@@ -1,9 +1,8 @@
 from __future__ import annotations
 
 import base64
-import fnmatch
 import asyncio
-import urllib.parse
+import fnmatch
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -38,7 +37,6 @@ class GitHubBackupClient:
             "POST",
             "/login/device/code",
             json={"client_id": client_id, "scope": "repo"},
-            accept_json=False,
         )
 
     async def async_exchange_device_code(
@@ -54,12 +52,11 @@ class GitHubBackupClient:
                     "device_code": device_code,
                     "grant_type": "urn:ietf:params:oauth:grant-type:device_code",
                 },
-                accept_json=False,
             )
-            payload = urllib.parse.parse_qs(response.get("text", ""))
+            payload = response
             if "access_token" in payload:
-                return payload["access_token"][0]
-            error = payload.get("error", [None])[0]
+                return payload["access_token"]
+            error = payload.get("error")
             if error == "authorization_pending":
                 if asyncio.get_event_loop().time() >= deadline:
                     raise GitHubError("Timed out waiting for GitHub authorization")
@@ -69,7 +66,7 @@ class GitHubBackupClient:
                 interval += 5
                 await asyncio.sleep(interval)
                 continue
-            description = payload.get("error_description", [error or "Auth failed"])[0]
+            description = payload.get("error_description", error or "Auth failed")
             raise GitHubError(description)
 
     async def async_get_repository(self) -> dict[str, Any]:
