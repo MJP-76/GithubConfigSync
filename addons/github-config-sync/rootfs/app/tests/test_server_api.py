@@ -139,6 +139,44 @@ class ServerApiTests(unittest.TestCase):
         self.assertTrue(body["ok"])
         self.assertEqual(body["options"]["github_token"], "********")
 
+    def test_list_repositories_requires_auth_token(self) -> None:
+        self._write_options({"github_repository": "owner/repo", "github_branch": "main", "github_token": ""})
+        response = self.client.get("/api/repos")
+        body = response.get_json()
+
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(body["ok"])
+        self.assertIn("Authenticate with Device Flow first", body["error"])
+
+    def test_list_repositories_returns_picker_items(self) -> None:
+        self._write_options({"github_repository": "owner/repo", "github_branch": "main", "github_token": "gho_x"})
+        with patch("server.GitHubClient.list_user_repositories") as list_repos:
+            list_repos.return_value = [
+                {"name": "repo-a", "full_name": "owner/repo-a", "private": True},
+                {"name": "repo-b", "full_name": "owner/repo-b", "private": False},
+            ]
+            response = self.client.get("/api/repos")
+
+        body = response.get_json()
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(body["ok"])
+        self.assertEqual(len(body["repos"]), 2)
+        self.assertEqual(body["repos"][0]["full_name"], "owner/repo-a")
+
+    def test_create_repository_updates_selected_repository(self) -> None:
+        self._write_options({"github_branch": "main", "github_token": "gho_x"})
+        with patch("server.GitHubClient.create_repository") as create_repo:
+            create_repo.return_value = {"full_name": "owner/new-config-repo"}
+            response = self.client.post(
+                "/api/repos/create",
+                json={"name": "new-config-repo", "private": True, "description": "desc"},
+            )
+
+        body = response.get_json()
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(body["ok"])
+        self.assertEqual(body["repository"], "owner/new-config-repo")
+
 
 if __name__ == "__main__":
     unittest.main()

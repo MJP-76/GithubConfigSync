@@ -132,6 +132,17 @@ def _sync_config(options: dict[str, Any]) -> SyncConfig:
     )
 
 
+def _token_client(options: dict[str, Any]) -> GitHubClient:
+    token = str(options.get("github_token", "")).strip()
+    if not token:
+        raise SyncError("Authenticate with Device Flow first to access repositories")
+    return GitHubClient(
+        repository=str(options.get("github_repository", "")).strip(),
+        branch=str(options.get("github_branch", "main")).strip() or "main",
+        token=token,
+    )
+
+
 def _build_verification_url(device_flow: dict[str, Any]) -> str:
     complete = str(device_flow.get("verification_uri_complete", "")).strip()
     if complete:
@@ -326,6 +337,67 @@ def complete_device_auth():
     _clear_device_flow()
     _append_log("GitHub token obtained via device flow")
     return jsonify({"ok": True, "options": _mask_token(_merge_options())})
+
+
+@app.get("/api/repos")
+def list_repos():
+    options = _merge_options()
+    query = request.args.get("q", "", type=str)
+    try:
+        client = _token_client(options)
+        repos = client.list_user_repositories(query=query, limit=100)
+    except SyncError as err:
+        return jsonify({"ok": False, "error": str(err)}), 400
+
+    return jsonify(
+        {
+            "ok": True,
+            "repos": [
+                {
+                    "name": str(repo.get("name", "")),
+                    "full_name": str(repo.get("full_name", "")),
+                    "private": bool(repo.get("private", False)),
+                }
+                for repo in repos
+            ],
+        }
+    )
+
+
+@app.post("/api/repos/create")
+def create_repo():
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, dict):
+        return jsonify({"ok": False, "error": "Invalid JSON body"}), 400
+
+    name = str(payload.get("name", "")).strip()
+    if not name:
+        return jsonify({"ok": False, "error": "Repository name is required"}), 400
+
+    private = bool(payload.get("private", True))
+    description = str(payload.get("description", "")).strip()
+
+    options = _merge_options()
+    try:
+        client = _token_client(options)
+    except SyncError as err:
+        return jsonify({"ok": False, "error": str(err)}), 400
+    try:
+        repo = client.create_repository(name=name, private=private, description=description)
+    except SyncError as err:
+        return jsonify({"ok": False, "error": str(err)}), 502
+
+    merged = _merge_options()
+    merged["github_repository"] = str(repo.get("full_name", "")).strip()
+    _save_json(WEBUI_OPTIONS_PATH, merged)
+    _append_log(f"Created repository {merged['github_repository']} from web UI")
+    return jsonify(
+        {
+            "ok": True,
+            "repository": merged["github_repository"],
+            "options": _mask_token(_merge_options()),
+        }
+    )
 
 
 @app.post("/api/sync")

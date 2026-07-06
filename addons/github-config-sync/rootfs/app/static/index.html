@@ -133,9 +133,59 @@
       </div>
 
       <div class="card">
+        <h2 style="margin-top: 0; font-size: 1.1rem">GitHub Device Login</h2>
+        <p style="margin-bottom: 10px">
+          Connect GitHub first, then choose whether to use an existing repository or create a new one.
+        </p>
+        <div class="row">
+          <button id="startDeviceBtn" class="secondary">Start Device Login</button>
+          <button id="completeDeviceBtn" class="secondary">Complete Device Login</button>
+        </div>
+        <p id="deviceFlowInfo" style="margin-top: 10px; font-size: 0.9rem"></p>
+      </div>
+
+      <div class="card">
+        <div class="field">
+          <label>Repository setup</label>
+          <div class="row">
+            <label><input type="radio" name="repoMode" value="existing" checked /> Use existing repository</label>
+            <label><input type="radio" name="repoMode" value="create" /> Create new repository</label>
+          </div>
+        </div>
+        <div id="existingRepoSection" style="margin-top: 10px">
+          <div class="row">
+            <input id="repoSearch" placeholder="Filter repositories..." style="flex: 1" />
+            <button id="loadReposBtn" class="secondary">Load Repositories</button>
+          </div>
+          <div class="field" style="margin-top: 10px">
+            <label for="repoPicker">Repository picker</label>
+            <select id="repoPicker" style="border-radius: 10px; border: 1px solid #334155; background: #0b1220; color: var(--text); padding: 10px 12px; font-size: 0.95rem;">
+              <option value="">Select a repository...</option>
+            </select>
+          </div>
+        </div>
+        <div id="createRepoSection" style="margin-top: 10px; display: none">
+          <div class="grid">
+            <div class="field">
+              <label for="newRepoName">New repository name</label>
+              <input id="newRepoName" placeholder="home-assistant-config" />
+            </div>
+            <div class="field">
+              <label for="newRepoDescription">Description (optional)</label>
+              <input id="newRepoDescription" placeholder="Home Assistant config sync" />
+            </div>
+          </div>
+          <div class="row" style="margin-top: 10px">
+            <label><input id="newRepoPrivate" type="checkbox" checked /> Private repository</label>
+            <button id="createRepoBtn" class="secondary">Create Repository</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
         <div class="grid">
           <div class="field">
-            <label for="repo">GitHub Repository (owner/repo)</label>
+            <label for="repo">Selected Repository (owner/repo)</label>
             <input id="repo" placeholder="MJP-76/GithubConfigSync" />
           </div>
           <div class="field">
@@ -166,12 +216,9 @@
         </div>
         <div class="row" style="margin-top: 14px">
           <button id="saveBtn">Save Settings</button>
-          <button id="startDeviceBtn" class="secondary">Start Device Login</button>
-          <button id="completeDeviceBtn" class="secondary">Complete Device Login</button>
           <button id="syncBtn" class="secondary">Run Sync Now</button>
           <button id="refreshBtn" class="secondary">Refresh Status</button>
         </div>
-        <p id="deviceFlowInfo" style="margin-top: 10px; font-size: 0.9rem"></p>
       </div>
 
       <div class="card">
@@ -193,10 +240,21 @@
         saveBtn: document.getElementById("saveBtn"),
         startDeviceBtn: document.getElementById("startDeviceBtn"),
         completeDeviceBtn: document.getElementById("completeDeviceBtn"),
+        repoMode: document.querySelectorAll("input[name='repoMode']"),
+        existingRepoSection: document.getElementById("existingRepoSection"),
+        createRepoSection: document.getElementById("createRepoSection"),
+        repoSearch: document.getElementById("repoSearch"),
+        loadReposBtn: document.getElementById("loadReposBtn"),
+        repoPicker: document.getElementById("repoPicker"),
+        newRepoName: document.getElementById("newRepoName"),
+        newRepoDescription: document.getElementById("newRepoDescription"),
+        newRepoPrivate: document.getElementById("newRepoPrivate"),
+        createRepoBtn: document.getElementById("createRepoBtn"),
         syncBtn: document.getElementById("syncBtn"),
         refreshBtn: document.getElementById("refreshBtn"),
         deviceFlowInfo: document.getElementById("deviceFlowInfo"),
       };
+      let cachedRepos = [];
       const ingressBase = `${window.location.pathname.replace(/\/+$/, "")}/`;
 
       function apiUrl(path) {
@@ -206,6 +264,27 @@
       function setStatus(message, ok = true) {
         el.status.textContent = message;
         el.status.className = `status ${ok ? "ok" : "err"}`;
+      }
+
+      function getRepoMode() {
+        const selected = Array.from(el.repoMode).find((item) => item.checked);
+        return selected?.value || "existing";
+      }
+
+      function applyRepoMode() {
+        const mode = getRepoMode();
+        el.existingRepoSection.style.display = mode === "existing" ? "block" : "none";
+        el.createRepoSection.style.display = mode === "create" ? "block" : "none";
+      }
+
+      function renderRepoPicker(repos) {
+        el.repoPicker.innerHTML = '<option value="">Select a repository...</option>';
+        repos.forEach((repo) => {
+          const option = document.createElement("option");
+          option.value = repo.full_name;
+          option.textContent = `${repo.full_name}${repo.private ? " (private)" : ""}`;
+          el.repoPicker.appendChild(option);
+        });
       }
 
       async function fetchJson(url, options = {}) {
@@ -239,6 +318,28 @@
         el.clientId.value = data.github_client_id || "";
         el.interval.value = data.sync_interval_minutes ?? 60;
         el.dryRun.checked = Boolean(data.dry_run);
+      }
+
+      async function loadRepositories(strict = false) {
+        try {
+          const q = el.repoSearch.value.trim();
+          const suffix = q ? `?q=${encodeURIComponent(q)}` : "";
+          const data = await fetchJson(apiUrl(`/api/repos${suffix}`));
+          cachedRepos = data.repos || [];
+          renderRepoPicker(cachedRepos);
+          if (el.repo.value) {
+            el.repoPicker.value = el.repo.value;
+          }
+          if (strict) {
+            setStatus(`Loaded ${cachedRepos.length} repositories`);
+          }
+        } catch (error) {
+          cachedRepos = [];
+          renderRepoPicker(cachedRepos);
+          if (strict) {
+            throw error;
+          }
+        }
       }
 
       async function loadDeviceFlowStatus() {
@@ -287,7 +388,24 @@
       async function completeDeviceLogin() {
         await fetchJson(apiUrl("/api/auth/device/complete"), { method: "POST" });
         setStatus("Device login complete. Token saved.");
-        await Promise.all([loadOptions(), loadStatus(), loadDeviceFlowStatus()]);
+        await Promise.all([loadOptions(), loadStatus(), loadDeviceFlowStatus(), loadRepositories()]);
+      }
+
+      async function createRepository() {
+        const payload = {
+          name: el.newRepoName.value.trim(),
+          private: el.newRepoPrivate.checked,
+          description: el.newRepoDescription.value.trim(),
+        };
+        const data = await fetchJson(apiUrl("/api/repos/create"), {
+          method: "POST",
+          body: JSON.stringify(payload),
+        });
+        el.repo.value = data.repository || "";
+        await loadRepositories();
+        el.repoPicker.value = el.repo.value;
+        await saveOptions();
+        setStatus(`Repository created: ${el.repo.value}`);
       }
 
       async function runSync() {
@@ -308,13 +426,26 @@
       el.completeDeviceBtn.addEventListener("click", () =>
         completeDeviceLogin().catch((error) => setStatus(error.message, false))
       );
+      el.repoMode.forEach((item) => item.addEventListener("change", applyRepoMode));
+      el.loadReposBtn.addEventListener("click", () =>
+        loadRepositories(true).catch((error) => setStatus(error.message, false))
+      );
+      el.repoPicker.addEventListener("change", () => {
+        if (el.repoPicker.value) {
+          el.repo.value = el.repoPicker.value;
+        }
+      });
+      el.createRepoBtn.addEventListener("click", () =>
+        createRepository().catch((error) => setStatus(error.message, false))
+      );
       el.refreshBtn.addEventListener("click", () =>
-        Promise.all([loadStatus(), loadDeviceFlowStatus()])
+        Promise.all([loadStatus(), loadDeviceFlowStatus(), loadRepositories(false)])
           .then(() => setStatus("Status refreshed"))
           .catch((error) => setStatus(error.message, false))
       );
 
-      Promise.all([loadOptions(), loadStatus(), loadDeviceFlowStatus()])
+      applyRepoMode();
+      Promise.all([loadOptions(), loadStatus(), loadDeviceFlowStatus(), loadRepositories(false)])
         .then(() => setStatus("Ready"))
         .catch((error) => setStatus(error.message, false));
     </script>

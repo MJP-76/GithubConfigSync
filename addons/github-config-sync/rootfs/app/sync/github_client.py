@@ -75,6 +75,38 @@ class GitHubClient:
             description = payload.get("error_description", error or "Device authorization failed")
             raise SyncError(str(description))
 
+    def list_user_repositories(self, query: str = "", limit: int = 100) -> list[dict[str, Any]]:
+        payload = self._request_any("GET", f"{API_BASE}/user/repos?per_page={max(1, min(limit, 100))}&sort=updated")
+        if not isinstance(payload, list):
+            raise SyncError("GitHub repositories response was not a list")
+        repos = [
+            repo
+            for repo in payload
+            if isinstance(repo, dict) and isinstance(repo.get("full_name"), str)
+        ]
+        needle = query.strip().lower()
+        if needle:
+            repos = [
+                repo
+                for repo in repos
+                if needle in str(repo.get("full_name", "")).lower()
+                or needle in str(repo.get("name", "")).lower()
+            ]
+        return repos
+
+    def create_repository(self, name: str, private: bool = True, description: str = "") -> dict[str, Any]:
+        payload: dict[str, Any] = {
+            "name": name,
+            "private": private,
+            "auto_init": True,
+        }
+        if description.strip():
+            payload["description"] = description.strip()
+        created = self._request_json("POST", f"{API_BASE}/user/repos", payload=payload)
+        if not created.get("full_name"):
+            raise SyncError("GitHub create repository returned incomplete payload")
+        return created
+
     def probe_repository(self) -> tuple[bool, str]:
         try:
             payload = self._request_json("GET", self._base)
@@ -121,6 +153,12 @@ class GitHubClient:
         )
 
     def _request_json(self, method: str, url: str, payload: dict[str, Any] | None = None) -> dict[str, Any]:
+        decoded = self._request_any(method, url, payload=payload)
+        if not isinstance(decoded, dict):
+            raise SyncError(f"GitHub API returned non-object JSON for {method} {url}")
+        return decoded
+
+    def _request_any(self, method: str, url: str, payload: dict[str, Any] | None = None) -> Any:
         data = None
         headers = dict(self._headers)
         if payload is not None:
@@ -132,10 +170,7 @@ class GitHubClient:
                 body = response.read().decode("utf-8")
                 if not body:
                     return {}
-                decoded = json.loads(body)
-                if not isinstance(decoded, dict):
-                    raise SyncError(f"GitHub API returned non-object JSON for {method} {url}")
-                return decoded
+                return json.loads(body)
         except urllib.error.HTTPError as err:
             body = err.read().decode("utf-8", errors="ignore")
             raise SyncError(f"GitHub API error HTTP {err.code} for {method} {url}: {body}") from err
