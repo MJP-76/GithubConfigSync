@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import datetime as dt
 
+from aiohttp import web
 import voluptuous as vol
 
 from homeassistant import config_entries
+from homeassistant.components.http import HomeAssistantView
 
 from .client import GitHubBackupClient, GitHubError
 from .const import (
@@ -23,6 +25,9 @@ from .const import (
 )
 
 DEFAULT_REPOSITORY_NAME = "ha-config"
+AUTH_VIEW_KEY = "auth_view_registered"
+AUTH_FLOW_MAP_KEY = "auth_flow_map"
+AUTH_START_PATH = "/api/github_config_sync/auth/start"
 
 
 class GitHubConfigSyncFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
@@ -59,9 +64,13 @@ class GitHubConfigSyncFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                     ]
                     self._extra_ignore_patterns = user_input[CONF_EXTRA_IGNORE_PATTERNS]
                     try:
+                        _ensure_auth_view(self.hass)
                         self._device_flow = await GitHubBackupClient(
                             self.hass, token="", repository="octocat/hello-world"
                         ).async_start_device_flow(self._client_id)
+                        self.hass.data.setdefault(DOMAIN, {}).setdefault(
+                            AUTH_FLOW_MAP_KEY, {}
+                        )[self.flow_id] = self._device_flow
                     except GitHubError:
                         errors["base"] = "invalid_auth"
                     else:
@@ -101,12 +110,9 @@ class GitHubConfigSyncFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             return self.async_external_step_done(next_step_id="device_auth_done")
 
-        verification_uri = self._device_flow.get(
-            "verification_uri_complete"
-        ) or self._device_flow.get("verification_uri")
         return self.async_external_step(
             step_id="device_auth",
-            url=str(verification_uri or "https://github.com/login/device"),
+            url=f"{AUTH_START_PATH}?flow_id={self.flow_id}",
         )
 
     async def async_step_device_auth_done(self, _user_input=None):
@@ -121,8 +127,10 @@ class GitHubConfigSyncFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                 interval=int(self._device_flow.get("interval", 5)),
             )
         except GitHubError:
+            _clear_auth_flow(self.hass, self.flow_id)
             return self.async_abort(reason="invalid_auth")
 
+        _clear_auth_flow(self.hass, self.flow_id)
         return await self.async_step_repo_choice()
 
     async def async_step_repo_choice(self, user_input=None):
@@ -207,3 +215,46 @@ def _is_valid_hh_mm(value: str) -> bool:
     except ValueError:
         return False
     return value == parsed.strftime("%H:%M")
+
+
+def _ensure_auth_view(hass) -> None:
+    domain_data = hass.data.setdefault(DOMAIN, {})
+    if domain_data.get(AUTH_VIEW_KEY):
+        return
+    hass.http.register_view(GitHubAuthStartView)
+    domain_data[AUTH_VIEW_KEY] = True
+
+
+def _clear_auth_flow(hass, flow_id: str) -> None:
+    flow_map = hass.data.setdefault(DOMAIN, {}).setdefault(AUTH_FLOW_MAP_KEY, {})
+    flow_map.pop(flow_id, None)
+
+
+def _build_github_device_url(device_flow: dict[str, object]) -> str:
+    base = str(device_flow.get("verification_uri") or "https://github.com/login/device")
+    user_code = str(device_flow.get("user_code") or "").strip()
+    if not user_code:
+        return base
+    return f"{base}?user_code={user_code}"
+
+
+class GitHubAuthStartView(HomeAssistantView):
+    """Redirect config flow users to GitHub device login page."""
+
+    url = AUTH_START_PATH
+    name = "api:github_config_sync:auth_start"
+    requires_auth = True
+
+    async def get(self, request):
+        flow_id = request.query.get("flow_id")
+        if not flow_id:
+            raise web.HTTPBadRequest(text="Missing flow_id")
+
+        flow_map = request.app["hass"].data.setdefault(DOMAIN, {}).setdefault(
+            AUTH_FLOW_MAP_KEY, {}
+        )
+        device_flow = flow_map.get(flow_id)
+        if not device_flow:
+            raise web.HTTPNotFound(text="Flow not found or expired")
+
+        raise web.HTTPFound(_build_github_device_url(device_flow))
