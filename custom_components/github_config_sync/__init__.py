@@ -12,14 +12,12 @@ from homeassistant.helpers.event import async_call_later, async_track_time_inter
 
 from .client import GitHubBackupClient, GitHubError
 from .const import (
-    CONF_BACKUP_INTERVAL_MINUTES,
     CONF_BACKUP_INTERVAL_HOURS,
     CONF_EXTRA_IGNORE_PATTERNS,
     CONF_GITHUB_TOKEN,
     CONF_IGNORE_PATTERNS,
     CONF_REPOSITORY,
     CONF_SYNC_START_TIME,
-    DEFAULT_BACKUP_INTERVAL_MINUTES,
     DOMAIN,
 )
 PLATFORMS = ("button", "sensor")

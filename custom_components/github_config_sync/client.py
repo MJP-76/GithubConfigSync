@@ -88,7 +88,7 @@ class GitHubBackupClient:
     ) -> None:
         gitignore_path = local_folder / ".gitignore"
         lines = [
-            "# Managed by Home Assistant GitHub Folder Sync",
+            "# Managed by Home Assistant GitHub HA Config Sync",
             "# Home Assistant core files",
             "secrets.yaml",
             "automations.yaml",
