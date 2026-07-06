@@ -42,6 +42,41 @@ class GitHubBackupClient:
             payload["description"] = description
         return await self._request("POST", "/user/repos", json=payload)
 
+    async def async_write_gitignore(
+        self, local_folder: Path, extra_patterns: list[str]
+    ) -> None:
+        gitignore_path = local_folder / ".gitignore"
+        lines = [
+            "# Managed by Home Assistant GitHub Folder Sync",
+            "# Home Assistant core files",
+            "secrets.yaml",
+            "automations.yaml",
+            "scripts.yaml",
+            "scenes.yaml",
+            ".storage/",
+            ".cloud/",
+            "tts/",
+            "home-assistant_v2.db",
+            "home-assistant_v2.db-shm",
+            "home-assistant_v2.db-wal",
+            "home-assistant.log",
+            "home-assistant.log.*",
+            "*.log",
+            "*.log.*",
+            "*.db",
+            "*.sqlite",
+            "*.sqlite3",
+            "*.tmp",
+            "*.swp",
+            "# User additions",
+        ]
+        for pattern in extra_patterns:
+            if pattern and pattern not in lines:
+                lines.append(pattern)
+        content = "\n".join(lines) + "\n"
+        if not gitignore_path.exists() or gitignore_path.read_text(encoding="utf-8") != content:
+            gitignore_path.write_text(content, encoding="utf-8")
+
     async def async_sync_local_folder_to_github(
         self,
         local_folder: Path,
@@ -49,13 +84,14 @@ class GitHubBackupClient:
         ignore_patterns: list[str],
         message: str,
     ) -> dict[str, Any]:
+        ignore_rules = self._load_ignore_rules(local_folder, ignore_patterns)
         synced = 0
         last_result: dict[str, Any] = {}
         for path in local_folder.rglob("*"):
             if path.is_dir():
                 continue
             relative_path = path.relative_to(local_folder).as_posix()
-            if self._is_ignored(relative_path, ignore_patterns):
+            if self._is_ignored(relative_path, ignore_rules):
                 continue
             remote_file_path = self._join_remote_path(remote_path, relative_path)
             encoded = base64.b64encode(path.read_bytes()).decode("ascii")
@@ -81,6 +117,7 @@ class GitHubBackupClient:
         remote_path: str,
         ignore_patterns: list[str],
     ) -> dict[str, Any]:
+        ignore_rules = self._load_ignore_rules(local_folder, ignore_patterns)
         repo = await self.async_get_repository()
         branch = repo["default_branch"]
         tree = await self._request(
@@ -95,7 +132,7 @@ class GitHubBackupClient:
             if not self._matches_remote_path(remote_file_path, remote_path):
                 continue
             relative_path = self._strip_remote_path(remote_file_path, remote_path)
-            if self._is_ignored(relative_path, ignore_patterns):
+            if self._is_ignored(relative_path, ignore_rules):
                 continue
             content = await self._request("GET", item["url"])
             encoded = content.get("content", "")
@@ -134,11 +171,33 @@ class GitHubBackupClient:
             return {"text": await response.text()}
 
     @staticmethod
-    def _is_ignored(relative_path: str, ignore_patterns: list[str]) -> bool:
-        for pattern in ignore_patterns:
-            if pattern and fnmatch.fnmatch(relative_path, pattern):
-                return True
-        return False
+    def _is_ignored(relative_path: str, ignore_rules: list[str]) -> bool:
+        ignored = False
+        basename = Path(relative_path).name
+        for rule in ignore_rules:
+            if not rule:
+                continue
+            negate = rule.startswith("!")
+            pattern = rule[1:] if negate else rule
+            if fnmatch.fnmatch(relative_path, pattern) or fnmatch.fnmatch(
+                basename, pattern
+            ):
+                ignored = not negate
+        return ignored
+
+    @staticmethod
+    def _load_ignore_rules(
+        local_folder: Path, ignore_patterns: list[str]
+    ) -> list[str]:
+        rules = list(ignore_patterns)
+        gitignore_path = local_folder / ".gitignore"
+        if gitignore_path.is_file():
+            for line in gitignore_path.read_text(encoding="utf-8").splitlines():
+                stripped = line.strip()
+                if not stripped or stripped.startswith("#"):
+                    continue
+                rules.append(stripped)
+        return rules
 
     @staticmethod
     def _normalize_remote_path(remote_path: str) -> str:

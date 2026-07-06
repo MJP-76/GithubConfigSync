@@ -13,11 +13,10 @@ from homeassistant.helpers.event import async_track_time_interval
 from .client import GitHubBackupClient, GitHubError
 from .const import (
     CONF_BACKUP_INTERVAL_MINUTES,
+    CONF_EXTRA_IGNORE_PATTERNS,
     CONF_GITHUB_TOKEN,
     CONF_IGNORE_PATTERNS,
-    CONF_LOCAL_FOLDER,
     CONF_REPOSITORY,
-    CONF_REMOTE_PATH,
     DEFAULT_BACKUP_INTERVAL_MINUTES,
     DOMAIN,
 )
@@ -28,8 +27,7 @@ PLATFORMS = ("button", "sensor")
 class BackupRuntimeData:
     client: GitHubBackupClient
     ignore_patterns: list[str]
-    local_folder: Path
-    remote_path: str
+    extra_ignore_patterns: list[str]
     last_sync: str | None = None
     last_commit_url: str | None = None
     last_error: str | None = None
@@ -40,9 +38,8 @@ class BackupRuntimeData:
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     token = entry.data[CONF_GITHUB_TOKEN]
     repository = entry.data[CONF_REPOSITORY]
-    local_folder = Path(entry.data[CONF_LOCAL_FOLDER])
-    remote_path = entry.data.get(CONF_REMOTE_PATH, ".")
     ignore_patterns = entry.data.get(CONF_IGNORE_PATTERNS, [])
+    extra_ignore_patterns = entry.data.get(CONF_EXTRA_IGNORE_PATTERNS, [])
     interval_minutes = entry.data.get(
         CONF_BACKUP_INTERVAL_MINUTES, DEFAULT_BACKUP_INTERVAL_MINUTES
     )
@@ -56,8 +53,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     runtime = BackupRuntimeData(
         client=client,
         ignore_patterns=ignore_patterns,
-        local_folder=local_folder,
-        remote_path=remote_path,
+        extra_ignore_patterns=extra_ignore_patterns,
     )
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = runtime
 
@@ -88,15 +84,20 @@ async def async_request_sync(
     hass: HomeAssistant, entry_id: str, trigger: str = "manual"
 ) -> tuple[bool, str | None]:
     runtime: BackupRuntimeData = hass.data[DOMAIN][entry_id]
-    local_folder = runtime.local_folder
+    local_folder = Path(hass.config.config_dir)
     ignore_patterns = runtime.ignore_patterns
-    remote_path = runtime.remote_path
+    extra_ignore_patterns = runtime.extra_ignore_patterns
+    remote_path = "."
 
     runtime.last_status = "running"
     runtime.last_error = None
     runtime.last_commit_url = None
 
     try:
+        await runtime.client.async_write_gitignore(
+            local_folder=local_folder,
+            extra_patterns=extra_ignore_patterns,
+        )
         result = await runtime.client.async_sync_local_folder_to_github(
             local_folder=local_folder,
             remote_path=remote_path,

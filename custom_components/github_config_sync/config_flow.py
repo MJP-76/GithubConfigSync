@@ -9,16 +9,16 @@ from homeassistant import config_entries
 from .client import GitHubBackupClient, GitHubError
 from .const import (
     CONF_BACKUP_INTERVAL_MINUTES,
+    CONF_EXTRA_IGNORE_PATTERNS,
     CONF_GITHUB_TOKEN,
     CONF_IGNORE_PATTERNS,
-    CONF_LOCAL_FOLDER,
     CONF_REPOSITORY,
-    CONF_REMOTE_PATH,
     DEFAULT_BACKUP_INTERVAL_MINUTES,
     DEFAULT_IGNORE_PATTERNS,
-    DEFAULT_REMOTE_PATH,
     DOMAIN,
 )
+
+DEFAULT_REPOSITORY_NAME = "ha-config"
 
 
 class GitHubConfigSyncFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
@@ -27,48 +27,43 @@ class GitHubConfigSyncFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
     def __init__(self) -> None:
         self._token: str | None = None
         self._interval_minutes = DEFAULT_BACKUP_INTERVAL_MINUTES
-        self._local_folder = ""
-        self._remote_path = DEFAULT_REMOTE_PATH
         self._ignore_patterns = list(DEFAULT_IGNORE_PATTERNS)
+        self._extra_ignore_patterns = ""
 
     async def async_step_user(self, user_input=None):
         errors: dict[str, str] = {}
         if user_input is not None:
             self._token = user_input[CONF_GITHUB_TOKEN]
-            self._local_folder = user_input[CONF_LOCAL_FOLDER]
             self._interval_minutes = user_input[CONF_BACKUP_INTERVAL_MINUTES]
-            self._remote_path = user_input[CONF_REMOTE_PATH]
             self._ignore_patterns = [
                 pattern.strip()
                 for pattern in user_input[CONF_IGNORE_PATTERNS].splitlines()
                 if pattern.strip()
             ]
-            if not os.path.isdir(self._local_folder):
-                errors["base"] = "invalid_local_folder"
+            self._extra_ignore_patterns = user_input[CONF_EXTRA_IGNORE_PATTERNS]
+
+            client = GitHubBackupClient(
+                self.hass, token=self._token, repository="octocat/hello-world"
+            )
+            try:
+                await client.async_validate()
+            except GitHubError:
+                errors["base"] = "invalid_auth"
             else:
-                client = GitHubBackupClient(
-                    self.hass, token=self._token, repository="octocat/hello-world"
-                )
-                try:
-                    await client.async_validate()
-                except GitHubError:
-                    errors["base"] = "invalid_auth"
-                else:
-                    return await self.async_step_repo_choice()
+                return await self.async_step_repo_choice()
 
         schema = vol.Schema(
             {
                 vol.Required(CONF_GITHUB_TOKEN): str,
-                vol.Required(CONF_LOCAL_FOLDER, default=self._local_folder): str,
                 vol.Required(
                     CONF_BACKUP_INTERVAL_MINUTES,
                     default=self._interval_minutes,
                 ): vol.All(vol.Coerce(int), vol.Range(min=1)),
-                vol.Required(CONF_REMOTE_PATH, default=self._remote_path): str,
                 vol.Optional(
                     CONF_IGNORE_PATTERNS,
                     default="\n".join(self._ignore_patterns),
                 ): str,
+                vol.Optional(CONF_EXTRA_IGNORE_PATTERNS, default=""): str,
             }
         )
         return self.async_show_form(step_id="user", data_schema=schema, errors=errors)
@@ -90,7 +85,7 @@ class GitHubConfigSyncFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             )
             try:
                 repo = await client.async_create_repo(
-                    name=user_input["repo_name"],
+                    name=DEFAULT_REPOSITORY_NAME,
                     private=user_input["private"],
                     description=user_input.get("description"),
                 )
@@ -104,9 +99,8 @@ class GitHubConfigSyncFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
 
         schema = vol.Schema(
             {
-                vol.Required("repo_name"): str,
-                vol.Required("private", default=False): bool,
-                vol.Optional("description", default="Home Assistant folder sync"): str,
+                vol.Optional("private", default=True): bool,
+                vol.Optional("description", default="Home Assistant config sync"): str,
             }
         )
         return self.async_show_form(
@@ -125,7 +119,7 @@ class GitHubConfigSyncFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                     data=self._build_entry_data(repository),
                 )
 
-        schema = vol.Schema({vol.Required("repository"): str})
+        schema = vol.Schema({vol.Required(CONF_REPOSITORY): str})
         return self.async_show_form(
             step_id="existing_repo", data_schema=schema, errors=errors
         )
@@ -134,8 +128,11 @@ class GitHubConfigSyncFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         return {
             CONF_GITHUB_TOKEN: self._token,
             CONF_REPOSITORY: repository,
-            CONF_LOCAL_FOLDER: self._local_folder,
             CONF_BACKUP_INTERVAL_MINUTES: self._interval_minutes,
-            CONF_REMOTE_PATH: self._remote_path,
             CONF_IGNORE_PATTERNS: self._ignore_patterns,
+            CONF_EXTRA_IGNORE_PATTERNS: [
+                line.strip()
+                for line in self._extra_ignore_patterns.splitlines()
+                if line.strip()
+            ],
         }
