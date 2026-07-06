@@ -1,6 +1,6 @@
 {
   "domain": "github_config_sync",
-  "name": "GitHub Folder Sync",
+  "name": "GitHub HA Config Sync",
   "version": "0.0.6",
   "config_flow": true,
   "iot_class": "cloud_push",
