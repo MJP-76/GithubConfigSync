@@ -14,11 +14,9 @@ from .const import (
     CONF_LOCAL_FOLDER,
     CONF_REPOSITORY,
     CONF_REMOTE_PATH,
-    CONF_SYNC_DIRECTION,
     DEFAULT_BACKUP_INTERVAL_MINUTES,
     DEFAULT_IGNORE_PATTERNS,
     DEFAULT_REMOTE_PATH,
-    DEFAULT_SYNC_DIRECTION,
     DOMAIN,
 )
 
@@ -31,7 +29,6 @@ class GitHubConfigSyncFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         self._interval_minutes = DEFAULT_BACKUP_INTERVAL_MINUTES
         self._local_folder = ""
         self._remote_path = DEFAULT_REMOTE_PATH
-        self._sync_direction = DEFAULT_SYNC_DIRECTION
         self._ignore_patterns = list(DEFAULT_IGNORE_PATTERNS)
 
     async def async_step_user(self, user_input=None):
@@ -41,7 +38,6 @@ class GitHubConfigSyncFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             self._local_folder = user_input[CONF_LOCAL_FOLDER]
             self._interval_minutes = user_input[CONF_BACKUP_INTERVAL_MINUTES]
             self._remote_path = user_input[CONF_REMOTE_PATH]
-            self._sync_direction = user_input[CONF_SYNC_DIRECTION]
             self._ignore_patterns = [
                 pattern.strip()
                 for pattern in user_input[CONF_IGNORE_PATTERNS].splitlines()
@@ -69,9 +65,6 @@ class GitHubConfigSyncFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                     default=self._interval_minutes,
                 ): vol.All(vol.Coerce(int), vol.Range(min=1)),
                 vol.Required(CONF_REMOTE_PATH, default=self._remote_path): str,
-                vol.Required(
-                    CONF_SYNC_DIRECTION, default=self._sync_direction
-                ): vol.In(["local_to_github", "github_to_local"]),
                 vol.Optional(
                     CONF_IGNORE_PATTERNS,
                     default="\n".join(self._ignore_patterns),
@@ -144,6 +137,5 @@ class GitHubConfigSyncFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             CONF_LOCAL_FOLDER: self._local_folder,
             CONF_BACKUP_INTERVAL_MINUTES: self._interval_minutes,
             CONF_REMOTE_PATH: self._remote_path,
-            CONF_SYNC_DIRECTION: self._sync_direction,
             CONF_IGNORE_PATTERNS: self._ignore_patterns,
         }

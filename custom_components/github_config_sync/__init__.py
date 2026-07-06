@@ -18,7 +18,6 @@ from .const import (
     CONF_LOCAL_FOLDER,
     CONF_REPOSITORY,
     CONF_REMOTE_PATH,
-    CONF_SYNC_DIRECTION,
     DEFAULT_BACKUP_INTERVAL_MINUTES,
     DOMAIN,
 )
@@ -31,7 +30,6 @@ class BackupRuntimeData:
     ignore_patterns: list[str]
     local_folder: Path
     remote_path: str
-    sync_direction: str
     last_sync: str | None = None
     last_commit_url: str | None = None
     last_error: str | None = None
@@ -44,7 +42,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     repository = entry.data[CONF_REPOSITORY]
     local_folder = Path(entry.data[CONF_LOCAL_FOLDER])
     remote_path = entry.data.get(CONF_REMOTE_PATH, ".")
-    sync_direction = entry.data.get(CONF_SYNC_DIRECTION, "local_to_github")
     ignore_patterns = entry.data.get(CONF_IGNORE_PATTERNS, [])
     interval_minutes = entry.data.get(
         CONF_BACKUP_INTERVAL_MINUTES, DEFAULT_BACKUP_INTERVAL_MINUTES
@@ -61,7 +58,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         ignore_patterns=ignore_patterns,
         local_folder=local_folder,
         remote_path=remote_path,
-        sync_direction=sync_direction,
     )
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = runtime
 
@@ -101,22 +97,15 @@ async def async_request_sync(
     runtime.last_commit_url = None
 
     try:
-        if runtime.sync_direction == "github_to_local":
-            result = await runtime.client.async_sync_github_to_local_folder(
-                local_folder=local_folder,
-                remote_path=remote_path,
-                ignore_patterns=ignore_patterns,
-            )
-        else:
-            result = await runtime.client.async_sync_local_folder_to_github(
-                local_folder=local_folder,
-                remote_path=remote_path,
-                ignore_patterns=ignore_patterns,
-                message=f"{trigger} folder sync",
-            )
-            runtime.last_commit_url = (
-                result.get("last_result", {}).get("content", {}).get("html_url")
-            )
+        result = await runtime.client.async_sync_local_folder_to_github(
+            local_folder=local_folder,
+            remote_path=remote_path,
+            ignore_patterns=ignore_patterns,
+            message=f"{trigger} folder sync",
+        )
+        runtime.last_commit_url = (
+            result.get("last_result", {}).get("content", {}).get("html_url")
+        )
         runtime.last_status = "ok"
         runtime.last_sync = f"{result.get('synced', 0)} files"
         return True, runtime.last_commit_url

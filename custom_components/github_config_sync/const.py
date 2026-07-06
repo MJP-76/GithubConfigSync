@@ -5,12 +5,10 @@ CONF_REPOSITORY = "repository"
 CONF_BACKUP_INTERVAL_MINUTES = "backup_interval_minutes"
 CONF_LOCAL_FOLDER = "local_folder"
 CONF_REMOTE_PATH = "remote_path"
-CONF_SYNC_DIRECTION = "sync_direction"
 CONF_IGNORE_PATTERNS = "ignore_patterns"
 
 DEFAULT_BACKUP_INTERVAL_MINUTES = 60
 DEFAULT_REMOTE_PATH = "."
-DEFAULT_SYNC_DIRECTION = "local_to_github"
 DEFAULT_IGNORE_PATTERNS = [
     "home-assistant_v2.db",
     "home-assistant.log",

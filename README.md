@@ -7,7 +7,6 @@ Home Assistant custom integration for syncing a chosen local folder with a GitHu
 - GitHub personal access token login
 - Create a new repository or use an existing one
 - Sync a local folder into GitHub while preserving folder structure
-- Optional GitHub-to-local sync direction
 - Manual sync button in Home Assistant
 - Scheduled syncs at a configurable interval
 - Ignore patterns for files you do not want uploaded
