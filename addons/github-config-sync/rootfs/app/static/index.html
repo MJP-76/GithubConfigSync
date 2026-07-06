@@ -192,6 +192,11 @@
         refreshBtn: document.getElementById("refreshBtn"),
         deviceFlowInfo: document.getElementById("deviceFlowInfo"),
       };
+      const ingressBase = `${window.location.pathname.replace(/\/+$/, "")}/`;
+
+      function apiUrl(path) {
+        return `${ingressBase}${path.replace(/^\/+/, "")}`;
+      }
 
       function setStatus(message, ok = true) {
         el.status.textContent = message;
@@ -222,7 +227,7 @@
       }
 
       async function loadOptions() {
-        const data = await fetchJson("/api/options");
+        const data = await fetchJson(apiUrl("/api/options"));
         el.repo.value = data.github_repository || "";
         el.branch.value = data.github_branch || "main";
         el.token.value = "";
@@ -233,7 +238,7 @@
 
       async function loadDeviceFlowStatus() {
         try {
-          const data = await fetchJson("/api/auth/device");
+          const data = await fetchJson(apiUrl("/api/auth/device"));
           if (!data.active) {
             el.deviceFlowInfo.textContent = "No active device authorization in progress.";
             return;
@@ -246,7 +251,7 @@
       }
 
       async function loadStatus() {
-        const data = await fetchJson("/api/status");
+        const data = await fetchJson(apiUrl("/api/status"));
         el.runtime.textContent = JSON.stringify(data.state, null, 2) + "\n\n" + (data.log_tail || "");
       }
 
@@ -259,13 +264,13 @@
           sync_interval_minutes: Number(el.interval.value || "60"),
           dry_run: el.dryRun.checked,
         };
-        await fetchJson("/api/options", { method: "POST", body: JSON.stringify(payload) });
+        await fetchJson(apiUrl("/api/options"), { method: "POST", body: JSON.stringify(payload) });
         setStatus("Settings saved");
         await Promise.all([loadStatus(), loadDeviceFlowStatus()]);
       }
 
       async function startDeviceLogin() {
-        const data = await fetchJson("/api/auth/device/start", {
+        const data = await fetchJson(apiUrl("/api/auth/device/start"), {
           method: "POST",
           body: JSON.stringify({ client_id: el.clientId.value.trim() }),
         });
@@ -275,13 +280,13 @@
       }
 
       async function completeDeviceLogin() {
-        await fetchJson("/api/auth/device/complete", { method: "POST" });
+        await fetchJson(apiUrl("/api/auth/device/complete"), { method: "POST" });
         setStatus("Device login complete. Token saved.");
         await Promise.all([loadOptions(), loadStatus(), loadDeviceFlowStatus()]);
       }
 
       async function runSync() {
-        const data = await fetchJson("/api/sync", { method: "POST" });
+        const data = await fetchJson(apiUrl("/api/sync"), { method: "POST" });
         setStatus(data.result || "Sync completed");
         await loadStatus();
       }

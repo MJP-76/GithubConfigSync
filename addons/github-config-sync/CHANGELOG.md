@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.6
+
+- Fixed ingress API path handling in the web UI to avoid 404 responses behind Home Assistant ingress.
+- Updated all frontend API calls to use the active ingress base path.
+
 ## 0.1.5
 
 - Fixed web UI JSON parsing to handle non-JSON API responses without breaking page load.
