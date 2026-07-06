@@ -9,6 +9,14 @@ Use this as the single source of truth for **where we are**, **what is next**, a
 - **Current milestone:** `v0.1.2 — Sync Engine Hardening`
 - **Track:** Home Assistant Integration + Home Assistant Add-on (Ingress Web UI)
 - **Release cadence:** Dev pre-releases per milestone increment
+- **Version state:** See auto-managed tracker below.
+
+<!-- VERSION:START -->
+- Integration version: `0.0.20`
+- Add-on version: `0.1.3`
+- Channel: `stable`
+- Release tag: `v0.0.20`
+<!-- VERSION:END -->
 
 ---
 
@@ -34,9 +42,9 @@ Use this as the single source of truth for **where we are**, **what is next**, a
 - [x] Add-on repository metadata (`repository.yaml`)
 - [x] Add-on API endpoints (`/api/health`, `/api/options`, `/api/status`, `/api/sync`)
 - [x] Hash-based changed-file detection (added/changed/removed)
-- [ ] Real GitHub upsert/delete sync path integrated in runtime endpoint
-- [ ] Structured sync module boundaries (`github_client`, `sync_engine`, models, errors)
-- [ ] Tests for hash diff + sync planning + API happy path/error path
+- [x] Real GitHub upsert/delete sync path integrated in runtime endpoint
+- [x] Structured sync module boundaries (`github_client`, `sync_engine`, models, errors)
+- [x] Tests for hash diff + sync planning + API happy path/error path
 - [ ] End-to-end dry-run and live-run verification notes in docs
 
 ## v0.1.3 — Security + Auth
@@ -65,9 +73,8 @@ Use this as the single source of truth for **where we are**, **what is next**, a
 
 ## In Progress
 
-- [ ] Wire structured sync core into add-on runtime
-- [ ] Add tests for sync module and API routes
 - [ ] Update docs for architecture + runbook
+- [ ] End-to-end dry-run and live-run verification notes
 
 ## Next Up
 
@@ -84,6 +91,7 @@ Use this as the single source of truth for **where we are**, **what is next**, a
 ## Release Checklist (Per Tag)
 
 - [ ] Version bumped (integration/add-on as applicable)
+- [ ] Run `python3 scripts/sync_versions.py ...` for stable/dev channel
 - [ ] Validation/CI green
 - [ ] Docs updated (features + migration notes)
 - [ ] Tag created and pushed
