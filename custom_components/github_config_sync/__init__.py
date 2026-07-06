@@ -13,10 +13,12 @@ from homeassistant.helpers.event import async_track_time_interval
 from .client import GitHubBackupClient, GitHubError
 from .const import (
     CONF_BACKUP_INTERVAL_MINUTES,
-    CONF_BACKUP_PREFIX,
     CONF_GITHUB_TOKEN,
     CONF_IGNORE_PATTERNS,
+    CONF_LOCAL_FOLDER,
     CONF_REPOSITORY,
+    CONF_REMOTE_PATH,
+    CONF_SYNC_DIRECTION,
     DEFAULT_BACKUP_INTERVAL_MINUTES,
     DOMAIN,
 )
@@ -27,9 +29,10 @@ PLATFORMS = ("button", "sensor")
 class BackupRuntimeData:
     client: GitHubBackupClient
     ignore_patterns: list[str]
-    backup_prefix: str
-    config_dir: Path
-    last_backup: str | None = None
+    local_folder: Path
+    remote_path: str
+    sync_direction: str
+    last_sync: str | None = None
     last_commit_url: str | None = None
     last_error: str | None = None
     last_status: str | None = None
@@ -39,8 +42,10 @@ class BackupRuntimeData:
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     token = entry.data[CONF_GITHUB_TOKEN]
     repository = entry.data[CONF_REPOSITORY]
+    local_folder = Path(entry.data[CONF_LOCAL_FOLDER])
+    remote_path = entry.data.get(CONF_REMOTE_PATH, ".")
+    sync_direction = entry.data.get(CONF_SYNC_DIRECTION, "local_to_github")
     ignore_patterns = entry.data.get(CONF_IGNORE_PATTERNS, [])
-    backup_prefix = entry.data.get(CONF_BACKUP_PREFIX, "home-assistant-config")
     interval_minutes = entry.data.get(
         CONF_BACKUP_INTERVAL_MINUTES, DEFAULT_BACKUP_INTERVAL_MINUTES
     )
@@ -54,18 +59,19 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     runtime = BackupRuntimeData(
         client=client,
         ignore_patterns=ignore_patterns,
-        backup_prefix=backup_prefix,
-        config_dir=Path(hass.config.config_dir),
+        local_folder=local_folder,
+        remote_path=remote_path,
+        sync_direction=sync_direction,
     )
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = runtime
 
     if interval_minutes and interval_minutes > 0:
 
-        async def _periodic_backup(_now) -> None:
-            await async_request_backup(hass, entry.entry_id, "scheduled")
+        async def _periodic_sync(_now) -> None:
+            await async_request_sync(hass, entry.entry_id, "scheduled")
 
         runtime.unsubscribe = async_track_time_interval(
-            hass, _periodic_backup, timedelta(minutes=interval_minutes)
+            hass, _periodic_sync, timedelta(minutes=interval_minutes)
         )
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
@@ -82,31 +88,37 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     return unload_ok
 
 
-async def async_request_backup(
+async def async_request_sync(
     hass: HomeAssistant, entry_id: str, trigger: str = "manual"
 ) -> tuple[bool, str | None]:
     runtime: BackupRuntimeData = hass.data[DOMAIN][entry_id]
-    config_dir = runtime.config_dir
+    local_folder = runtime.local_folder
     ignore_patterns = runtime.ignore_patterns
-    backup_prefix = runtime.backup_prefix
+    remote_path = runtime.remote_path
 
     runtime.last_status = "running"
     runtime.last_error = None
+    runtime.last_commit_url = None
 
     try:
-        archive_name, archive_bytes = await runtime.client.async_build_archive(
-            config_dir,
-            backup_prefix=backup_prefix,
-            ignore_patterns=ignore_patterns,
-        )
-        result = await runtime.client.async_upload_archive(
-            archive_name=archive_name,
-            archive_bytes=archive_bytes,
-            message=f"{trigger} backup {archive_name}",
-        )
+        if runtime.sync_direction == "github_to_local":
+            result = await runtime.client.async_sync_github_to_local_folder(
+                local_folder=local_folder,
+                remote_path=remote_path,
+                ignore_patterns=ignore_patterns,
+            )
+        else:
+            result = await runtime.client.async_sync_local_folder_to_github(
+                local_folder=local_folder,
+                remote_path=remote_path,
+                ignore_patterns=ignore_patterns,
+                message=f"{trigger} folder sync",
+            )
+            runtime.last_commit_url = (
+                result.get("last_result", {}).get("content", {}).get("html_url")
+            )
         runtime.last_status = "ok"
-        runtime.last_backup = archive_name
-        runtime.last_commit_url = result.get("html_url")
+        runtime.last_sync = f"{result.get('synced', 0)} files"
         return True, runtime.last_commit_url
     except GitHubError as err:
         runtime.last_status = "error"

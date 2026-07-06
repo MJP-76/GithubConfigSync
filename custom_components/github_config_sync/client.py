@@ -2,10 +2,7 @@ from __future__ import annotations
 
 import base64
 import fnmatch
-import io
-import zipfile
 from dataclasses import dataclass
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 from urllib.parse import quote
@@ -34,6 +31,9 @@ class GitHubBackupClient:
     async def async_validate(self) -> dict[str, Any]:
         return await self._request("GET", "/user")
 
+    async def async_get_repository(self) -> dict[str, Any]:
+        return await self._request("GET", f"/repos/{self.repository}")
+
     async def async_create_repo(
         self, name: str, private: bool, description: str | None = None
     ) -> dict[str, Any]:
@@ -42,46 +42,69 @@ class GitHubBackupClient:
             payload["description"] = description
         return await self._request("POST", "/user/repos", json=payload)
 
-    async def async_build_archive(
+    async def async_sync_local_folder_to_github(
         self,
-        config_dir: Path,
-        backup_prefix: str,
+        local_folder: Path,
+        remote_path: str,
         ignore_patterns: list[str],
-    ) -> tuple[str, bytes]:
-        stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
-        archive_name = f"{backup_prefix}-{stamp}.zip"
-        buffer = io.BytesIO()
-        with zipfile.ZipFile(buffer, "w", compression=zipfile.ZIP_DEFLATED) as zip_file:
-            for path in config_dir.rglob("*"):
-                if path.is_dir():
-                    continue
-                relative_path = path.relative_to(config_dir).as_posix()
-                if self._is_ignored(relative_path, ignore_patterns):
-                    continue
-                zip_file.write(path, arcname=relative_path)
-        return archive_name, buffer.getvalue()
-
-    async def async_upload_archive(
-        self, archive_name: str, archive_bytes: bytes, message: str
+        message: str,
     ) -> dict[str, Any]:
-        archive_path = f"backups/{archive_name}"
-        encoded = base64.b64encode(archive_bytes).decode("ascii")
-        existing = await self._request(
+        synced = 0
+        last_result: dict[str, Any] = {}
+        for path in local_folder.rglob("*"):
+            if path.is_dir():
+                continue
+            relative_path = path.relative_to(local_folder).as_posix()
+            if self._is_ignored(relative_path, ignore_patterns):
+                continue
+            remote_file_path = self._join_remote_path(remote_path, relative_path)
+            encoded = base64.b64encode(path.read_bytes()).decode("ascii")
+            existing = await self._request(
+                "GET",
+                f"/repos/{self.repository}/contents/{quote(remote_file_path, safe='')}",
+                allow_statuses={404},
+            )
+            payload: dict[str, Any] = {"message": message, "content": encoded}
+            if existing.get("sha"):
+                payload["sha"] = existing["sha"]
+            last_result = await self._request(
+                "PUT",
+                f"/repos/{self.repository}/contents/{quote(remote_file_path, safe='')}",
+                json=payload,
+            )
+            synced += 1
+        return {"synced": synced, "last_result": last_result}
+
+    async def async_sync_github_to_local_folder(
+        self,
+        local_folder: Path,
+        remote_path: str,
+        ignore_patterns: list[str],
+    ) -> dict[str, Any]:
+        repo = await self.async_get_repository()
+        branch = repo["default_branch"]
+        tree = await self._request(
             "GET",
-            f"/repos/{self.repository}/contents/{quote(archive_path, safe='')}",
-            allow_statuses={404},
+            f"/repos/{self.repository}/git/trees/{quote(branch, safe='')}?recursive=1",
         )
-        payload: dict[str, Any] = {
-            "message": message,
-            "content": encoded,
-        }
-        if existing.get("sha"):
-            payload["sha"] = existing["sha"]
-        return await self._request(
-            "PUT",
-            f"/repos/{self.repository}/contents/{quote(archive_path, safe='')}",
-            json=payload,
-        )
+        synced = 0
+        for item in tree.get("tree", []):
+            if item.get("type") != "blob":
+                continue
+            remote_file_path = item["path"]
+            if not self._matches_remote_path(remote_file_path, remote_path):
+                continue
+            relative_path = self._strip_remote_path(remote_file_path, remote_path)
+            if self._is_ignored(relative_path, ignore_patterns):
+                continue
+            content = await self._request("GET", item["url"])
+            encoded = content.get("content", "")
+            decoded = base64.b64decode(encoded.encode("ascii")) if encoded else b""
+            destination = local_folder / Path(relative_path)
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            destination.write_bytes(decoded)
+            synced += 1
+        return {"synced": synced}
 
     async def _request(
         self,
@@ -116,3 +139,34 @@ class GitHubBackupClient:
             if pattern and fnmatch.fnmatch(relative_path, pattern):
                 return True
         return False
+
+    @staticmethod
+    def _normalize_remote_path(remote_path: str) -> str:
+        remote_path = remote_path.strip().strip("/")
+        return remote_path or "."
+
+    @classmethod
+    def _join_remote_path(cls, remote_path: str, relative_path: str) -> str:
+        remote_path = cls._normalize_remote_path(remote_path)
+        if remote_path == ".":
+            return relative_path
+        return f"{remote_path}/{relative_path}"
+
+    @classmethod
+    def _matches_remote_path(cls, remote_file_path: str, remote_path: str) -> bool:
+        remote_path = cls._normalize_remote_path(remote_path)
+        if remote_path == ".":
+            return True
+        return remote_file_path == remote_path or remote_file_path.startswith(
+            f"{remote_path}/"
+        )
+
+    @classmethod
+    def _strip_remote_path(cls, remote_file_path: str, remote_path: str) -> str:
+        remote_path = cls._normalize_remote_path(remote_path)
+        if remote_path == ".":
+            return remote_file_path
+        prefix = f"{remote_path}/"
+        if remote_file_path.startswith(prefix):
+            return remote_file_path[len(prefix) :]
+        return remote_file_path

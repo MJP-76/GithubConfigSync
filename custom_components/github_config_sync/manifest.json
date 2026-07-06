@@ -1,7 +1,7 @@
 {
   "domain": "github_config_sync",
-  "name": "GitHub Config Sync",
-  "version": "0.1.0",
+  "name": "GitHub Folder Sync",
+  "version": "0.0.1",
   "config_flow": true,
   "iot_class": "cloud_push",
   "requirements": []

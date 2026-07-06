@@ -10,7 +10,7 @@ from .const import DOMAIN
 
 class GitHubSyncSensor(SensorEntity):
     _attr_has_entity_name = True
-    _attr_name = "Last sync status"
+    _attr_name = "Folder sync status"
     _attr_icon = "mdi:cloud-sync"
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
         self.hass = hass
@@ -26,7 +26,7 @@ class GitHubSyncSensor(SensorEntity):
     def extra_state_attributes(self):
         runtime = self.hass.data[DOMAIN][self.entry.entry_id]
         return {
-            "last_backup": runtime.last_backup,
+            "last_sync": runtime.last_sync,
             "last_commit_url": runtime.last_commit_url,
             "last_error": runtime.last_error,
         }
