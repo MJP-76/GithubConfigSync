@@ -6,6 +6,7 @@ import tempfile
 import unittest
 import importlib.util
 from pathlib import Path
+from unittest.mock import patch
 
 APP_ROOT = Path(__file__).resolve().parents[1]
 if str(APP_ROOT) not in sys.path:
@@ -32,6 +33,7 @@ class ServerApiTests(unittest.TestCase):
         self._orig_state = server.STATE_PATH
         self._orig_log = server.LOG_PATH
         self._orig_hash_index = server.HASH_INDEX_PATH
+        self._orig_device_flow = server.DEVICE_FLOW_PATH
         self._orig_config_root = server.CONFIG_ROOT
 
         server.DATA_DIR = self._data_dir
@@ -40,6 +42,7 @@ class ServerApiTests(unittest.TestCase):
         server.STATE_PATH = self._data_dir / "state.json"
         server.LOG_PATH = self._data_dir / "sync.log"
         server.HASH_INDEX_PATH = self._data_dir / "hash_index.json"
+        server.DEVICE_FLOW_PATH = self._data_dir / "device_flow.json"
         server.CONFIG_ROOT = self._config_root
 
         self.addCleanup(self._restore_paths)
@@ -52,6 +55,7 @@ class ServerApiTests(unittest.TestCase):
         server.STATE_PATH = self._orig_state
         server.LOG_PATH = self._orig_log
         server.HASH_INDEX_PATH = self._orig_hash_index
+        server.DEVICE_FLOW_PATH = self._orig_device_flow
         server.CONFIG_ROOT = self._orig_config_root
 
     def _write_options(self, payload: dict[str, object]) -> None:
@@ -94,6 +98,46 @@ class ServerApiTests(unittest.TestCase):
         self.assertTrue(body["ok"])
         self.assertIn("Dry run completed", body["result"])
         self.assertEqual(body["summary"]["synced_count"], 1)
+
+    def test_start_device_flow_returns_verification_data(self) -> None:
+        self._write_options({"github_client_id": "client-id", "github_branch": "main"})
+        with patch("server.GitHubClient.start_device_flow") as start_flow:
+            start_flow.return_value = {
+                "device_code": "device-code",
+                "user_code": "ABCD-EFGH",
+                "verification_uri": "https://github.com/login/device",
+                "interval": 5,
+                "expires_in": 900,
+            }
+            response = self.client.post("/api/auth/device/start", json={})
+
+        body = response.get_json()
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(body["ok"])
+        self.assertEqual(body["user_code"], "ABCD-EFGH")
+        self.assertIn("verification_uri_complete", body)
+
+    def test_complete_device_flow_stores_token(self) -> None:
+        server.DEVICE_FLOW_PATH.write_text(
+            json.dumps(
+                {
+                    "client_id": "client-id",
+                    "device_code": "device-code",
+                    "user_code": "ABCD-EFGH",
+                    "verification_uri": "https://github.com/login/device",
+                    "interval": 5,
+                }
+            ),
+            encoding="utf-8",
+        )
+        self._write_options({"github_repository": "owner/repo", "github_branch": "main"})
+        with patch("server.GitHubClient.exchange_device_code", return_value="gho_testtoken"):
+            response = self.client.post("/api/auth/device/complete")
+
+        body = response.get_json()
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(body["ok"])
+        self.assertEqual(body["options"]["github_token"], "********")
 
 
 if __name__ == "__main__":

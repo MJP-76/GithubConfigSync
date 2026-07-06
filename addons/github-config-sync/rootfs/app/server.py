@@ -4,14 +4,17 @@ import datetime as dt
 import json
 from pathlib import Path
 from typing import Any
+from urllib.parse import quote
 
 from flask import Flask, jsonify, request, send_from_directory
 
 from sync import SyncConfig, SyncEngine
 from sync.errors import SyncError
+from sync.github_client import GitHubClient
 
 APP_VERSION = "0.1.3"
 APP_PORT = 8099
+DEFAULT_OAUTH_CLIENT_ID = "Ov23li2ycCraodta6WCU"
 
 DATA_DIR = Path("/data")
 SUPERVISOR_OPTIONS_PATH = DATA_DIR / "options.json"
@@ -19,6 +22,7 @@ WEBUI_OPTIONS_PATH = DATA_DIR / "webui_options.json"
 STATE_PATH = DATA_DIR / "state.json"
 LOG_PATH = DATA_DIR / "sync.log"
 HASH_INDEX_PATH = DATA_DIR / "hash_index.json"
+DEVICE_FLOW_PATH = DATA_DIR / "device_flow.json"
 STATIC_DIR = Path("/app/static")
 CONFIG_ROOT = Path("/config")
 
@@ -26,6 +30,7 @@ DEFAULT_OPTIONS: dict[str, Any] = {
     "github_repository": "",
     "github_branch": "main",
     "github_token": "",
+    "github_client_id": DEFAULT_OAUTH_CLIENT_ID,
     "sync_interval_minutes": 60,
     "dry_run": True,
 }
@@ -127,6 +132,31 @@ def _sync_config(options: dict[str, Any]) -> SyncConfig:
     )
 
 
+def _build_verification_url(device_flow: dict[str, Any]) -> str:
+    complete = str(device_flow.get("verification_uri_complete", "")).strip()
+    if complete:
+        return complete
+    base = str(device_flow.get("verification_uri", "https://github.com/login/device")).strip()
+    user_code = str(device_flow.get("user_code", "")).strip()
+    if not user_code:
+        return base
+    separator = "&" if "?" in base else "?"
+    return f"{base}{separator}user_code={quote(user_code)}"
+
+
+def _load_device_flow() -> dict[str, Any]:
+    return _load_json(DEVICE_FLOW_PATH, {})
+
+
+def _save_device_flow(payload: dict[str, Any]) -> None:
+    _save_json(DEVICE_FLOW_PATH, payload)
+
+
+def _clear_device_flow() -> None:
+    if DEVICE_FLOW_PATH.exists():
+        DEVICE_FLOW_PATH.unlink()
+
+
 def _plan_summary(plan) -> dict[str, Any]:
     return {
         "added_count": len(plan.added),
@@ -167,6 +197,10 @@ def set_options():
         "github_repository": str(payload.get("github_repository", "")).strip(),
         "github_branch": str(payload.get("github_branch", "main")).strip() or "main",
         "github_token": str(payload.get("github_token", "")).strip(),
+        "github_client_id": str(
+            payload.get("github_client_id", _merge_options().get("github_client_id", DEFAULT_OAUTH_CLIENT_ID))
+        ).strip()
+        or DEFAULT_OAUTH_CLIENT_ID,
         "sync_interval_minutes": payload.get("sync_interval_minutes", 60),
         "dry_run": payload.get("dry_run", True),
     }
@@ -188,6 +222,110 @@ def get_status():
     if LOG_PATH.exists():
         logs = LOG_PATH.read_text(encoding="utf-8")[-4000:]
     return jsonify({"ok": True, "state": state, "log_tail": logs})
+
+
+@app.get("/api/auth/device")
+def get_device_auth_status():
+    flow = _load_device_flow()
+    if not flow:
+        return jsonify({"ok": True, "active": False})
+    return jsonify(
+        {
+            "ok": True,
+            "active": True,
+            "user_code": flow.get("user_code"),
+            "verification_uri": flow.get("verification_uri"),
+            "verification_uri_complete": _build_verification_url(flow),
+            "expires_at": flow.get("expires_at"),
+        }
+    )
+
+
+@app.post("/api/auth/device/start")
+def start_device_auth():
+    payload = request.get_json(silent=True)
+    if payload is not None and not isinstance(payload, dict):
+        return jsonify({"ok": False, "error": "Invalid JSON body"}), 400
+
+    options = _merge_options()
+    client_id = str(
+        (payload or {}).get("client_id")
+        or options.get("github_client_id")
+        or DEFAULT_OAUTH_CLIENT_ID
+    ).strip()
+    if not client_id:
+        return jsonify({"ok": False, "error": "github_client_id is required"}), 400
+
+    client = GitHubClient(
+        repository=str(options.get("github_repository", "")).strip(),
+        branch=str(options.get("github_branch", "main")).strip() or "main",
+        token="",
+    )
+    try:
+        device_flow = client.start_device_flow(client_id)
+    except SyncError as err:
+        _append_log(f"Device flow start failed: {err}")
+        return jsonify({"ok": False, "error": str(err)}), 502
+
+    expires_in = int(device_flow.get("expires_in", 900))
+    flow_state = {
+        "client_id": client_id,
+        "device_code": str(device_flow.get("device_code", "")).strip(),
+        "user_code": str(device_flow.get("user_code", "")).strip(),
+        "verification_uri": str(
+            device_flow.get("verification_uri", "https://github.com/login/device")
+        ).strip(),
+        "verification_uri_complete": str(device_flow.get("verification_uri_complete", "")).strip(),
+        "interval": int(device_flow.get("interval", 5)),
+        "expires_at": (dt.datetime.now(dt.timezone.utc) + dt.timedelta(seconds=expires_in)).isoformat(),
+    }
+
+    if not flow_state["device_code"] or not flow_state["user_code"]:
+        return jsonify({"ok": False, "error": "GitHub device flow returned incomplete response"}), 502
+
+    _save_device_flow(flow_state)
+    _append_log("Device flow started from web UI")
+    return jsonify(
+        {
+            "ok": True,
+            "user_code": flow_state["user_code"],
+            "verification_uri": flow_state["verification_uri"],
+            "verification_uri_complete": _build_verification_url(flow_state),
+            "expires_at": flow_state["expires_at"],
+        }
+    )
+
+
+@app.post("/api/auth/device/complete")
+def complete_device_auth():
+    flow = _load_device_flow()
+    if not flow:
+        return jsonify({"ok": False, "error": "No active device flow. Start authorization first."}), 400
+
+    options = _merge_options()
+    client = GitHubClient(
+        repository=str(options.get("github_repository", "")).strip(),
+        branch=str(options.get("github_branch", "main")).strip() or "main",
+        token="",
+    )
+    try:
+        token = client.exchange_device_code(
+            client_id=str(flow.get("client_id", "")),
+            device_code=str(flow.get("device_code", "")),
+            interval=int(flow.get("interval", 5)),
+            timeout=120,
+        )
+    except SyncError as err:
+        _append_log(f"Device flow completion failed: {err}")
+        return jsonify({"ok": False, "error": str(err)}), 502
+
+    merged = _merge_options()
+    merged["github_token"] = token
+    merged["github_client_id"] = str(flow.get("client_id", "")).strip() or DEFAULT_OAUTH_CLIENT_ID
+    _save_json(WEBUI_OPTIONS_PATH, merged)
+    _clear_device_flow()
+    _append_log("GitHub token obtained via device flow")
+    return jsonify({"ok": True, "options": _mask_token(_merge_options())})
 
 
 @app.post("/api/sync")

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import base64
 import json
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -9,6 +10,9 @@ from dataclasses import dataclass
 from typing import Any
 
 from .errors import SyncError
+
+API_BASE = "https://api.github.com"
+OAUTH_BASE = "https://github.com"
 
 
 @dataclass(frozen=True)
@@ -19,7 +23,7 @@ class GitHubClient:
 
     @property
     def _base(self) -> str:
-        return f"https://api.github.com/repos/{self.repository}"
+        return f"{API_BASE}/repos/{self.repository}"
 
     @property
     def _headers(self) -> dict[str, str]:
@@ -32,9 +36,48 @@ class GitHubClient:
             headers["Authorization"] = f"Bearer {self.token}"
         return headers
 
+    def start_device_flow(self, client_id: str, scope: str = "repo") -> dict[str, Any]:
+        return self._oauth_request(
+            "POST",
+            "/login/device/code",
+            payload={"client_id": client_id, "scope": scope},
+        )
+
+    def exchange_device_code(
+        self, client_id: str, device_code: str, interval: int = 5, timeout: int = 600
+    ) -> str:
+        deadline = time.monotonic() + timeout
+        poll_interval = max(1, interval)
+        while True:
+            payload = self._oauth_request(
+                "POST",
+                "/login/oauth/access_token",
+                payload={
+                    "client_id": client_id,
+                    "device_code": device_code,
+                    "grant_type": "urn:ietf:params:oauth:grant-type:device_code",
+                },
+            )
+            token = payload.get("access_token")
+            if isinstance(token, str) and token:
+                return token
+
+            error = payload.get("error")
+            if error == "authorization_pending":
+                if time.monotonic() >= deadline:
+                    raise SyncError("Timed out waiting for GitHub device authorization")
+                time.sleep(poll_interval)
+                continue
+            if error == "slow_down":
+                poll_interval += 5
+                time.sleep(poll_interval)
+                continue
+            description = payload.get("error_description", error or "Device authorization failed")
+            raise SyncError(str(description))
+
     def probe_repository(self) -> tuple[bool, str]:
         try:
-            payload = self._request_json("GET", f"{self._base}")
+            payload = self._request_json("GET", self._base)
             if payload.get("full_name"):
                 return True, "Repository probe succeeded"
             return False, "Repository probe returned incomplete payload"
@@ -98,3 +141,33 @@ class GitHubClient:
             raise SyncError(f"GitHub API error HTTP {err.code} for {method} {url}: {body}") from err
         except urllib.error.URLError as err:
             raise SyncError(f"GitHub API request failed for {method} {url}: {err.reason}") from err
+
+    def _oauth_request(self, method: str, path: str, payload: dict[str, Any] | None = None) -> dict[str, Any]:
+        headers = {
+            "User-Agent": "github-config-sync-addon",
+            "Accept": "application/json",
+        }
+        data = None
+        if payload is not None:
+            data = json.dumps(payload).encode("utf-8")
+            headers["Content-Type"] = "application/json"
+        request = urllib.request.Request(
+            f"{OAUTH_BASE}{path}",
+            method=method,
+            data=data,
+            headers=headers,
+        )
+        try:
+            with urllib.request.urlopen(request, timeout=60) as response:
+                body = response.read().decode("utf-8")
+                if not body:
+                    return {}
+                decoded = json.loads(body)
+                if not isinstance(decoded, dict):
+                    raise SyncError(f"GitHub OAuth returned non-object JSON for {method} {path}")
+                return decoded
+        except urllib.error.HTTPError as err:
+            body = err.read().decode("utf-8", errors="ignore")
+            raise SyncError(f"GitHub OAuth error HTTP {err.code} for {method} {path}: {body}") from err
+        except urllib.error.URLError as err:
+            raise SyncError(f"GitHub OAuth request failed for {method} {path}: {err.reason}") from err

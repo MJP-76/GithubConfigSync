@@ -4,6 +4,27 @@
 
 Home Assistant custom integration for syncing the Home Assistant config folder to GitHub.
 
+## Version Tracker
+
+<!-- VERSION:START -->
+- Integration version: `0.0.19`
+- Add-on version: `0.1.2`
+- Channel: `stable`
+- Release tag: `v0.0.19`
+<!-- VERSION:END -->
+
+To sync versions across integration/add-on/runtime/docs automatically:
+
+```bash
+python3 scripts/sync_versions.py --integration 0.0.20 --addon 0.1.3 --channel stable
+```
+
+For a dev release:
+
+```bash
+python3 scripts/sync_versions.py --integration 0.0.20 --addon 0.1.3 --channel dev
+```
+
 ## Home Assistant Add-on (Web UI)
 
 This repository now also includes a containerized Home Assistant add-on with ingress UI under:
@@ -17,7 +38,7 @@ Add-on repository metadata is provided via `repository.yaml` so it can be added 
 1. In Home Assistant, open **Settings → Add-ons → Add-on Store → Repositories**.
 2. Add this repository URL: `https://github.com/MJP-76/GithubConfigSync`.
 3. Install **Github Config Sync** add-on and start it.
-4. Open the add-on web UI (ingress) and configure repository/token settings.
+4. Open the add-on web UI (ingress), configure repository settings, and complete GitHub Device Flow login.
 
 ## Installation (HACS)
 

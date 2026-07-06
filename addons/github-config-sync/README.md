@@ -2,6 +2,15 @@
 
 Containerized Home Assistant add-on with an ingress web UI for GitHub sync operations.
 
+## Version Tracker
+
+<!-- VERSION:START -->
+- Integration version: `0.0.19`
+- Add-on version: `0.1.2`
+- Channel: `stable`
+- Release tag: `v0.0.19`
+<!-- VERSION:END -->
+
 ## What it provides
 
 - Ingress-ready web UI (`/api` + browser dashboard)
@@ -18,8 +27,9 @@ Containerized Home Assistant add-on with an ingress web UI for GitHub sync opera
 3. Open the add-on web UI and set:
    - `github_repository` (`owner/repo`)
    - `github_branch`
-   - `github_token` (for private repos)
-4. Save settings and click **Run Sync Now**.
+   - `github_client_id` (defaults to the built-in app ID)
+4. Click **Start Device Login**, approve on GitHub, then **Complete Device Login**.
+5. Save settings and click **Run Sync Now**.
 
 ## Notes
 
