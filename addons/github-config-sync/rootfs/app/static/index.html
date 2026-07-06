@@ -143,18 +143,23 @@
             <input id="branch" placeholder="main" />
           </div>
           <div class="field">
-            <label for="token">GitHub Token (optional for private repos)</label>
-            <input id="token" type="password" placeholder="ghp_..." />
-          </div>
-          <div class="field">
-            <label for="clientId">GitHub OAuth Client ID</label>
-            <input id="clientId" placeholder="Ov23..." />
-          </div>
-          <div class="field">
             <label for="interval">Sync Interval (minutes)</label>
             <input id="interval" type="number" min="5" max="1440" />
           </div>
         </div>
+        <details style="margin-top: 12px">
+          <summary style="cursor: pointer; color: var(--muted)">Troubleshooting options</summary>
+          <div class="grid" style="margin-top: 10px">
+            <div class="field">
+              <label for="token">GitHub Token (manual override)</label>
+              <input id="token" type="password" placeholder="ghp_..." />
+            </div>
+            <div class="field">
+              <label for="clientId">GitHub OAuth Client ID (override)</label>
+              <input id="clientId" placeholder="Ov23..." />
+            </div>
+          </div>
+        </details>
         <div class="row" style="margin-top: 12px">
           <input id="dryRun" type="checkbox" />
           <label for="dryRun">Dry run mode (no push)</label>
