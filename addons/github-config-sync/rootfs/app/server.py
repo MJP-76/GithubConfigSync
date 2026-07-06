@@ -12,7 +12,7 @@ from sync import SyncConfig, SyncEngine
 from sync.errors import SyncError
 from sync.github_client import GitHubClient
 
-APP_VERSION = "0.1.3"
+APP_VERSION = "0.1.4"
 APP_PORT = 8099
 DEFAULT_OAUTH_CLIENT_ID = "Ov23li2ycCraodta6WCU"
 

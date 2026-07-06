@@ -12,10 +12,10 @@ Use this as the single source of truth for **where we are**, **what is next**, a
 - **Version state:** See auto-managed tracker below.
 
 <!-- VERSION:START -->
-- Integration version: `0.0.20`
-- Add-on version: `0.1.3`
+- Integration version: `0.0.21`
+- Add-on version: `0.1.4`
 - Channel: `stable`
-- Release tag: `v0.0.20`
+- Release tag: `v0.0.21`
 <!-- VERSION:END -->
 
 ---

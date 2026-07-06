@@ -1,8 +1,13 @@
 {
   "domain": "github_config_sync",
   "name": "Github Config Sync",
-  "version": "0.0.20",
+  "version": "0.0.21",
   "config_flow": true,
   "iot_class": "cloud_push",
+  "documentation": "https://github.com/MJP-76/GithubConfigSync#readme",
+  "issue_tracker": "https://github.com/MJP-76/GithubConfigSync/issues",
+  "codeowners": [
+    "@MJP-76"
+  ],
   "requirements": []
 }
