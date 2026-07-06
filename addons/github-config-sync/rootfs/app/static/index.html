@@ -203,9 +203,20 @@
           headers: { "Content-Type": "application/json" },
           ...options,
         });
-        const data = await response.json();
+        const raw = await response.text();
+        let data = {};
+        if (raw) {
+          try {
+            data = JSON.parse(raw);
+          } catch (error) {
+            if (!response.ok) {
+              throw new Error(`${response.status} ${response.statusText}`);
+            }
+            throw new Error("Server returned a non-JSON response");
+          }
+        }
         if (!response.ok) {
-          throw new Error(data.error || "Request failed");
+          throw new Error(data.error || `${response.status} ${response.statusText}`);
         }
         return data;
       }
@@ -221,12 +232,17 @@
       }
 
       async function loadDeviceFlowStatus() {
-        const data = await fetchJson("/api/auth/device");
-        if (!data.active) {
-          el.deviceFlowInfo.textContent = "No active device authorization in progress.";
-          return;
+        try {
+          const data = await fetchJson("/api/auth/device");
+          if (!data.active) {
+            el.deviceFlowInfo.textContent = "No active device authorization in progress.";
+            return;
+          }
+          el.deviceFlowInfo.innerHTML = `Authorize with code <strong>${data.user_code}</strong> at <a href="${data.verification_uri_complete}" target="_blank" rel="noopener noreferrer">GitHub device login</a>`;
+        } catch (_error) {
+          el.deviceFlowInfo.textContent =
+            "Device authorization status is unavailable until the add-on is updated/restarted.";
         }
-        el.deviceFlowInfo.innerHTML = `Authorize with code <strong>${data.user_code}</strong> at <a href="${data.verification_uri_complete}" target="_blank" rel="noopener noreferrer">GitHub device login</a>`;
       }
 
       async function loadStatus() {
