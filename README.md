@@ -1,18 +1,20 @@
-# GitHub Config Sync
+# GitHub Folder Sync
 
-Home Assistant custom integration that syncs a chosen local folder to GitHub as tracked files.
+Home Assistant custom integration for syncing a chosen local folder with a GitHub repository.
 
 ## Features
 
-- GitHub token login
+- GitHub personal access token login
 - Create a new repository or use an existing one
+- Sync a local folder into GitHub while preserving folder structure
+- Optional GitHub-to-local sync direction
 - Manual sync button in Home Assistant
 - Scheduled syncs at a configurable interval
-- Optional GitHub-to-local sync direction
 - Ignore patterns for files you do not want uploaded
 
 ## Notes
 
-- This uses a GitHub personal access token, not OAuth.
-- Files are synced individually, preserving folder structure in the repository.
-- Keep the repository private if the folder contains sensitive config data.
+- This is not a zip-backup integration.
+- Files are synced individually as repository contents.
+- Keep the repository private if the folder contains sensitive data.
+- The uploaded base was adapted into this folder-sync implementation.
