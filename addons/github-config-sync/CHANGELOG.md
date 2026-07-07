@@ -2,7 +2,12 @@
 
 ## Unreleased
 
-- Preparing the v0.2.8 release bump.
+- Preparing the v0.2.9 release bump.
+
+## 0.2.9
+
+- Added manual sync retention pruning for version snapshots older than seven days.
+- Synced the add-on, integration, docs, and release metadata to v0.2.9.
 
 ## 0.2.8
 

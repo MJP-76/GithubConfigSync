@@ -74,6 +74,7 @@ class SyncEngineTests(unittest.TestCase):
                 token="token",
                 config_root=str(root),
                 dry_run=False,
+                version_retention_count=0,
             )
             plan = SyncPlan(
                 added=["added.yaml", "missing.yaml"],
@@ -112,6 +113,7 @@ class SyncEngineTests(unittest.TestCase):
                 token="token",
                 config_root=str(root),
                 dry_run=False,
+                version_retention_count=0,
             )
             plan = SyncPlan(added=["a.yaml"], changed=[], removed=[], total_files=1)
 
@@ -185,6 +187,54 @@ class SyncEngineTests(unittest.TestCase):
             self.assertTrue(result.cancelled)
             self.assertEqual(result.synced_count, 1)
             self.assertEqual(fake_client.put_content.call_count, 1)
+
+    def test_run_live_writes_version_snapshot(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "one.yaml").write_text("1", encoding="utf-8")
+
+            config = SyncConfig(
+                repository="owner/repo",
+                branch="main",
+                token="token",
+                config_root=str(root),
+                dry_run=False,
+                version_retention_count=7,
+            )
+            plan = SyncPlan(added=["one.yaml"], changed=[], removed=[], total_files=1)
+            fake_client = MagicMock()
+            fake_client.get_content.return_value = None
+            fake_client.list_directory_contents.return_value = []
+
+            with patch("sync.engine.GitHubClient", return_value=fake_client):
+                engine = SyncEngine(config, previous_hash_index={})
+                result = engine.run(plan)
+
+            self.assertEqual(result.synced_count, 1)
+            uploaded_paths = [call.kwargs["path"] for call in fake_client.put_content.call_args_list]
+            self.assertIn("one.yaml", uploaded_paths)
+            self.assertTrue(any(path.startswith("versions/") for path in uploaded_paths))
+
+    def test_prune_versions_older_than_days_deletes_stale_snapshots(self) -> None:
+        config = SyncConfig(
+            repository="owner/repo",
+            branch="main",
+            token="token",
+            config_root=".",
+            dry_run=False,
+            version_retention_count=7,
+        )
+        fake_client = MagicMock()
+        fake_client.list_directory_contents.return_value = [
+            {"type": "dir", "name": "20260601T120000Z"},
+            {"type": "dir", "name": "20260707T120000Z"},
+        ]
+        with patch("sync.engine.GitHubClient", return_value=fake_client):
+            engine = SyncEngine(config, previous_hash_index={})
+            with patch.object(engine, "_delete_remote_tree") as delete_tree:
+                engine.prune_versions_older_than_days(7)
+
+        delete_tree.assert_called_once_with("versions/20260601T120000Z")
 
 
 if __name__ == "__main__":

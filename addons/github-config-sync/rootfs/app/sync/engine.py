@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import datetime as dt
 from typing import Callable
 
 from .github_client import GitHubClient
@@ -134,6 +135,10 @@ class SyncEngine:
             )
             deleted_count += 1
 
+        if self._config.version_retention_count > 0:
+            self._sync_version_snapshot()
+            self._rotate_version_snapshots()
+
         return SyncResult(
             synced_count=synced_count,
             deleted_count=deleted_count,
@@ -144,6 +149,50 @@ class SyncEngine:
                 f"Upserted {synced_count}, deleted {deleted_count}, skipped {skipped_count}."
             ),
         )
+
+    def _sync_version_snapshot(self) -> None:
+        timestamp = dt.datetime.now(dt.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+        version_root = f"versions/{timestamp}"
+        for path in sorted(self._config_root.rglob("*")):
+            if not path.is_file():
+                continue
+            relative = path.relative_to(self._config_root).as_posix()
+            target = f"{version_root}/{relative}"
+            self._github.put_content(
+                path=target,
+                content=path.read_bytes(),
+                message=f"sync: snapshot {target}",
+            )
+
+    def _rotate_version_snapshots(self) -> None:
+        keep = max(1, self._config.version_retention_count)
+        version_dirs = [
+            item.get("name")
+            for item in self._github.list_directory_contents("versions")
+            if item.get("type") == "dir" and isinstance(item.get("name"), str)
+        ]
+        if len(version_dirs) <= keep:
+            return
+        for version in sorted(version_dirs)[: len(version_dirs) - keep]:
+            self._delete_remote_tree(f"versions/{version}")
+
+    def prune_versions_older_than_days(self, days: int) -> None:
+        if days < 1:
+            return
+        cutoff = dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=days)
+        version_dirs = [
+            item
+            for item in self._github.list_directory_contents("versions")
+            if item.get("type") == "dir" and isinstance(item.get("name"), str)
+        ]
+        for item in version_dirs:
+            name = item["name"]
+            try:
+                parsed = dt.datetime.strptime(name, "%Y%m%dT%H%M%SZ").replace(tzinfo=dt.timezone.utc)
+            except ValueError:
+                continue
+            if parsed < cutoff:
+                self._delete_remote_tree(f"versions/{name}")
 
     def _cancelled_result(
         self, plan: SyncPlan, synced_count: int, deleted_count: int, skipped_count: int
@@ -180,6 +229,24 @@ class SyncEngine:
                 content=content,
                 message=f"sync: update {relative}",
                 sha=sha,
+            )
+
+    def _delete_remote_tree(self, root: str) -> None:
+        for item in self._github.list_directory_contents(root):
+            item_type = item.get("type")
+            item_path = item.get("path")
+            if not isinstance(item_path, str):
+                continue
+            if item_type == "dir":
+                self._delete_remote_tree(item_path)
+                continue
+            sha = item.get("sha")
+            if not isinstance(sha, str):
+                continue
+            self._github.delete_content(
+                path=item_path,
+                sha=sha,
+                message=f"sync: delete {item_path}",
             )
 
 

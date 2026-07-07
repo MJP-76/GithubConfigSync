@@ -10,6 +10,7 @@ class SyncConfig:
     token: str
     config_root: str
     dry_run: bool
+    version_retention_count: int = 7
 
 
 @dataclass(frozen=True)

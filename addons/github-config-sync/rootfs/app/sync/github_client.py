@@ -165,6 +165,25 @@ class GitHubClient:
             payload=payload,
         )
 
+    def list_directory_contents(self, path: str = "") -> list[dict[str, Any]]:
+        suffix = ""
+        if path:
+            encoded = urllib.parse.quote(path, safe="")
+            suffix = f"/contents/{encoded}"
+        else:
+            suffix = "/contents"
+        try:
+            payload = self._request_any("GET", f"{self._base}{suffix}")
+        except SyncError as err:
+            if "HTTP 404" in str(err):
+                return []
+            raise
+        if payload is None:
+            return []
+        if not isinstance(payload, list):
+            raise SyncError("GitHub directory listing response was not a list")
+        return [item for item in payload if isinstance(item, dict)]
+
     def _request_json(self, method: str, url: str, payload: dict[str, Any] | None = None) -> dict[str, Any]:
         decoded = self._request_any(method, url, payload=payload)
         if not isinstance(decoded, dict):

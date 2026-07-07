@@ -13,7 +13,7 @@ from sync.errors import SyncError
 from sync.github_client import GitHubClient
 from sync.hashing import IGNORE_PATTERNS
 
-APP_VERSION = "0.2.6"
+APP_VERSION = "0.2.9"
 APP_PORT = 8099
 DEFAULT_OAUTH_CLIENT_ID = "Ov23li2ycCraodta6WCU"
 
@@ -32,7 +32,9 @@ DEFAULT_OPTIONS: dict[str, Any] = {
     "github_branch": "main",
     "github_token": "",
     "github_client_id": DEFAULT_OAUTH_CLIENT_ID,
-    "sync_interval_minutes": 60,
+    "sync_interval_minutes": 1440,
+    "version_retention_count": 7,
+    "manual_version_retention_days": 7,
     "dry_run": True,
 }
 
@@ -122,6 +124,22 @@ def _validate_payload(payload: dict[str, Any]) -> tuple[bool, str | None]:
     if interval < 5 or interval > 1440:
         return False, "sync_interval_minutes must be between 5 and 1440"
 
+    retention_raw = payload.get("version_retention_count")
+    try:
+        retention = int(retention_raw)
+    except (TypeError, ValueError):
+        return False, "version_retention_count must be an integer"
+    if retention < 1 or retention > 100:
+        return False, "version_retention_count must be between 1 and 100"
+
+    manual_days_raw = payload.get("manual_version_retention_days")
+    try:
+        manual_days = int(manual_days_raw)
+    except (TypeError, ValueError):
+        return False, "manual_version_retention_days must be an integer"
+    if manual_days < 1 or manual_days > 100:
+        return False, "manual_version_retention_days must be between 1 and 100"
+
     if not isinstance(payload.get("dry_run"), bool):
         return False, "dry_run must be true or false"
 
@@ -156,6 +174,65 @@ def _token_health(options: dict[str, Any]) -> dict[str, Any]:
         repository=str(options.get("github_repository", "")).strip(),
         branch=str(options.get("github_branch", "main")).strip() or "main",
         token=token,
+    )
+
+
+@app.post("/api/sync/manual")
+def trigger_manual_sync():
+    options = _merge_options()
+    sync_config = _sync_config(options)
+    if not sync_config.repository:
+        return jsonify({"ok": False, "error": "github_repository is required"}), 400
+
+    started = dt.datetime.now(dt.timezone.utc).isoformat()
+    _save_state({"status": "running", "last_run": started, "last_error": None})
+    _set_cancel_requested(False)
+    _append_log(f"Manual sync started for {sync_config.repository}")
+
+    try:
+        engine = SyncEngine(sync_config, previous_hash_index=_load_json(HASH_INDEX_PATH, {}))
+        engine.set_cancel_checker(_is_cancel_requested)
+        plan, current_hash_index = engine.plan()
+        scan = _plan_summary(plan)
+        if not sync_config.dry_run:
+            probe_ok, probe_message = engine._github.probe_repository()  # pylint: disable=protected-access
+            if not probe_ok:
+                raise SyncError(probe_message)
+        result = engine.run(plan)
+        engine.prune_versions_older_than_days(int(options.get("manual_version_retention_days", 7)))
+        _save_json(HASH_INDEX_PATH, current_hash_index)
+    except SyncError as err:
+        state = _save_state(
+            {
+                "status": "error",
+                "last_error": str(err),
+                "last_result": None,
+                "last_scan": scan,
+            }
+        )
+        return jsonify({"ok": False, "error": str(err), "state": state}), 502
+
+    state = _save_state(
+        {
+            "status": "ok",
+            "last_success": dt.datetime.now(dt.timezone.utc).isoformat(),
+            "last_result": result.message,
+            "last_scan": scan,
+            "last_error": None,
+        }
+    )
+    return jsonify(
+        {
+            "ok": True,
+            "result": result.message,
+            "summary": {
+                "synced_count": result.synced_count,
+                "deleted_count": result.deleted_count,
+                "skipped_count": result.skipped_count,
+                "total_files": result.total_files,
+            },
+            "state": state,
+        }
     )
     try:
         client._request_json("GET", "https://api.github.com/user")  # pylint: disable=protected-access
@@ -194,6 +271,7 @@ def _sync_config(options: dict[str, Any]) -> SyncConfig:
         token=str(options.get("github_token", "")).strip(),
         config_root=str(CONFIG_ROOT),
         dry_run=bool(options.get("dry_run", True)),
+        version_retention_count=int(options.get("version_retention_count", 7)),
     )
 
 
@@ -325,7 +403,9 @@ def set_options():
             payload.get("github_client_id", _merge_options().get("github_client_id", DEFAULT_OAUTH_CLIENT_ID))
         ).strip()
         or DEFAULT_OAUTH_CLIENT_ID,
-        "sync_interval_minutes": payload.get("sync_interval_minutes", 60),
+        "sync_interval_minutes": payload.get("sync_interval_minutes", 1440),
+        "version_retention_count": payload.get("version_retention_count", 7),
+        "manual_version_retention_days": payload.get("manual_version_retention_days", 7),
         "dry_run": payload.get("dry_run", True),
     }
 
@@ -700,11 +780,38 @@ def trigger_clean_sync():
         if not sync_config.dry_run:
             probe_ok, probe_message = engine._github.probe_repository()  # pylint: disable=protected-access
             if not probe_ok:
-                raise SyncError(probe_message)
+                friendly_message = probe_message
+                if "HTTP 401" in probe_message or "HTTP 403" in probe_message:
+                    friendly_message = (
+                        "GitHub rejected the repository probe. "
+                        "Check that the token is valid and has repo access."
+                    )
+                elif "HTTP 404" in probe_message:
+                    friendly_message = (
+                        "GitHub could not find the repository. "
+                        "Check the repository name, visibility, and token access."
+                    )
+                state = _save_state(
+                    {
+                        "status": "error",
+                        "last_error": friendly_message,
+                        "last_result": None,
+                        "last_scan": scan,
+                    }
+                )
+                _append_log(f"Repository probe failed: {friendly_message}")
+                return jsonify({"ok": False, "error": friendly_message, "state": state}), 502
         result = engine.run(plan)
         _save_json(HASH_INDEX_PATH, current_hash_index)
     except SyncError as err:
-        state = _save_state({"status": "error", "last_error": str(err), "last_result": None})
+        state = _save_state(
+            {
+                "status": "error",
+                "last_error": str(err),
+                "last_result": None,
+                "last_scan": scan,
+            }
+        )
         return jsonify({"ok": False, "error": str(err), "state": state}), 502
 
     state = _save_state(
@@ -712,10 +819,23 @@ def trigger_clean_sync():
             "status": "ok",
             "last_success": dt.datetime.now(dt.timezone.utc).isoformat(),
             "last_result": result.message,
+            "last_scan": scan,
             "last_error": None,
         }
     )
-    return jsonify({"ok": True, "result": result.message, "state": state})
+    return jsonify(
+        {
+            "ok": True,
+            "result": result.message,
+            "summary": {
+                "synced_count": result.synced_count,
+                "deleted_count": result.deleted_count,
+                "skipped_count": result.skipped_count,
+                "total_files": result.total_files,
+            },
+            "state": state,
+        }
+    )
 
 
 if __name__ == "__main__":

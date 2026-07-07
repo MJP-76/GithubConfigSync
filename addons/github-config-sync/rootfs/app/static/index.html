@@ -169,6 +169,32 @@
         border-radius: 10px;
       }
 
+      .progress-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 10px;
+        margin-top: 10px;
+      }
+
+      .progress-item {
+        background: var(--card-2);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 10px 12px;
+      }
+
+      .progress-label {
+        display: block;
+        font-size: 0.82rem;
+        color: var(--muted);
+        margin-bottom: 4px;
+      }
+
+      .progress-value {
+        font-size: 1.05rem;
+        font-weight: 700;
+      }
+
       pre {
         background: var(--card-2);
         border: 1px solid var(--border);
@@ -216,6 +242,29 @@
         <p class="subtle" style="margin-bottom: 0">
           4. Run Sync Now, Clean Upload, or Cancel Current Upload as needed.
         </p>
+      </div>
+
+      <div class="card">
+        <h2 class="section-title">Live upload progress</h2>
+        <div id="progressStatus" class="subtle">No upload in progress.</div>
+        <div class="progress-grid">
+          <div class="progress-item">
+            <span class="progress-label">Upload remaining</span>
+            <span id="upsertRemaining" class="progress-value">0</span>
+          </div>
+          <div class="progress-item">
+            <span class="progress-label">Delete remaining</span>
+            <span id="removeRemaining" class="progress-value">0</span>
+          </div>
+          <div class="progress-item">
+            <span class="progress-label">Files to upload</span>
+            <span id="upsertTotal" class="progress-value">0</span>
+          </div>
+          <div class="progress-item">
+            <span class="progress-label">Files to delete</span>
+            <span id="removeTotal" class="progress-value">0</span>
+          </div>
+        </div>
       </div>
 
       <div class="card">
@@ -282,6 +331,10 @@
             <label for="interval">Sync Interval (minutes)</label>
             <input id="interval" type="number" min="5" max="1440" />
           </div>
+          <div class="field">
+            <label for="versionRetention">Keep versions on GitHub</label>
+            <input id="versionRetention" type="number" min="1" max="100" />
+          </div>
         </div>
         <details style="margin-top: 12px">
           <summary style="cursor: pointer; color: var(--muted)">Troubleshooting options</summary>
@@ -313,24 +366,28 @@
       </div>
 
       <div class="card">
-        <h2 class="section-title">Recommended .gitignore entries</h2>
-        <p class="subtle" style="margin-bottom: 10px">
-          These are safe defaults for Home Assistant. They are read from your local .gitignore and can be added with one click.
-        </p>
-        <div id="ignoreMeta" class="muted" style="margin-bottom: 10px"></div>
-        <div id="ignoreList" class="ignore-list"></div>
-        <div class="row" style="margin-top: 12px">
-          <button id="saveIgnoreBtn" class="secondary">Write Selected Entries to .gitignore</button>
-          <button id="refreshIgnoreBtn" class="secondary">Refresh Ignore Suggestions</button>
-        </div>
+        <details open>
+          <summary class="section-title" style="cursor: pointer">Recommended .gitignore entries</summary>
+          <p class="subtle" style="margin-bottom: 10px">
+            These are safe defaults for Home Assistant. They are read from your local .gitignore and can be added with one click.
+          </p>
+          <div id="ignoreMeta" class="muted" style="margin-bottom: 10px"></div>
+          <div id="ignoreList" class="ignore-list"></div>
+          <div class="row" style="margin-top: 12px">
+            <button id="saveIgnoreBtn" class="secondary">Write Selected Entries to .gitignore</button>
+            <button id="refreshIgnoreBtn" class="secondary">Refresh Ignore Suggestions</button>
+          </div>
+        </details>
       </div>
 
       <div class="card">
-        <h2 class="section-title">Runtime Status</h2>
-        <pre id="runtime">Loading status...</pre>
-        <div class="row" style="margin-top: 12px">
-          <button id="downloadDiagnosticsBtn" class="secondary">Download Diagnostics</button>
-        </div>
+        <details>
+          <summary class="section-title" style="cursor: pointer">Runtime Status</summary>
+          <pre id="runtime">Loading status...</pre>
+          <div class="row" style="margin-top: 12px">
+            <button id="downloadDiagnosticsBtn" class="secondary">Download Diagnostics</button>
+          </div>
+        </details>
       </div>
     </div>
 
@@ -342,8 +399,14 @@
         token: document.getElementById("token"),
         clientId: document.getElementById("clientId"),
         interval: document.getElementById("interval"),
+        versionRetention: document.getElementById("versionRetention"),
         dryRun: document.getElementById("dryRun"),
         runtime: document.getElementById("runtime"),
+        progressStatus: document.getElementById("progressStatus"),
+        upsertRemaining: document.getElementById("upsertRemaining"),
+        removeRemaining: document.getElementById("removeRemaining"),
+        upsertTotal: document.getElementById("upsertTotal"),
+        removeTotal: document.getElementById("removeTotal"),
         saveBtn: document.getElementById("saveBtn"),
         startDeviceBtn: document.getElementById("startDeviceBtn"),
         repoMode: document.querySelectorAll("input[name='repoMode']"),
@@ -467,7 +530,8 @@
         el.branch.value = data.github_branch || "main";
         el.token.value = "";
         el.clientId.value = data.github_client_id || "";
-        el.interval.value = data.sync_interval_minutes ?? 60;
+        el.interval.value = data.sync_interval_minutes ?? 1440;
+        el.versionRetention.value = data.version_retention_count ?? 7;
         el.dryRun.checked = Boolean(data.dry_run);
       }
 
@@ -511,6 +575,20 @@
         updateTokenBadge({ state: "checking" });
         const data = await fetchJson(apiUrl("/api/status"));
         updateTokenBadge(data.token_health);
+        const progress = data.state?.sync_progress;
+        if (progress) {
+          el.progressStatus.textContent = `${progress.current_action || "running"} (${progress.status || "running"})`;
+          el.upsertRemaining.textContent = String(progress.upsert_remaining ?? 0);
+          el.removeRemaining.textContent = String(progress.remove_remaining ?? 0);
+          el.upsertTotal.textContent = String(progress.upsert_total ?? 0);
+          el.removeTotal.textContent = String(progress.remove_total ?? 0);
+        } else {
+          el.progressStatus.textContent = "No upload in progress.";
+          el.upsertRemaining.textContent = "0";
+          el.removeRemaining.textContent = "0";
+          el.upsertTotal.textContent = "0";
+          el.removeTotal.textContent = "0";
+        }
         el.runtime.textContent =
           JSON.stringify({ state: data.state, auth: data.auth, token_health: data.token_health }, null, 2) +
           "\n\n" +
@@ -572,6 +650,7 @@
             github_token: el.token.value.trim(),
             github_client_id: el.clientId.value.trim(),
             sync_interval_minutes: Number(el.interval.value || "60"),
+            version_retention_count: Number(el.versionRetention.value || "7"),
             dry_run: el.dryRun.checked,
           };
           await fetchJson(apiUrl("/api/options"), { method: "POST", body: JSON.stringify(payload) });
@@ -627,7 +706,7 @@
       async function runSync() {
         setButtonBusy(el.syncBtn, true, "Running...");
         try {
-          const data = await fetchJson(apiUrl("/api/sync"), { method: "POST" });
+          const data = await fetchJson(apiUrl("/api/sync/manual"), { method: "POST" });
           setStatus(data.result || "Sync completed");
           await loadStatus();
         } finally {

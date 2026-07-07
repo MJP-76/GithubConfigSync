@@ -11,10 +11,10 @@ Containerized Home Assistant add-on with an ingress web UI for GitHub sync opera
 ## Version Tracker
 
 <!-- VERSION:START -->
-- Integration version: `0.2.8`
-- Add-on version: `0.2.8`
+- Integration version: `0.2.9`
+- Add-on version: `0.2.9`
 - Channel: `stable`
-- Release tag: `v0.2.8`
+- Release tag: `v0.2.9`
 <!-- VERSION:END -->
 
 ## What it provides
@@ -32,6 +32,7 @@ Containerized Home Assistant add-on with an ingress web UI for GitHub sync opera
 - `sync/engine.py` computes the plan from the current `/config` tree and the saved hash index.
 - `dry_run=true` stops after planning and returns the counts that would be applied.
 - `dry_run=false` probes the GitHub repository first, then performs upserts and deletes with the GitHub Contents API.
+- Live runs also write versioned snapshots under `versions/<timestamp>/...` and keep the most recent 7 by default.
 - Runtime state is persisted in `/data/state.json`, `/data/hash_index.json`, `/data/device_flow.json`, and `/data/sync.log`.
 - The stable local API contract is `/api/health`, `/api/status`, `/api/sync`, and `/api/diagnostics`.
 - After a release, Home Assistant may need a rebuild/reinstall to pick up UI changes from the add-on image.
@@ -44,6 +45,12 @@ Containerized Home Assistant add-on with an ingress web UI for GitHub sync opera
 2. Keep `dry_run` enabled.
 3. Start a sync from the UI.
 4. Confirm the scan summary and dry-run result match expectations.
+
+### Defaults
+
+1. Sync runs once a day by default.
+2. Version snapshots keep the last 7 copies by default.
+3. Both settings are editable in the add-on UI.
 
 ### Live run
 

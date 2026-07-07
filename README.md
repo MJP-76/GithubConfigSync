@@ -12,10 +12,10 @@ Home Assistant custom integration for syncing the Home Assistant config folder t
 ## Version Tracker
 
 <!-- VERSION:START -->
-- Integration version: `0.2.8`
-- Add-on version: `0.2.8`
+- Integration version: `0.2.9`
+- Add-on version: `0.2.9`
 - Channel: `stable`
-- Release tag: `v0.2.8`
+- Release tag: `v0.2.9`
 <!-- VERSION:END -->
 
 To sync versions across integration/add-on/runtime/docs automatically:
@@ -38,12 +38,19 @@ This repository now also includes a containerized Home Assistant add-on with ing
 
 Add-on repository metadata is provided via `repository.yaml` so it can be added directly in Home Assistant Add-on Store.
 
+## Sync defaults
+
+- Runs once a day by default.
+- Keeps 7 GitHub version snapshots by default.
+- Both values are configurable in the add-on UI.
+
 ## Architecture
 
 - The custom integration handles Home Assistant entities, config flow, and operator actions.
 - The add-on provides the ingress web UI and the sync runtime API.
 - Sync planning is hash-based: the add-on scans `/config`, diffs against the last saved hash index, and classifies files as added, changed, or removed.
 - Dry runs do not touch GitHub; live runs probe the repository first, then upsert and delete files through the GitHub Contents API.
+- Live runs also write versioned snapshots under `versions/<timestamp>/...` and keep the most recent 7 by default.
 - State, logs, device-flow data, and the last hash index live in `/data`.
 - The add-on exposes a stable local API contract via `/api/health`, `/api/status`, `/api/sync`, and `/api/diagnostics`.
 - The generated `.gitignore` includes the common Home Assistant guidance entries such as `secrets.yaml`, `ip_bans.yaml`, `known_devices.yaml`, `.storage/`, and `.cloud/`, while still honoring any local user additions.
