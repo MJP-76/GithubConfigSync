@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- Preparing the v0.2.21 release bump.
+- Preparing the v0.2.22 release bump.
 
 ## 0.2.21
 
