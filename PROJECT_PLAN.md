@@ -14,10 +14,10 @@ Use this as the single source of truth for **where we are**, **what is next**, a
 - **Version state:** See auto-managed tracker below.
 
 <!-- VERSION:START -->
-- Integration version: `0.2.20`
-- Add-on version: `0.2.20`
+- Integration version: `0.2.21`
+- Add-on version: `0.2.21`
 - Channel: `stable`
-- Release tag: `v0.2.20`
+- Release tag: `v0.2.21`
 <!-- VERSION:END -->
 
 ---
@@ -153,20 +153,28 @@ Use this as the single source of truth for **where we are**, **what is next**, a
 - [x] Security/auth hardening work completed and folded into shipped docs/code
 - [x] Integration ↔ add-on API contract/status work completed and reflected in docs/code
 
+## v0.1.9 — Planning Decisions Closed
+
+- [x] Add-on sync strategy decided
+- [x] Minimum supported Home Assistant version decided
+- [x] Repo picker filtering/pagination decision closed
+
 ## Active Sprint Tracker (Now)
 
 ## Completed
 
 - [x] Validate HACS metadata requirements tied to GitHub repo settings (description/topics/brands)
 - [x] Add hassfest badge with the other badges on all README pages
+- [x] Close add-on sync strategy decision
+- [x] Close minimum supported Home Assistant version decision
+- [x] Close repo picker org filtering/pagination decision
 
 ---
 
 ## Immediate execution plan (next working session)
 
-1. Decide whether add-on sync should use **GitHub Contents API only** or support **git-native engine** later.
-2. Decide minimum supported Home Assistant version for add-on/integration pairing policy.
-3. Decide whether repo picker should support org filtering + pagination in UI.
+1. Version bump and release if needed.
+2. Keep the tracker aligned with any future shipped changes.
 
 ---
 
