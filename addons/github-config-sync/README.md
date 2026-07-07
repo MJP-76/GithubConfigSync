@@ -6,7 +6,7 @@
 [![HASSfest](https://img.shields.io/badge/HASSfest-validated-success.svg)](https://developers.home-assistant.io/docs/add-ons/)
 [![Release](https://img.shields.io/github/v/tag/MJP-76/GithubConfigSync?label=release)](https://github.com/MJP-76/GithubConfigSync/releases)
 
-Containerized Home Assistant add-on with an ingress web UI for GitHub sync operations.
+Containerized Home Assistant add-on with an ingress web UI for GitHub config sync operations. This is a sync tool, not a backup tool.
 
 ## Support me
 
@@ -19,10 +19,10 @@ If you find this project useful, and would like to help support its continued de
 ## Version Tracker
 
 <!-- VERSION:START -->
-- Integration version: `0.2.15`
-- Add-on version: `0.2.15`
+- Integration version: `0.2.16`
+- Add-on version: `0.2.16`
 - Channel: `stable`
-- Release tag: `v0.2.15`
+- Release tag: `v0.2.16`
 <!-- VERSION:END -->
 
 ## What it provides
@@ -38,7 +38,7 @@ If you find this project useful, and would like to help support its continued de
 
 - `server.py` is the add-on API surface and UI backend.
 - `sync/engine.py` computes the plan from the current `/config` tree and the saved hash index.
-- AppDaemon configs and apps under `/config/appdaemon/` are included in the normal sync scan.
+- AppDaemon configs and apps under `/addon_configs/` are included in the normal sync scan.
 - `dry_run=true` stops after planning and returns the counts that would be applied.
 - `dry_run=false` probes the GitHub repository first, then performs upserts and deletes with the GitHub Contents API.
 - Live runs also write versioned snapshots under `versions/<timestamp>/...` and keep the most recent 7 by default.

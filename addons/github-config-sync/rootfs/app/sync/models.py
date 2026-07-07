@@ -10,6 +10,7 @@ class SyncConfig:
     token: str
     config_root: str
     dry_run: bool
+    addon_config_root: str = "/addon_configs"
     version_retention_count: int = 7
 
 

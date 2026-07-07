@@ -14,6 +14,11 @@ class SyncEngine:
         self._config = config
         self._previous_hash_index = previous_hash_index
         self._config_root = Path(config.config_root)
+        self._addon_config_root = Path(getattr(config, "addon_config_root", "/addon_configs"))
+        self._root_map = [
+            ("", self._config_root),
+            ("addon_configs", self._addon_config_root),
+        ]
         self._github = GitHubClient(
             repository=config.repository,
             branch=config.branch,
@@ -32,7 +37,7 @@ class SyncEngine:
         return self._github.probe_repository()
 
     def plan(self) -> tuple[SyncPlan, dict[str, str]]:
-        current_hash_index = build_hash_index(self._config_root)
+        current_hash_index = self._build_hash_index()
         added, changed, removed = diff_hash_indexes(self._previous_hash_index, current_hash_index)
         plan = SyncPlan(
             added=added,
@@ -43,7 +48,7 @@ class SyncEngine:
         return plan, current_hash_index
 
     def clean_plan(self) -> tuple[SyncPlan, dict[str, str]]:
-        current_hash_index = build_hash_index(self._config_root)
+        current_hash_index = self._build_hash_index()
         all_paths = sorted(current_hash_index.keys())
         removed_paths = sorted(path for path in self._previous_hash_index.keys() if path not in current_hash_index)
         plan = SyncPlan(
@@ -101,7 +106,7 @@ class SyncEngine:
                     "remove_paths": removed_paths[:50],
                 }
             )
-            local_path = self._config_root / relative
+            local_path = self._local_path_for(relative)
             if not local_path.exists():
                 skipped_count += 1
                 continue
@@ -153,16 +158,19 @@ class SyncEngine:
     def _sync_version_snapshot(self) -> None:
         timestamp = dt.datetime.now(dt.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
         version_root = f"versions/{timestamp}"
-        for path in sorted(self._config_root.rglob("*")):
-            if not path.is_file():
+        for prefix, root in self._root_map:
+            if not root.exists():
                 continue
-            relative = path.relative_to(self._config_root).as_posix()
-            target = f"{version_root}/{relative}"
-            self._github.put_content(
-                path=target,
-                content=path.read_bytes(),
-                message=f"sync: snapshot {target}",
-            )
+            for path in sorted(root.rglob("*")):
+                if not path.is_file():
+                    continue
+                relative = path.relative_to(root).as_posix()
+                target = f"{version_root}/{prefix}/{relative}" if prefix else f"{version_root}/{relative}"
+                self._github.put_content(
+                    path=target,
+                    content=path.read_bytes(),
+                    message=f"sync: snapshot {target}",
+                )
 
     def _rotate_version_snapshots(self) -> None:
         keep = max(1, self._config.version_retention_count)
@@ -248,6 +256,22 @@ class SyncEngine:
                 sha=sha,
                 message=f"sync: delete {item_path}",
             )
+
+    def _build_hash_index(self) -> dict[str, str]:
+        index: dict[str, str] = {}
+        for prefix, root in self._root_map:
+            if not root.exists():
+                continue
+            current = build_hash_index(root)
+            for relative, digest in current.items():
+                key = f"{prefix}/{relative}" if prefix else relative
+                index[key] = digest
+        return index
+
+    def _local_path_for(self, relative: str) -> Path:
+        if relative.startswith("addon_configs/"):
+            return self._addon_config_root / relative.removeprefix("addon_configs/")
+        return self._config_root / relative
 
 
 def _is_sha_conflict(err: Exception) -> bool:

@@ -20,26 +20,32 @@ class SyncEngineTests(unittest.TestCase):
             root = Path(tmp)
             (root / "new.yaml").write_text("new", encoding="utf-8")
             (root / "changed.yaml").write_text("new-value", encoding="utf-8")
+            addon_root = Path(tmp) / "addon_configs"
+            (addon_root / "apps").mkdir(parents=True)
+            (addon_root / "apps" / "kitchen.yaml").write_text("id: app", encoding="utf-8")
 
             config = SyncConfig(
                 repository="owner/repo",
                 branch="main",
                 token="token",
                 config_root=str(root),
+                addon_config_root=str(addon_root),
                 dry_run=True,
             )
 
             previous = {
                 "changed.yaml": "old-hash",
                 "removed.yaml": "removed-hash",
+                "addon_configs/apps/old.yaml": "old-addon",
             }
 
             engine = SyncEngine(config, previous_hash_index=previous)
             plan, _ = engine.plan()
 
-            self.assertEqual(plan.added, ["new.yaml"])
+            self.assertEqual(plan.added, ["addon_configs/apps/kitchen.yaml", "new.yaml"])
             self.assertEqual(plan.changed, ["changed.yaml"])
-            self.assertEqual(plan.removed, ["removed.yaml"])
+            self.assertEqual(plan.removed, ["addon_configs/apps/old.yaml", "removed.yaml"])
+            self.assertIn("addon_configs/apps/kitchen.yaml", plan.added)
 
     def test_run_dry_run_returns_counts_without_github_calls(self) -> None:
         config = SyncConfig(
@@ -47,6 +53,7 @@ class SyncEngineTests(unittest.TestCase):
             branch="main",
             token="token",
             config_root=".",
+            addon_config_root="/addon_configs",
             dry_run=True,
         )
         plan = SyncPlan(added=["a.yaml"], changed=["b.yaml"], removed=["c.yaml"], total_files=2)
@@ -73,6 +80,7 @@ class SyncEngineTests(unittest.TestCase):
                 branch="main",
                 token="token",
                 config_root=str(root),
+                addon_config_root="/addon_configs",
                 dry_run=False,
                 version_retention_count=0,
             )
@@ -112,6 +120,7 @@ class SyncEngineTests(unittest.TestCase):
                 branch="main",
                 token="token",
                 config_root=str(root),
+                addon_config_root="/addon_configs",
                 dry_run=False,
                 version_retention_count=0,
             )
@@ -168,6 +177,7 @@ class SyncEngineTests(unittest.TestCase):
                 branch="main",
                 token="token",
                 config_root=str(root),
+                addon_config_root="/addon_configs",
                 dry_run=False,
             )
             plan = SyncPlan(added=["one.yaml", "two.yaml"], changed=[], removed=[], total_files=2)
@@ -198,6 +208,7 @@ class SyncEngineTests(unittest.TestCase):
                 branch="main",
                 token="token",
                 config_root=str(root),
+                addon_config_root="/addon_configs",
                 dry_run=False,
                 version_retention_count=7,
             )
@@ -221,6 +232,7 @@ class SyncEngineTests(unittest.TestCase):
             branch="main",
             token="token",
             config_root=".",
+            addon_config_root="/addon_configs",
             dry_run=False,
             version_retention_count=7,
         )

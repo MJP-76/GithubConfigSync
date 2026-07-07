@@ -2,7 +2,12 @@
 
 ## Unreleased
 
-- Preparing the v0.2.15 release bump.
+- Preparing the v0.2.16 release bump.
+
+## 0.2.16
+
+- Clarified in the docs and add-on description that this is a config sync tool, not a backup tool.
+- Synced the add-on, integration, docs, and release metadata to v0.2.16.
 
 ## 0.2.15
 

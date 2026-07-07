@@ -7,7 +7,7 @@
 [![Manifest](https://img.shields.io/badge/Manifest-validated-success.svg)](https://developers.home-assistant.io/docs/creating_integration_manifest/)
 [![Release](https://img.shields.io/github/v/tag/MJP-76/GithubConfigSync?label=release)](https://github.com/MJP-76/GithubConfigSync/releases)
 
-Home Assistant custom integration for syncing the Home Assistant config folder to GitHub.
+Home Assistant custom integration for syncing the Home Assistant config folder to GitHub. This is a config sync tool, not a backup tool.
 
 ## Support me
 
@@ -20,10 +20,10 @@ If you find this project useful, and would like to help support its continued de
 ## Version Tracker
 
 <!-- VERSION:START -->
-- Integration version: `0.2.15`
-- Add-on version: `0.2.15`
+- Integration version: `0.2.16`
+- Add-on version: `0.2.16`
 - Channel: `stable`
-- Release tag: `v0.2.15`
+- Release tag: `v0.2.16`
 <!-- VERSION:END -->
 
 To sync versions across integration/add-on/runtime/docs automatically:
@@ -57,7 +57,7 @@ Add-on repository metadata is provided via `repository.yaml` so it can be added 
 - The custom integration handles Home Assistant entities, config flow, and operator actions.
 - The add-on provides the ingress web UI and the sync runtime API.
 - Sync planning is hash-based: the add-on scans `/config`, diffs against the last saved hash index, and classifies files as added, changed, or removed.
-- AppDaemon configs and apps under `/config/appdaemon/` are included in the normal sync scan.
+- AppDaemon configs and apps under `/addon_configs/` are included in the normal sync scan.
 - Dry runs do not touch GitHub; live runs probe the repository first, then upsert and delete files through the GitHub Contents API.
 - Live runs also write versioned snapshots under `versions/<timestamp>/...` and keep the most recent 7 by default.
 - State, logs, device-flow data, and the last hash index live in `/data`.

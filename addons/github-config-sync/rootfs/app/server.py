@@ -13,7 +13,7 @@ from sync.errors import SyncError
 from sync.github_client import GitHubClient
 from sync.hashing import IGNORE_PATTERNS
 
-APP_VERSION = "0.2.15"
+APP_VERSION = "0.2.16"
 APP_PORT = 8099
 DEFAULT_OAUTH_CLIENT_ID = "Ov23li2ycCraodta6WCU"
 
@@ -211,6 +211,7 @@ def _sync_config(options: dict[str, Any]) -> SyncConfig:
         branch=str(options.get("github_branch", "main")).strip() or "main",
         token=str(options.get("github_token", "")).strip(),
         config_root=str(CONFIG_ROOT),
+        addon_config_root="/addon_configs",
         dry_run=bool(options.get("dry_run", True)),
         version_retention_count=int(options.get("version_retention_count", 7)),
     )
@@ -344,6 +345,7 @@ def trigger_manual_sync():
             branch=sync_config.branch,
             token=sync_config.token,
             config_root=sync_config.config_root,
+            addon_config_root=sync_config.addon_config_root,
             dry_run=False,
             version_retention_count=sync_config.version_retention_count,
         )
@@ -768,6 +770,7 @@ def trigger_clean_sync():
         branch=sync_config.branch,
         token=sync_config.token,
         config_root=sync_config.config_root,
+        addon_config_root=sync_config.addon_config_root,
         dry_run=False,
     )
     started = dt.datetime.now(dt.timezone.utc).isoformat()
