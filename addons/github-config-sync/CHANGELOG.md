@@ -2,7 +2,11 @@
 
 ## Unreleased
 
-- Preparing the v0.2.6 release bump.
+- Preparing the v0.2.7 release bump.
+
+## 0.2.7
+
+- Updated validation metadata so HACS and hassfest both pass cleanly.
 
 ## 0.2.6
 
