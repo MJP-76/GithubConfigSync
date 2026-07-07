@@ -1,16 +1,16 @@
 {
   "domain": "github_config_sync",
   "name": "Github Config Sync",
-  "version": "0.2.20",
-  "config_flow": true,
-  "iot_class": "cloud_push",
-  "documentation": "https://github.com/MJP-76/GithubConfigSync#readme",
-  "issue_tracker": "https://github.com/MJP-76/GithubConfigSync/issues",
   "codeowners": [
     "@MJP-76"
   ],
-  "requirements": [],
+  "config_flow": true,
   "dependencies": [
     "http"
-  ]
+  ],
+  "documentation": "https://github.com/MJP-76/GithubConfigSync#readme",
+  "issue_tracker": "https://github.com/MJP-76/GithubConfigSync/issues",
+  "iot_class": "cloud_push",
+  "requirements": [],
+  "version": "0.2.20"
 }
