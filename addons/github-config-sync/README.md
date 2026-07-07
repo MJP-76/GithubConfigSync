@@ -5,10 +5,10 @@ Containerized Home Assistant add-on with an ingress web UI for GitHub sync opera
 ## Version Tracker
 
 <!-- VERSION:START -->
-- Integration version: `0.2.5`
-- Add-on version: `0.2.5`
+- Integration version: `0.2.6`
+- Add-on version: `0.2.6`
 - Channel: `stable`
-- Release tag: `v0.2.5`
+- Release tag: `v0.2.6`
 <!-- VERSION:END -->
 
 ## What it provides
@@ -28,6 +28,7 @@ Containerized Home Assistant add-on with an ingress web UI for GitHub sync opera
 - `dry_run=false` probes the GitHub repository first, then performs upserts and deletes with the GitHub Contents API.
 - Runtime state is persisted in `/data/state.json`, `/data/hash_index.json`, `/data/device_flow.json`, and `/data/sync.log`.
 - The stable local API contract is `/api/health`, `/api/status`, `/api/sync`, and `/api/diagnostics`.
+- After a release, Home Assistant may need a rebuild/reinstall to pick up UI changes from the add-on image.
 
 ## Runbook
 

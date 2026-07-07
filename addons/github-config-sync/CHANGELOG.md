@@ -2,7 +2,11 @@
 
 ## Unreleased
 
-- Preparing the v0.2.5 release bump.
+- Preparing the v0.2.6 release bump.
+
+## 0.2.6
+
+- Added explicit button busy states so pressed actions are visible in the UI.
 
 ## 0.2.5
 

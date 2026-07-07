@@ -112,6 +112,16 @@
         box-shadow: none;
       }
 
+      button:disabled {
+        opacity: 0.6;
+        cursor: wait;
+      }
+
+      button.busy {
+        outline: 2px solid rgba(94, 160, 255, 0.55);
+        outline-offset: 2px;
+      }
+
       .status {
         font-size: 0.95rem;
       }
@@ -153,6 +163,13 @@
         color: var(--muted);
       }
 
+      .notice {
+        border-left: 3px solid var(--accent);
+        background: rgba(94, 160, 255, 0.08);
+        padding: 10px 12px;
+        border-radius: 10px;
+      }
+
       pre {
         background: #020617;
         border: 1px solid #1f2a3b;
@@ -181,14 +198,30 @@
           </div>
           <div id="status" class="pill status">Loading...</div>
         </div>
+        <div class="notice" style="margin-top: 14px">
+          <strong>Rebuild note:</strong> after a new release, Home Assistant may keep using a cached add-on image. If you do not see a UI change, rebuild/reinstall the add-on image and then restart the add-on.
+        </div>
+      </div>
+
+      <div class="card">
+        <h2 class="section-title">Instructions</h2>
+        <p class="subtle" style="margin-bottom: 10px">
+          1. Connect GitHub with Device Login.
+        </p>
+        <p class="subtle" style="margin-bottom: 10px">
+          2. Pick an existing repository or create a new private one.
+        </p>
+        <p class="subtle" style="margin-bottom: 10px">
+          3. Confirm the branch, sync mode, and ignore recommendations.
+        </p>
+        <p class="subtle" style="margin-bottom: 0">
+          4. Run Sync Now, Clean Upload, or Cancel Current Upload as needed.
+        </p>
       </div>
 
       <div class="card">
         <h2 class="section-title">GitHub Device Login</h2>
         <p class="subtle" style="margin-bottom: 10px">
-          Connect GitHub first, then choose whether to use an existing repository or create a new one.
-        </p>
-        <p class="subtle" style="margin: 0 0 10px">
           Private repositories are supported. Make sure the GitHub token has access to the selected private repo and the branch name is correct.
         </p>
         <div class="row">
@@ -347,6 +380,26 @@
       function setStatus(message, ok = true) {
         el.status.textContent = message;
         el.status.className = `status ${ok ? "ok" : "err"}`;
+      }
+
+      function setButtonBusy(button, busy, label) {
+        if (!button) {
+          return;
+        }
+        if (busy) {
+          if (!button.dataset.originalLabel) {
+            button.dataset.originalLabel = button.textContent;
+          }
+          button.textContent = label || `${button.dataset.originalLabel}...`;
+          button.disabled = true;
+          button.classList.add("busy");
+          return;
+        }
+        if (button.dataset.originalLabel) {
+          button.textContent = button.dataset.originalLabel;
+        }
+        button.disabled = false;
+        button.classList.remove("busy");
       }
 
       function updateTokenBadge(tokenHealth) {
@@ -512,66 +565,97 @@
       }
 
       async function saveOptions() {
-        const payload = {
-          github_repository: el.repo.value.trim(),
-          github_branch: el.branch.value.trim() || "main",
-          github_token: el.token.value.trim(),
-          github_client_id: el.clientId.value.trim(),
-          sync_interval_minutes: Number(el.interval.value || "60"),
-          dry_run: el.dryRun.checked,
-        };
-        await fetchJson(apiUrl("/api/options"), { method: "POST", body: JSON.stringify(payload) });
-        setStatus("Settings saved");
-        await Promise.all([loadStatus(), loadDeviceFlowStatus()]);
+        setButtonBusy(el.saveBtn, true, "Saving...");
+        try {
+          const payload = {
+            github_repository: el.repo.value.trim(),
+            github_branch: el.branch.value.trim() || "main",
+            github_token: el.token.value.trim(),
+            github_client_id: el.clientId.value.trim(),
+            sync_interval_minutes: Number(el.interval.value || "60"),
+            dry_run: el.dryRun.checked,
+          };
+          await fetchJson(apiUrl("/api/options"), { method: "POST", body: JSON.stringify(payload) });
+          setStatus("Settings saved");
+          await Promise.all([loadStatus(), loadDeviceFlowStatus()]);
+        } finally {
+          setButtonBusy(el.saveBtn, false);
+        }
       }
 
       async function startDeviceLogin() {
+        setButtonBusy(el.startDeviceBtn, true, "Starting...");
         updateTokenBadge({ state: "checking" });
-        const data = await fetchJson(apiUrl("/api/auth/device/start"), {
-          method: "POST",
-          body: JSON.stringify({ client_id: el.clientId.value.trim() }),
-        });
-        el.deviceFlowInfo.innerHTML = `Authorize with code <strong>${data.user_code}</strong> at <a href="${data.verification_uri_complete}" target="_blank" rel="noopener noreferrer">GitHub device login</a>`;
-        window.open(data.verification_uri_complete, "_blank", "noopener,noreferrer");
-        setStatus("Device login started. Waiting for authorization...");
-        await fetchJson(apiUrl("/api/auth/device/complete"), { method: "POST" });
-        setStatus("Device login complete. Token saved.");
-        await Promise.all([loadOptions(), loadStatus(), loadDeviceFlowStatus(), loadRepositories()]);
+        try {
+          const data = await fetchJson(apiUrl("/api/auth/device/start"), {
+            method: "POST",
+            body: JSON.stringify({ client_id: el.clientId.value.trim() }),
+          });
+          el.deviceFlowInfo.innerHTML = `Authorize with code <strong>${data.user_code}</strong> at <a href="${data.verification_uri_complete}" target="_blank" rel="noopener noreferrer">GitHub device login</a>`;
+          window.open(data.verification_uri_complete, "_blank", "noopener,noreferrer");
+          setStatus("Device login started. Waiting for authorization...");
+          setButtonBusy(el.startDeviceBtn, true, "Completing...");
+          await fetchJson(apiUrl("/api/auth/device/complete"), { method: "POST" });
+          setStatus("Device login complete. Token saved.");
+          await Promise.all([loadOptions(), loadStatus(), loadDeviceFlowStatus(), loadRepositories()]);
+        } finally {
+          setButtonBusy(el.startDeviceBtn, false);
+        }
       }
 
       async function createRepository() {
-        const payload = {
-          name: el.newRepoName.value.trim(),
-          private: el.newRepoPrivate.checked,
-          description: el.newRepoDescription.value.trim(),
-        };
-        const data = await fetchJson(apiUrl("/api/repos/create"), {
-          method: "POST",
-          body: JSON.stringify(payload),
-        });
-        el.repo.value = data.repository || "";
-        await loadRepositories();
-        el.repoPicker.value = el.repo.value;
-        await saveOptions();
-        setStatus(`Repository created: ${el.repo.value}`);
+        setButtonBusy(el.createRepoBtn, true, "Creating...");
+        try {
+          const payload = {
+            name: el.newRepoName.value.trim(),
+            private: el.newRepoPrivate.checked,
+            description: el.newRepoDescription.value.trim(),
+          };
+          const data = await fetchJson(apiUrl("/api/repos/create"), {
+            method: "POST",
+            body: JSON.stringify(payload),
+          });
+          el.repo.value = data.repository || "";
+          await loadRepositories();
+          el.repoPicker.value = el.repo.value;
+          await saveOptions();
+          setStatus(`Repository created: ${el.repo.value}`);
+        } finally {
+          setButtonBusy(el.createRepoBtn, false);
+        }
       }
 
       async function runSync() {
-        const data = await fetchJson(apiUrl("/api/sync"), { method: "POST" });
-        setStatus(data.result || "Sync completed");
-        await loadStatus();
+        setButtonBusy(el.syncBtn, true, "Running...");
+        try {
+          const data = await fetchJson(apiUrl("/api/sync"), { method: "POST" });
+          setStatus(data.result || "Sync completed");
+          await loadStatus();
+        } finally {
+          setButtonBusy(el.syncBtn, false);
+        }
       }
 
       async function runCleanSync() {
-        const data = await fetchJson(apiUrl("/api/sync/clean"), { method: "POST" });
-        setStatus(data.result || "Clean upload completed");
-        await loadStatus();
+        setButtonBusy(el.cleanSyncBtn, true, "Uploading...");
+        try {
+          const data = await fetchJson(apiUrl("/api/sync/clean"), { method: "POST" });
+          setStatus(data.result || "Clean upload completed");
+          await loadStatus();
+        } finally {
+          setButtonBusy(el.cleanSyncBtn, false);
+        }
       }
 
       async function cancelCurrentSync() {
-        const data = await fetchJson(apiUrl("/api/sync/cancel"), { method: "POST" });
-        setStatus(data.cancel_sync ? "Cancel requested" : "Cancel unavailable");
-        await loadStatus();
+        setButtonBusy(el.cancelSyncBtn, true, "Cancelling...");
+        try {
+          const data = await fetchJson(apiUrl("/api/sync/cancel"), { method: "POST" });
+          setStatus(data.cancel_sync ? "Cancel requested" : "Cancel unavailable");
+          await loadStatus();
+        } finally {
+          setButtonBusy(el.cancelSyncBtn, false);
+        }
       }
 
       el.saveBtn.addEventListener("click", () =>
@@ -591,7 +675,12 @@
       );
       el.repoMode.forEach((item) => item.addEventListener("change", applyRepoMode));
       el.loadReposBtn.addEventListener("click", () =>
-        loadRepositories(true).catch((error) => setStatus(error.message, false))
+        {
+          setButtonBusy(el.loadReposBtn, true, "Loading...");
+          loadRepositories(true)
+            .catch((error) => setStatus(error.message, false))
+            .finally(() => setButtonBusy(el.loadReposBtn, false));
+        }
       );
       el.repoPicker.addEventListener("change", () => {
         if (el.repoPicker.value) {
@@ -602,18 +691,37 @@
         createRepository().catch((error) => setStatus(error.message, false))
       );
       el.refreshBtn.addEventListener("click", () =>
-        Promise.all([loadStatus(), loadDeviceFlowStatus(), loadRepositories(false)])
-          .then(() => setStatus("Status refreshed"))
-          .catch((error) => setStatus(error.message, false))
+        {
+          setButtonBusy(el.refreshBtn, true, "Refreshing...");
+          Promise.all([loadStatus(), loadDeviceFlowStatus(), loadRepositories(false)])
+            .then(() => setStatus("Status refreshed"))
+            .catch((error) => setStatus(error.message, false))
+            .finally(() => setButtonBusy(el.refreshBtn, false));
+        }
       );
       el.downloadDiagnosticsBtn.addEventListener("click", () =>
-        downloadDiagnostics().catch((error) => setStatus(error.message, false))
+        {
+          setButtonBusy(el.downloadDiagnosticsBtn, true, "Preparing...");
+          downloadDiagnostics()
+            .catch((error) => setStatus(error.message, false))
+            .finally(() => setButtonBusy(el.downloadDiagnosticsBtn, false));
+        }
       );
       el.saveIgnoreBtn.addEventListener("click", () =>
-        saveIgnoreRecommendations().catch((error) => setStatus(error.message, false))
+        {
+          setButtonBusy(el.saveIgnoreBtn, true, "Writing...");
+          saveIgnoreRecommendations()
+            .catch((error) => setStatus(error.message, false))
+            .finally(() => setButtonBusy(el.saveIgnoreBtn, false));
+        }
       );
       el.refreshIgnoreBtn.addEventListener("click", () =>
-        loadIgnoreRecommendations().catch((error) => setStatus(error.message, false))
+        {
+          setButtonBusy(el.refreshIgnoreBtn, true, "Refreshing...");
+          loadIgnoreRecommendations()
+            .catch((error) => setStatus(error.message, false))
+            .finally(() => setButtonBusy(el.refreshIgnoreBtn, false));
+        }
       );
 
       applyRepoMode();
