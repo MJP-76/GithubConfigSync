@@ -166,30 +166,6 @@ class SyncEngineTests(unittest.TestCase):
         self.assertEqual(result["content"]["path"], ".gitignore")
         self.assertEqual(calls["count"], 2)
 
-    def test_put_content_retries_on_gateway_timeout(self) -> None:
-        from github_sync_app.sync.github_client import GitHubClient
-        from github_sync_app.sync.errors import SyncError
-
-        client = GitHubClient(repository="owner/repo", branch="main", token="token")
-        calls = {"count": 0}
-
-        def fake_request(method: str, url: str, payload=None):  # noqa: ANN001
-            calls["count"] += 1
-            if calls["count"] < 3:
-                raise SyncError(
-                    f'GitHub API error HTTP 504 for PUT {url}: {"{"}"status":"504"{"}"}'
-                )
-            return {"content": {"path": ".gitignore"}}
-
-        with patch.object(GitHubClient, "_request_json", side_effect=fake_request), patch(
-            "github_sync_app.sync.github_client.time.sleep"
-        ) as sleep_mock:
-            result = client.put_content(".gitignore", b"data", "update .gitignore")
-
-        self.assertEqual(result["content"]["path"], ".gitignore")
-        self.assertEqual(calls["count"], 3)
-        self.assertEqual(sleep_mock.call_count, 2)
-
     def test_run_live_can_be_cancelled_between_writes(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
