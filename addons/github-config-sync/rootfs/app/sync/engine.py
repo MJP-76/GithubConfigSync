@@ -180,11 +180,7 @@ class SyncEngine:
                     continue
                 relative = path.relative_to(root).as_posix()
                 target = f"{version_root}/{prefix}/{relative}" if prefix else f"{version_root}/{relative}"
-                self._github.put_content(
-                    path=target,
-                    content=path.read_bytes(),
-                    message=f"sync: snapshot {target}",
-                )
+                self._put_with_retry(target, path.read_bytes(), message=f"sync: snapshot {target}")
 
     def _rotate_version_snapshots(self) -> None:
         keep = max(1, self._config.version_retention_count)
@@ -231,14 +227,15 @@ class SyncEngine:
             cancelled=True,
         )
 
-    def _put_with_retry(self, relative: str, content: bytes) -> None:
+    def _put_with_retry(self, relative: str, content: bytes, message: str | None = None) -> None:
         remote = self._github.get_content(relative)
         sha = remote.get("sha") if remote else None
+        commit_message = message or f"sync: update {relative}"
         try:
             self._github.put_content(
                 path=relative,
                 content=content,
-                message=f"sync: update {relative}",
+                message=commit_message,
                 sha=sha,
             )
         except Exception as err:  # noqa: BLE001
@@ -249,7 +246,7 @@ class SyncEngine:
             self._github.put_content(
                 path=relative,
                 content=content,
-                message=f"sync: update {relative}",
+                message=commit_message,
                 sha=sha,
             )
 

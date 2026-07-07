@@ -226,6 +226,42 @@ class SyncEngineTests(unittest.TestCase):
             self.assertIn("one.yaml", uploaded_paths)
             self.assertTrue(any(path.startswith("versions/") for path in uploaded_paths))
 
+    def test_run_live_retries_version_snapshot_on_sha_conflict(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "one.yaml").write_text("1", encoding="utf-8")
+
+            config = SyncConfig(
+                repository="owner/repo",
+                branch="main",
+                token="token",
+                config_root=str(root),
+                addon_config_root="/addon_configs",
+                dry_run=False,
+                version_retention_count=7,
+            )
+            plan = SyncPlan(added=["one.yaml"], changed=[], removed=[], total_files=1)
+            fake_client = MagicMock()
+            fake_client.get_content.side_effect = [
+                None,
+                None,
+                {"sha": "stale"},
+                {"sha": "fresh"},
+            ]
+            fake_client.list_directory_contents.return_value = []
+            fake_client.put_content.side_effect = [
+                {"content": {"path": "one.yaml"}},
+                Exception('GitHub API error HTTP 409 for PUT https://api.github.com/repos/owner/repo/contents/versions%2F20260707T204145Z%2Fone.yaml: {"status":"409"}'),
+                {"content": {"path": "versions/20260707T204145Z/one.yaml"}},
+            ]
+
+            with patch("sync.engine.GitHubClient", return_value=fake_client):
+                engine = SyncEngine(config, previous_hash_index={})
+                result = engine.run(plan)
+
+            self.assertEqual(result.synced_count, 1)
+            self.assertGreaterEqual(fake_client.put_content.call_count, 3)
+
     def test_prune_versions_older_than_days_deletes_stale_snapshots(self) -> None:
         config = SyncConfig(
             repository="owner/repo",
