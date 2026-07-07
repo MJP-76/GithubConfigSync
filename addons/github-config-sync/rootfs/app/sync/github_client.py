@@ -209,11 +209,6 @@ class GitHubClient:
         except urllib.error.URLError as err:
             raise SyncError(f"GitHub API request failed for {method} {url}: {err.reason}") from err
 
-
-def _is_sha_conflict(err: SyncError) -> bool:
-    message = str(err)
-    return "HTTP 409" in message or '"status":"409"' in message or '"status": "409"' in message
-
     def _oauth_request(self, method: str, path: str, payload: dict[str, Any] | None = None) -> dict[str, Any]:
         headers = {
             "User-Agent": "github-config-sync-addon",
@@ -243,3 +238,8 @@ def _is_sha_conflict(err: SyncError) -> bool:
             raise SyncError(f"GitHub OAuth error HTTP {err.code} for {method} {path}: {body}") from err
         except urllib.error.URLError as err:
             raise SyncError(f"GitHub OAuth request failed for {method} {path}: {err.reason}") from err
+
+
+def _is_sha_conflict(err: SyncError) -> bool:
+    message = str(err)
+    return "HTTP 409" in message or '"status":"409"' in message or '"status": "409"' in message
