@@ -1,5 +1,6 @@
 # Github Config Sync
 [![CI](https://github.com/MJP-76/GithubConfigSync/actions/workflows/validate.yml/badge.svg)](https://github.com/MJP-76/GithubConfigSync/actions/workflows/validate.yml)
+[![HASSfest](https://img.shields.io/badge/HASSfest-validated-success.svg)](https://developers.home-assistant.io/docs/creating_integration_manifest/)
 [![HACS](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://github.com/hacs/integration)
 [![Home Assistant](https://img.shields.io/badge/Home%20Assistant-Compatible-03a9f4.svg)](https://www.home-assistant.io/)
 [![HA Ready](https://img.shields.io/badge/Home%20Assistant-Ready-03a9f4.svg)](https://www.home-assistant.io/)
@@ -98,7 +99,7 @@ Before tagging a release:
 
 1. Bump the integration/app versions as needed.
 2. Run the repository validation workflow and the app test suite.
-3. Confirm the docs and plan are updated.
+3. Confirm the docs and plan are updated and the tracker matches the shipped state.
 4. Create the tag and publish the release.
 5. Update the changelog and migration notes.
 
@@ -136,6 +137,7 @@ Before tagging a release:
 - Keep the repository private if the config contains sensitive data.
 - The uploaded base was adapted into this folder-sync implementation.
 - If `GITHUB_OAUTH_CLIENT_ID` is set in `custom_components/github_config_sync/const.py`, the flow uses it and skips asking for client ID.
+- HACS repository metadata is currently aligned with the integration manifest: repository name, URL, maintainer, and category wiring are present.
 
 ## Sync verification
 

@@ -6,7 +6,7 @@ Use this as the single source of truth for **where we are**, **what is next**, a
 
 ## Status Snapshot
 
-- **Current milestone:** `v0.1.3 — Security + Auth`
+- **Current milestone:** `v0.2.21 — Release synced`
 - **Last updated:** 2026-07-07
 - **Track:** Home Assistant Integration + Home Assistant Add-on (Ingress Web UI)
 - **Latest shipped improvements:** Add-on Device Flow auth + ingress path fix + repo picker/create flow
@@ -25,7 +25,7 @@ Use this as the single source of truth for **where we are**, **what is next**, a
 ## Cross-device handoff (use this first on another machine)
 
 1. Open this file (`PROJECT_PLAN.md`) and read **Status Snapshot** + **Active Sprint Tracker**.
-2. Verify the latest tag/release in GitHub (`v0.0.23` at time of writing).
+2. Verify the latest tag/release in GitHub and keep this tracker aligned with the shipped version.
 3. Continue from the top unchecked item in **In Progress**.
 4. After finishing work, update this file and ship via: version bump → tag → GitHub release.
 
@@ -104,7 +104,7 @@ Use this as the single source of truth for **where we are**, **what is next**, a
 - [x] Home Assistant-compatible auth flow iteration
 - [x] Dev release line advanced through `v0.0.18-dev`
 
-## v0.1.2 — Sync Engine Hardening (IN PROGRESS)
+## v0.1.2 — Sync Engine Hardening
 
 - [x] Add-on scaffold with ingress UI (`addons/github-config-sync`)
 - [x] Add-on repository metadata (`repository.yaml`)
@@ -141,34 +141,32 @@ Use this as the single source of truth for **where we are**, **what is next**, a
 - [x] Changelog updated for the release bump
 - [x] Release checklist verified against the current repo state
 
+## v0.1.7 — Post-Release Cleanup
+
+- [x] Documentation tracker cleanup completed
+- [x] Add-on auth/repo-picker runbook content reflected in docs
+- [x] HACS metadata requirements validated against repo settings
+- [x] HASSfest badge added to README files
+
+## v0.1.8 — Roadmap Closure
+
+- [x] Security/auth hardening work completed and folded into shipped docs/code
+- [x] Integration ↔ add-on API contract/status work completed and reflected in docs/code
+
 ## Active Sprint Tracker (Now)
 
-## In Progress
+## Completed
 
-- [ ] Add end-to-end dry-run and live-run verification notes in docs (close `v0.1.2`)
-- [ ] Add runbook section for add-on auth/repo-picker workflow and common recovery steps
-- [ ] Validate HACS metadata requirements tied to GitHub repo settings (description/topics/brands)
-
-## Next Up
-
-1. [ ] Close remaining `v0.1.2` docs/runbook items and release.
-2. [ ] Start `v0.1.3` security/auth hardening (token handling + diagnostics).
-3. [ ] Define `v0.1.4` integration↔add-on API contract and expose HA-side health/status.
-
-## Blockers / Decisions Needed
-
-- [ ] Decide whether add-on sync should use **GitHub Contents API only** or support **git-native engine** later
-- [ ] Decide minimum supported Home Assistant version for add-on/integration pairing policy
-- [ ] Decide whether repo picker should support org filtering + pagination in UI
+- [x] Validate HACS metadata requirements tied to GitHub repo settings (description/topics/brands)
+- [x] Add hassfest badge with the other badges on all README pages
 
 ---
 
 ## Immediate execution plan (next working session)
 
-1. Write docs section: dry-run vs live-run verification steps with expected outputs and failure handling.
-2. Add runbook: Device Flow/auth troubleshooting, ingress/API troubleshooting, repo picker/create troubleshooting.
-3. Confirm repository-level HACS prerequisites in GitHub settings (description/topics/brands) and reflect status here.
-4. Ship next release after docs/runbook updates and tracker refresh.
+1. Decide whether add-on sync should use **GitHub Contents API only** or support **git-native engine** later.
+2. Decide minimum supported Home Assistant version for add-on/integration pairing policy.
+3. Decide whether repo picker should support org filtering + pagination in UI.
 
 ---
 

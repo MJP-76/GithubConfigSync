@@ -101,6 +101,7 @@ If you find this project useful, and would like to help support its continued de
 
 - `dry_run` is enabled by default to avoid accidental pushes.
 - This app is designed as a polished operator UI layer and can be wired to deeper sync logic incrementally.
+- The add-on repository metadata is minimal and valid for Home Assistant add-on store ingestion.
 
 ## Verification notes
 
