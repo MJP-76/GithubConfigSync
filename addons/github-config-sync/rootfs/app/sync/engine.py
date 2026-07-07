@@ -68,14 +68,7 @@ class SyncEngine:
             if not local_path.exists():
                 skipped_count += 1
                 continue
-            remote = self._github.get_content(relative)
-            sha = remote.get("sha") if remote else None
-            self._github.put_content(
-                path=relative,
-                content=local_path.read_bytes(),
-                message=f"sync: update {relative}",
-                sha=sha,
-            )
+            self._put_with_retry(relative, local_path.read_bytes())
             synced_count += 1
 
         for relative in plan.removed:
@@ -100,3 +93,30 @@ class SyncEngine:
                 f"Upserted {synced_count}, deleted {deleted_count}, skipped {skipped_count}."
             ),
         )
+
+    def _put_with_retry(self, relative: str, content: bytes) -> None:
+        remote = self._github.get_content(relative)
+        sha = remote.get("sha") if remote else None
+        try:
+            self._github.put_content(
+                path=relative,
+                content=content,
+                message=f"sync: update {relative}",
+                sha=sha,
+            )
+        except Exception as err:  # noqa: BLE001
+            if not _is_sha_conflict(err):
+                raise
+            remote = self._github.get_content(relative)
+            sha = remote.get("sha") if remote else None
+            self._github.put_content(
+                path=relative,
+                content=content,
+                message=f"sync: update {relative}",
+                sha=sha,
+            )
+
+
+def _is_sha_conflict(err: Exception) -> bool:
+    message = str(err)
+    return "HTTP 409" in message or "\"status\":\"409\"" in message or "\"status\": \"409\"" in message

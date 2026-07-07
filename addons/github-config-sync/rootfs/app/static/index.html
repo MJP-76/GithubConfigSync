@@ -142,6 +142,7 @@
         </p>
         <div class="row">
           <button id="startDeviceBtn" class="secondary">Start Device Login</button>
+          <span id="tokenBadge" class="status">Token missing</span>
         </div>
         <p id="deviceFlowInfo" style="margin-top: 10px; font-size: 0.9rem"></p>
       </div>
@@ -263,6 +264,7 @@
         refreshBtn: document.getElementById("refreshBtn"),
         downloadDiagnosticsBtn: document.getElementById("downloadDiagnosticsBtn"),
         deviceFlowInfo: document.getElementById("deviceFlowInfo"),
+        tokenBadge: document.getElementById("tokenBadge"),
       };
       let cachedRepos = [];
       const ingressBase = `${window.location.pathname.replace(/\/+$/, "")}/`;
@@ -274,6 +276,22 @@
       function setStatus(message, ok = true) {
         el.status.textContent = message;
         el.status.className = `status ${ok ? "ok" : "err"}`;
+      }
+
+      function updateTokenBadge(tokenHealth) {
+        const state = tokenHealth?.state || "missing";
+        const isGood = state === "valid" || state === "configured";
+        const isChecking = state === "checking";
+        const label =
+          state === "valid"
+            ? "Token saved"
+            : state === "checking"
+              ? "Checking token..."
+              : state === "expired"
+                ? "Token expired"
+                : "Token missing";
+        el.tokenBadge.textContent = label;
+        el.tokenBadge.className = `status ${isChecking ? "" : isGood ? "ok" : "err"}`.trim();
       }
 
       function getRepoMode() {
@@ -367,9 +385,11 @@
       }
 
       async function loadStatus() {
+        updateTokenBadge({ state: "checking" });
         const data = await fetchJson(apiUrl("/api/status"));
+        updateTokenBadge(data.token_health);
         el.runtime.textContent =
-          JSON.stringify({ state: data.state, auth: data.auth }, null, 2) +
+          JSON.stringify({ state: data.state, auth: data.auth, token_health: data.token_health }, null, 2) +
           "\n\n" +
           (data.log_tail || "");
       }
@@ -401,6 +421,7 @@
       }
 
       async function startDeviceLogin() {
+        updateTokenBadge({ state: "checking" });
         const data = await fetchJson(apiUrl("/api/auth/device/start"), {
           method: "POST",
           body: JSON.stringify({ client_id: el.clientId.value.trim() }),
@@ -476,6 +497,7 @@
       );
 
       applyRepoMode();
+      updateTokenBadge({ state: "checking" });
       Promise.all([loadOptions(), loadStatus(), loadDeviceFlowStatus(), loadRepositories(false)])
         .then(() => setStatus("Ready"))
         .catch((error) => setStatus(error.message, false));

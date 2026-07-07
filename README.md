@@ -7,10 +7,10 @@ Home Assistant custom integration for syncing the Home Assistant config folder t
 ## Version Tracker
 
 <!-- VERSION:START -->
-- Integration version: `0.2.1`
-- Add-on version: `0.2.1`
+- Integration version: `0.2.2`
+- Add-on version: `0.2.2`
 - Channel: `stable`
-- Release tag: `v0.2.1`
+- Release tag: `v0.2.2`
 <!-- VERSION:END -->
 
 To sync versions across integration/add-on/runtime/docs automatically:

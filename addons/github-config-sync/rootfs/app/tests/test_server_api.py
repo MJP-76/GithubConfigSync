@@ -195,6 +195,8 @@ class ServerApiTests(unittest.TestCase):
         self.assertTrue(body["ok"])
         self.assertEqual(body["auth"]["token_state"], "configured")
         self.assertEqual(body["auth"]["repository_state"], "configured")
+        self.assertEqual(body["auth"]["token_saved"], True)
+        self.assertIn(body["token_health"]["state"], ["valid", "expired", "error"])
 
     def test_diagnostics_bundle_masks_token(self) -> None:
         self._write_options(
@@ -214,6 +216,38 @@ class ServerApiTests(unittest.TestCase):
         self.assertTrue(body["ok"])
         self.assertEqual(body["options"]["github_token"], "********")
         self.assertEqual(body["auth"]["token_state"], "configured")
+        self.assertIn("token_health", body)
+
+    def test_status_reports_missing_token_health(self) -> None:
+        self._write_options({"github_repository": "owner/repo", "github_branch": "main", "github_token": ""})
+        response = self.client.get("/api/status")
+        body = response.get_json()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(body["token_health"]["state"], "missing")
+
+    def test_device_flow_persists_token_to_both_option_files(self) -> None:
+        server.DEVICE_FLOW_PATH.write_text(
+            json.dumps(
+                {
+                    "client_id": "client-id",
+                    "device_code": "device-code",
+                    "user_code": "ABCD-EFGH",
+                    "verification_uri": "https://github.com/login/device",
+                    "interval": 5,
+                }
+            ),
+            encoding="utf-8",
+        )
+        self._write_options({"github_repository": "owner/repo", "github_branch": "main"})
+        with patch("server.GitHubClient.exchange_device_code", return_value="gho_persisted"):
+            response = self.client.post("/api/auth/device/complete")
+
+        body = response.get_json()
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(body["ok"])
+        self.assertIn("gho_persisted", server.SUPERVISOR_OPTIONS_PATH.read_text(encoding="utf-8"))
+        self.assertIn("gho_persisted", server.WEBUI_OPTIONS_PATH.read_text(encoding="utf-8"))
 
 
 if __name__ == "__main__":

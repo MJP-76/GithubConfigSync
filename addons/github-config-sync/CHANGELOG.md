@@ -2,7 +2,11 @@
 
 ## Unreleased
 
-- Preparing the v0.2.1 release bump.
+- Preparing the v0.2.2 release bump.
+
+## 0.2.2
+
+- Updated the token badge to flip immediately on startup and after device login.
 
 ## 0.2.1
 

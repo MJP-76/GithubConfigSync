@@ -12,7 +12,7 @@ from sync import SyncConfig, SyncEngine
 from sync.errors import SyncError
 from sync.github_client import GitHubClient
 
-APP_VERSION = "0.2.1"
+APP_VERSION = "0.2.2"
 APP_PORT = 8099
 DEFAULT_OAUTH_CLIENT_ID = "Ov23li2ycCraodta6WCU"
 
@@ -84,6 +84,11 @@ def _save_state(updates: dict[str, Any]) -> dict[str, Any]:
     return state
 
 
+def _persist_options(payload: dict[str, Any]) -> None:
+    _save_json(SUPERVISOR_OPTIONS_PATH, payload)
+    _save_json(WEBUI_OPTIONS_PATH, payload)
+
+
 def _append_log(message: str) -> None:
     LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
     timestamp = dt.datetime.now(dt.timezone.utc).isoformat()
@@ -128,9 +133,29 @@ def _auth_diagnostics(options: dict[str, Any]) -> dict[str, Any]:
     return {
         "repository_configured": bool(repository),
         "token_configured": bool(token),
+        "token_saved": bool(token),
         "token_state": "configured" if token else "missing",
         "repository_state": "configured" if repository else "missing",
     }
+
+
+def _token_health(options: dict[str, Any]) -> dict[str, Any]:
+    token = str(options.get("github_token", "")).strip()
+    if not token:
+        return {"state": "missing", "message": "No token saved"}
+    client = GitHubClient(
+        repository=str(options.get("github_repository", "")).strip(),
+        branch=str(options.get("github_branch", "main")).strip() or "main",
+        token=token,
+    )
+    try:
+        client._request_json("GET", "https://api.github.com/user")  # pylint: disable=protected-access
+    except SyncError as err:
+        message = str(err)
+        if "HTTP 401" in message or "HTTP 403" in message:
+            return {"state": "expired", "message": "GitHub rejected the token"}
+        return {"state": "error", "message": message}
+    return {"state": "valid", "message": "GitHub accepted the token"}
 
 
 def _sanitized_log_tail(limit: int = 4000) -> str:
@@ -146,6 +171,7 @@ def _diagnostics_bundle() -> dict[str, Any]:
         "ok": True,
         "version": APP_VERSION,
         "auth": _auth_diagnostics(options),
+        "token_health": _token_health(options),
         "options": _mask_token(options),
         "state": state,
         "log_tail": _sanitized_log_tail(),
@@ -277,7 +303,7 @@ def set_options():
     candidate = {
         "github_repository": str(payload.get("github_repository", "")).strip(),
         "github_branch": str(payload.get("github_branch", "main")).strip() or "main",
-        "github_token": str(payload.get("github_token", "")).strip(),
+        "github_token": str(payload.get("github_token", "")).strip() or _merge_options().get("github_token", ""),
         "github_client_id": str(
             payload.get("github_client_id", _merge_options().get("github_client_id", DEFAULT_OAUTH_CLIENT_ID))
         ).strip()
@@ -291,7 +317,7 @@ def set_options():
         return jsonify({"ok": False, "error": message}), 400
 
     candidate["sync_interval_minutes"] = int(candidate["sync_interval_minutes"])
-    _save_json(WEBUI_OPTIONS_PATH, candidate)
+    _persist_options(candidate)
     _append_log("Settings updated via web UI")
     return jsonify({"ok": True, "options": _mask_token(_merge_options())})
 
@@ -305,6 +331,7 @@ def get_status():
             "ok": True,
             "state": state,
             "auth": _auth_diagnostics(options),
+            "token_health": _token_health(options),
             "log_tail": _sanitized_log_tail(),
         }
     )
@@ -413,7 +440,7 @@ def complete_device_auth():
     merged = _merge_options()
     merged["github_token"] = token
     merged["github_client_id"] = str(flow.get("client_id", "")).strip() or DEFAULT_OAUTH_CLIENT_ID
-    _save_json(WEBUI_OPTIONS_PATH, merged)
+    _persist_options(merged)
     _clear_device_flow()
     _append_log("GitHub token obtained via device flow")
     return jsonify({"ok": True, "options": _mask_token(_merge_options())})

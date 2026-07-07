@@ -101,6 +101,37 @@ class SyncEngineTests(unittest.TestCase):
             self.assertEqual(fake_client.put_content.call_count, 2)
             self.assertEqual(fake_client.delete_content.call_count, 1)
 
+    def test_run_live_retries_on_sha_conflict(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "a.yaml").write_text("a", encoding="utf-8")
+
+            config = SyncConfig(
+                repository="owner/repo",
+                branch="main",
+                token="token",
+                config_root=str(root),
+                dry_run=False,
+            )
+            plan = SyncPlan(added=["a.yaml"], changed=[], removed=[], total_files=1)
+
+            fake_client = MagicMock()
+            fake_client.get_content.side_effect = [
+                {"sha": "oldsha"},
+                {"sha": "newsha"},
+            ]
+            fake_client.put_content.side_effect = [
+                Exception('GitHub API error HTTP 409 for PUT https://api.github.com/repos/owner/repo/contents/a.yaml: {"status":"409"}'),
+                {"content": {"html_url": "https://example.com"}},
+            ]
+
+            with patch("sync.engine.GitHubClient", return_value=fake_client):
+                engine = SyncEngine(config, previous_hash_index={})
+                result = engine.run(plan)
+
+            self.assertEqual(result.synced_count, 1)
+            self.assertEqual(fake_client.put_content.call_count, 2)
+
 
 if __name__ == "__main__":
     unittest.main()
