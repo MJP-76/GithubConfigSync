@@ -13,7 +13,7 @@ from github_sync_app.sync.errors import SyncError
 from github_sync_app.sync.github_client import GitHubClient
 from github_sync_app.sync.hashing import IGNORE_PATTERNS
 
-APP_VERSION = "0.2.30"
+APP_VERSION = "0.2.31"
 APP_PORT = 8099
 DEFAULT_OAUTH_CLIENT_ID = "Ov23li2ycCraodta6WCU"
 
