@@ -433,6 +433,7 @@
       };
       let cachedRepos = [];
       let cachedIgnorePatterns = [];
+      let statusPollTimer = null;
       const ingressBase = `${window.location.pathname.replace(/\/+$/, "")}/`;
 
       function apiUrl(path) {
@@ -593,6 +594,15 @@
           JSON.stringify({ state: data.state, auth: data.auth, token_health: data.token_health }, null, 2) +
           "\n\n" +
           (data.log_tail || "");
+      }
+
+      function startStatusPolling() {
+        if (statusPollTimer) {
+          return;
+        }
+        statusPollTimer = window.setInterval(() => {
+          loadStatus().catch(() => {});
+        }, 2000);
       }
 
       async function loadIgnoreRecommendations() {
@@ -807,6 +817,7 @@
       Promise.all([loadOptions(), loadStatus(), loadDeviceFlowStatus(), loadRepositories(false), loadIgnoreRecommendations()])
         .then(() => setStatus("Ready"))
         .catch((error) => setStatus(error.message, false));
+      startStatusPolling();
     </script>
   </body>
   </html>

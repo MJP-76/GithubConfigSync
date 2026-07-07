@@ -2,7 +2,12 @@
 
 ## Unreleased
 
-- Preparing the v0.2.12 release bump.
+- Preparing the v0.2.13 release bump.
+
+## 0.2.13
+
+- Added live status polling so progress figures repaint during uploads.
+- Synced the add-on, integration, docs, and release metadata to v0.2.13.
 
 ## 0.2.12
 
