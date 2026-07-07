@@ -2,11 +2,11 @@
 
 ## Unreleased
 
-- Preparing the v0.1.7 release bump.
+- Preparing the v0.0.25 release bump.
 
-## 0.1.7
+## 0.0.25
 
-- Bumped the add-on version for the next release.
+- Bumped the add-on/integration version for the next release.
 
 ## 0.1.6
 

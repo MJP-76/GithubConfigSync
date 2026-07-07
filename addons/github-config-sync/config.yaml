@@ -1,6 +1,6 @@
 name: "Github Config Sync"
 description: "Home Assistant add-on with web UI for GitHub config sync operations."
-version: "0.1.7"
+version: "0.0.25"
 slug: "github_config_sync_web"
 url: "https://github.com/MJP-76/GithubConfigSync"
 init: false
