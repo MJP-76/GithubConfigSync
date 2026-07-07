@@ -2,7 +2,10 @@
 
 ## Unreleased
 
-- Preparing the v0.2.21 release bump.
+- Preparing the v0.2.25 release bump.
+
+- Fixed GitHub OAuth client helper loading so Device Flow start completes reliably.
+- Retried version snapshot writes on stale SHA conflicts so GitHub 409s no longer abort releases.
 
 ## 0.2.21
 

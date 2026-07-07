@@ -21,10 +21,10 @@ If you find this project useful, and would like to help support its continued de
 ## Version Tracker
 
 <!-- VERSION:START -->
-- Integration version: `0.2.24`
-- App version: `0.2.24`
+- Integration version: `0.2.25`
+- App version: `0.2.25`
 - Channel: `stable`
-- Release tag: `v0.2.24`
+- Release tag: `v0.2.25`
 <!-- VERSION:END -->
 
 ## What it provides
