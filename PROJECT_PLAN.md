@@ -6,9 +6,10 @@ Use this as the single source of truth for **where we are**, **what is next**, a
 
 ## Status Snapshot
 
+- **Last updated:** 2026-07-07
 - **Current milestone:** `v0.1.2 — Sync Engine Hardening`
 - **Track:** Home Assistant Integration + Home Assistant Add-on (Ingress Web UI)
-- **Release cadence:** Dev pre-releases per milestone increment
+- **Latest shipped improvements:** Add-on Device Flow auth + ingress path fix + repo picker/create flow
 - **Version state:** See auto-managed tracker below.
 
 <!-- VERSION:START -->
@@ -17,6 +18,22 @@ Use this as the single source of truth for **where we are**, **what is next**, a
 - Channel: `stable`
 - Release tag: `v0.0.23`
 <!-- VERSION:END -->
+
+---
+
+## Cross-device handoff (use this first on another machine)
+
+1. Open this file (`PROJECT_PLAN.md`) and read **Status Snapshot** + **Active Sprint Tracker**.
+2. Verify the latest tag/release in GitHub (`v0.0.23` at time of writing).
+3. Continue from the top unchecked item in **In Progress**.
+4. After finishing work, update this file and ship via: version bump → tag → GitHub release.
+
+**Current repo context**
+
+- Integration path: `custom_components/github_config_sync/`
+- Add-on path: `addons/github-config-sync/`
+- Add-on web app: `addons/github-config-sync/rootfs/app/`
+- Version sync script: `scripts/sync_versions.py`
 
 ---
 
@@ -73,12 +90,13 @@ Use this as the single source of truth for **where we are**, **what is next**, a
 
 ## In Progress
 
-- [ ] Update docs for architecture + runbook
-- [ ] End-to-end dry-run and live-run verification notes
+- [ ] Add end-to-end dry-run and live-run verification notes in docs (close `v0.1.2`)
+- [ ] Add runbook section for add-on auth/repo-picker workflow and common recovery steps
+- [ ] Validate HACS metadata requirements tied to GitHub repo settings (description/topics/brands)
 
 ## Next Up
 
-- [ ] Complete `v0.1.2` and publish next dev release
+- [ ] Complete `v0.1.2` and publish next stable/dev release as needed
 - [ ] Start `v0.1.3` auth/security hardening
 
 ## Blockers / Decisions Needed
