@@ -9,6 +9,7 @@
 - Skipped ignored cache/runtime files inside version snapshots so `.cache` entries no longer sync.
 - Defaulted blank create-repo fields to a humanized repository name and description.
 - Updated docs and release notes for the repo-create defaults and sync stability changes.
+- Clean Upload preserves `versions/` and only clears the live tree.
 
 ## 0.2.21
 

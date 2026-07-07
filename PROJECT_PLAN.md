@@ -167,6 +167,10 @@ Use this as the single source of truth for **where we are**, **what is next**, a
 
 - [x] Track future upload/snapshot performance improvements for later implementation
 
+## v0.1.12 — Clean Upload Snapshot Safety
+
+- [x] Clean upload preserves version snapshots and only clears the live tree
+
 ## Active Sprint Tracker (Now)
 
 ## Completed
@@ -178,6 +182,7 @@ Use this as the single source of truth for **where we are**, **what is next**, a
 - [x] Close repo picker org filtering/pagination decision
 - [x] Auto-select newly created repository in the repo picker
 - [x] Track future upload/snapshot performance improvements for later implementation
+- [x] Clean upload preserves version snapshots and only clears the live tree
 
 ---
 
