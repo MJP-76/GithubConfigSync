@@ -10,6 +10,7 @@ Use this as the single source of truth for **where we are**, **what is next**, a
 - **Current milestone:** `v0.1.2 — Sync Engine Hardening`
 - **Track:** Home Assistant Integration + Home Assistant Add-on (Ingress Web UI)
 - **Latest shipped improvements:** Add-on Device Flow auth + ingress path fix + repo picker/create flow
+- **Current operator UX:** Device Login section first, existing/create repo flow, troubleshooting auth overrides hidden by default
 - **Version state:** See auto-managed tracker below.
 
 <!-- VERSION:START -->
@@ -34,6 +35,56 @@ Use this as the single source of truth for **where we are**, **what is next**, a
 - Add-on path: `addons/github-config-sync/`
 - Add-on web app: `addons/github-config-sync/rootfs/app/`
 - Version sync script: `scripts/sync_versions.py`
+
+---
+
+## Work completed so far (history + outcomes)
+
+### Integration and platform foundations
+
+- [x] Fixed integration load errors caused by stale constants/imports.
+- [x] Completed integration/repo rename and branding alignment to **Github Config Sync**.
+- [x] Stabilized config flow behavior and handler compatibility.
+- [x] Implemented GitHub OAuth Device Flow for the integration setup path.
+- [x] Added HACS + Hassfest validation workflow and metadata scaffolding.
+
+### Add-on architecture and runtime
+
+- [x] Built Home Assistant add-on scaffold (`addons/github-config-sync/`) with ingress UI.
+- [x] Added API/runtime surfaces: options, status, health, sync trigger.
+- [x] Introduced structured sync core (`sync/engine`, `sync/github_client`, `sync/models`, `sync/errors`).
+- [x] Added hash-index based file diffing (added/changed/removed) and runtime summaries.
+- [x] Added sync test coverage for hashing, planning, and API behavior.
+
+### Major production fixes shipped
+
+- [x] Fixed add-on image/base compatibility and build failures.
+- [x] Resolved PEP 668 packaging issue by installing Flask via Alpine package (`py3-flask`) instead of system pip.
+- [x] Added add-on `CHANGELOG.md` so Supervisor can resolve changelog metadata.
+- [x] Fixed UI non-JSON parsing failure handling.
+- [x] Fixed ingress API 404 behavior by using ingress-aware API paths in frontend.
+
+### UX work discussed and implemented
+
+- [x] Moved Device Flow controls to a dedicated top section.
+- [x] Hid token/client ID inputs behind troubleshooting controls by default.
+- [x] Added repository mode UX: choose **existing repo** (picker) or **create new repo**.
+- [x] Added backend repo endpoints for list/create and UI wiring to persist selected repo.
+
+### Release and process
+
+- [x] Published iterative stable releases through `v0.0.23` (add-on `0.1.6`).
+- [x] Added/used automated version sync script across integration/add-on/docs.
+- [x] Added this in-repo tracker as the canonical cross-device status document.
+
+---
+
+## What we agreed in discussion (product decisions)
+
+- Device Flow is the default auth path for both integration and add-on UX.
+- Token/client ID should not be front-and-center for normal users.
+- Repository selection should be guided (picker/create) instead of manual-only typing.
+- Keep both Hassfest and HACS validation in place while integration distribution continues.
 
 ---
 
@@ -96,13 +147,24 @@ Use this as the single source of truth for **where we are**, **what is next**, a
 
 ## Next Up
 
-- [ ] Complete `v0.1.2` and publish next stable/dev release as needed
-- [ ] Start `v0.1.3` auth/security hardening
+1. [ ] Close remaining `v0.1.2` docs/runbook items and release.
+2. [ ] Start `v0.1.3` security/auth hardening (token handling + diagnostics).
+3. [ ] Define `v0.1.4` integration↔add-on API contract and expose HA-side health/status.
 
 ## Blockers / Decisions Needed
 
 - [ ] Decide whether add-on sync should use **GitHub Contents API only** or support **git-native engine** later
 - [ ] Decide minimum supported Home Assistant version for add-on/integration pairing policy
+- [ ] Decide whether repo picker should support org filtering + pagination in UI
+
+---
+
+## Immediate execution plan (next working session)
+
+1. Write docs section: dry-run vs live-run verification steps with expected outputs and failure handling.
+2. Add runbook: Device Flow/auth troubleshooting, ingress/API troubleshooting, repo picker/create troubleshooting.
+3. Confirm repository-level HACS prerequisites in GitHub settings (description/topics/brands) and reflect status here.
+4. Ship next release after docs/runbook updates and tracker refresh.
 
 ---
 
