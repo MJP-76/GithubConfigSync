@@ -2,7 +2,11 @@
 
 ## Unreleased
 
-- Preparing the v0.2.28 release bump.
+- Preparing the v0.2.29 release bump.
+
+- Moved the app runtime under `github_sync_app/` and kept the root `README.md` at the repo top level.
+- Documented the repo layout and snapshot structure in the README files and project tracker.
+- Clean uploads now preserve `README.md`, `github_sync_app/`, and `versions/`.
 
 - Fixed GitHub OAuth client helper loading so Device Flow start completes reliably.
 - Retried version snapshot writes on stale SHA conflicts so GitHub 409s no longer abort releases.

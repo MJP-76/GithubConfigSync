@@ -15,7 +15,7 @@ if str(APP_ROOT) not in sys.path:
 if importlib.util.find_spec("flask") is None:
     raise unittest.SkipTest("flask is required for server API tests")
 
-import server
+from github_sync_app import server
 
 
 class ServerApiTests(unittest.TestCase):
@@ -119,7 +119,7 @@ class ServerApiTests(unittest.TestCase):
 
     def test_start_device_flow_returns_verification_data(self) -> None:
         self._write_options({"github_client_id": "client-id", "github_branch": "main"})
-        with patch("server.GitHubClient.start_device_flow") as start_flow:
+        with patch("github_sync_app.server.GitHubClient.start_device_flow") as start_flow:
             start_flow.return_value = {
                 "device_code": "device-code",
                 "user_code": "ABCD-EFGH",
@@ -149,7 +149,7 @@ class ServerApiTests(unittest.TestCase):
             encoding="utf-8",
         )
         self._write_options({"github_repository": "owner/repo", "github_branch": "main"})
-        with patch("server.GitHubClient.exchange_device_code", return_value="gho_testtoken"):
+        with patch("github_sync_app.server.GitHubClient.exchange_device_code", return_value="gho_testtoken"):
             response = self.client.post("/api/auth/device/complete")
 
         body = response.get_json()
@@ -168,7 +168,7 @@ class ServerApiTests(unittest.TestCase):
 
     def test_list_repositories_returns_picker_items(self) -> None:
         self._write_options({"github_repository": "owner/repo", "github_branch": "main", "github_token": "gho_x"})
-        with patch("server.GitHubClient.list_user_repositories") as list_repos:
+        with patch("github_sync_app.server.GitHubClient.list_user_repositories") as list_repos:
             list_repos.return_value = [
                 {"name": "repo-a", "full_name": "owner/repo-a", "private": True},
                 {"name": "repo-b", "full_name": "owner/repo-b", "private": False},
@@ -183,7 +183,7 @@ class ServerApiTests(unittest.TestCase):
 
     def test_create_repository_updates_selected_repository(self) -> None:
         self._write_options({"github_branch": "main", "github_token": "gho_x"})
-        with patch("server.GitHubClient.create_repository") as create_repo:
+        with patch("github_sync_app.server.GitHubClient.create_repository") as create_repo:
             create_repo.return_value = {"full_name": "owner/new-config-repo"}
             response = self.client.post(
                 "/api/repos/create",
@@ -197,7 +197,7 @@ class ServerApiTests(unittest.TestCase):
 
     def test_create_repository_uses_default_name_when_blank(self) -> None:
         self._write_options({"github_branch": "main", "github_token": "gho_x"})
-        with patch("server.GitHubClient.create_repository") as create_repo:
+        with patch("github_sync_app.server.GitHubClient.create_repository") as create_repo:
             create_repo.return_value = {"full_name": "owner/home-assistant-config"}
             response = self.client.post(
                 "/api/repos/create",
@@ -295,7 +295,7 @@ class ServerApiTests(unittest.TestCase):
                 "dry_run": True,
             }
         )
-        with patch("server.GitHubClient.probe_repository", return_value=(True, "Repository probe succeeded")):
+        with patch("github_sync_app.server.GitHubClient.probe_repository", return_value=(True, "Repository probe succeeded")):
             response = self.client.post("/api/sync/clean")
 
         body = response.get_json()
@@ -318,7 +318,7 @@ class ServerApiTests(unittest.TestCase):
             }
         )
 
-        with patch("server.GitHubClient.probe_repository", return_value=(True, "Repository probe succeeded")):
+        with patch("github_sync_app.server.GitHubClient.probe_repository", return_value=(True, "Repository probe succeeded")):
             response = self.client.post("/api/sync/clean")
 
         body = response.get_json()
@@ -339,8 +339,8 @@ class ServerApiTests(unittest.TestCase):
             }
         )
 
-        with patch("server.SyncEngine.clean_remote_tree") as clean_remote_tree, patch(
-            "server.GitHubClient.probe_repository", return_value=(True, "Repository probe succeeded")
+        with patch("github_sync_app.server.SyncEngine.clean_remote_tree") as clean_remote_tree, patch(
+            "github_sync_app.server.GitHubClient.probe_repository", return_value=(True, "Repository probe succeeded")
         ):
             response = self.client.post("/api/sync/clean")
 
@@ -362,7 +362,7 @@ class ServerApiTests(unittest.TestCase):
                 "dry_run": True,
             }
         )
-        with patch("server.GitHubClient.probe_repository", return_value=(True, "Repository probe succeeded")):
+        with patch("github_sync_app.server.GitHubClient.probe_repository", return_value=(True, "Repository probe succeeded")):
             response = self.client.post("/api/sync/manual")
 
         body = response.get_json()
@@ -383,7 +383,7 @@ class ServerApiTests(unittest.TestCase):
                 "dry_run": True,
             }
         )
-        with patch("server.GitHubClient.probe_repository", return_value=(True, "Repository probe succeeded")):
+        with patch("github_sync_app.server.GitHubClient.probe_repository", return_value=(True, "Repository probe succeeded")):
             response = self.client.post("/api/sync/manual")
 
         body = response.get_json()
@@ -406,7 +406,7 @@ class ServerApiTests(unittest.TestCase):
             encoding="utf-8",
         )
         self._write_options({"github_repository": "owner/repo", "github_branch": "main"})
-        with patch("server.GitHubClient.exchange_device_code", return_value="gho_persisted"):
+        with patch("github_sync_app.server.GitHubClient.exchange_device_code", return_value="gho_persisted"):
             response = self.client.post("/api/auth/device/complete")
 
         body = response.get_json()

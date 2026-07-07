@@ -33,7 +33,7 @@ class GitHubClient:
             "X-GitHub-Api-Version": "2022-11-28",
         }
         if self.token:
-            headers["Authorization"] = f"Bearer {self.token}"
+            headers["Authorization"] = f"******"
         return headers
 
     def start_device_flow(self, client_id: str, scope: str = "repo") -> dict[str, Any]:

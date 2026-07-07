@@ -169,7 +169,7 @@ class SyncEngine:
     def clean_remote_tree(self) -> None:
         self._delete_remote_tree_except(
             "",
-            excluded_names={"versions", "README.md", "custom_components", "addons", ".github"},
+            excluded_names={"versions", "README.md", "github_sync_app"},
         )
 
     def _sync_version_snapshot(self) -> None:

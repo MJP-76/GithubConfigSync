@@ -6,18 +6,18 @@ Use this as the single source of truth for **where we are**, **what is next**, a
 
 ## Status Snapshot
 
-- **Current milestone:** `v0.2.28 — Release synced`
+- **Current milestone:** `v0.2.29 — Repo layout synced`
 - **Last updated:** 2026-07-07
 - **Track:** Home Assistant Integration + Home Assistant Add-on (Ingress Web UI)
-- **Latest shipped improvements:** Add-on Device Flow auth + ingress path fix + repo picker/create flow
+- **Latest shipped improvements:** github_sync_app layout + root README preserved + snapshot structure documented
 - **Current operator UX:** Device Login section first, existing/create repo flow, troubleshooting auth overrides hidden by default
 - **Version state:** See auto-managed tracker below.
 
 <!-- VERSION:START -->
-- Integration version: `0.2.28`
-- Add-on version: `0.2.28`
+- Integration version: `0.2.29`
+- Add-on version: `0.2.29`
 - Channel: `stable`
-- Release tag: `v0.2.28`
+- Release tag: `v0.2.29`
 <!-- VERSION:END -->
 
 ---
