@@ -8,6 +8,9 @@
 
 Containerized Home Assistant add-on with an ingress web UI for GitHub sync operations.
 
+> [!IMPORTANT]
+> [Support me](../SUPPORT.md)
+
 ## Version Tracker
 
 <!-- VERSION:START -->
@@ -82,3 +85,13 @@ Containerized Home Assistant add-on with an ingress web UI for GitHub sync opera
 
 - `dry_run` is enabled by default to avoid accidental pushes.
 - This add-on is designed as a polished operator UI layer and can be wired to deeper sync logic incrementally.
+
+## Verification notes
+
+- Start with a dry run and confirm the API summary matches the expected file changes.
+- For a live run, disable `dry_run` only after the repository probe passes and the GitHub token has repo write access.
+- Missing local files during an upsert are skipped; missing remote files during deletes are skipped as well.
+
+## Support me
+
+See [SUPPORT.md](../SUPPORT.md) for support links.

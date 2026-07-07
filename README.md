@@ -9,6 +9,9 @@
 
 Home Assistant custom integration for syncing the Home Assistant config folder to GitHub.
 
+> [!IMPORTANT]
+> [Support me](SUPPORT.md)
+
 ## Version Tracker
 
 <!-- VERSION:START -->
@@ -117,3 +120,13 @@ Before tagging a release:
 - Keep the repository private if the config contains sensitive data.
 - The uploaded base was adapted into this folder-sync implementation.
 - If `GITHUB_OAUTH_CLIENT_ID` is set in `custom_components/github_config_sync/const.py`, the flow uses it and skips asking for client ID.
+
+## Sync verification
+
+- **Dry run**: use `dry_run: true` first to confirm the scan is picking up added, changed, and removed files without pushing anything.
+- **Live run**: switch `dry_run` to `false` only after the dry-run summary looks correct, then confirm the repository probe succeeds and the run reports upserts/deletes as expected.
+- **Recovery check**: if a file is missing locally during a live run, it is counted as skipped rather than forcing a bad write.
+
+## Support me
+
+See [SUPPORT.md](SUPPORT.md) for support links.

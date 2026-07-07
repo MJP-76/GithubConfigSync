@@ -2,6 +2,9 @@
 
 Use this as the single source of truth for **where we are**, **what is next**, and **what is done**.
 
+> [!IMPORTANT]
+> [Support me](SUPPORT.md)
+
 ---
 
 ## Status Snapshot
@@ -145,20 +148,6 @@ Use this as the single source of truth for **where we are**, **what is next**, a
 
 ## In Progress
 
-<<<<<<< HEAD
-- [x] Complete `v0.1.2` and publish next dev release
-- [x] Start `v0.1.3` auth/security hardening
-
-## Next Up
-
-- [ ] Continue `v0.1.3` security/auth hardening follow-ups
-- [ ] Prep `v0.1.4` integration ↔ add-on contract follow-up work
-
-## Blockers / Decisions Needed
-
-- [x] Sync engine direction: **git-native engine**
-- [x] Minimum supported Home Assistant version: `2026.06.2`
-=======
 - [ ] Add end-to-end dry-run and live-run verification notes in docs (close `v0.1.2`)
 - [ ] Add runbook section for add-on auth/repo-picker workflow and common recovery steps
 - [ ] Validate HACS metadata requirements tied to GitHub repo settings (description/topics/brands)
@@ -183,7 +172,6 @@ Use this as the single source of truth for **where we are**, **what is next**, a
 2. Add runbook: Device Flow/auth troubleshooting, ingress/API troubleshooting, repo picker/create troubleshooting.
 3. Confirm repository-level HACS prerequisites in GitHub settings (description/topics/brands) and reflect status here.
 4. Ship next release after docs/runbook updates and tracker refresh.
->>>>>>> origin/main
 
 ---
 
