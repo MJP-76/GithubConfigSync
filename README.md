@@ -9,9 +9,6 @@
 
 Home Assistant custom integration for syncing the Home Assistant config folder to GitHub.
 
-> [!IMPORTANT]
-> [Support me](SUPPORT.md)
-
 ## Version Tracker
 
 <!-- VERSION:START -->
@@ -129,4 +126,6 @@ Before tagging a release:
 
 ## Support me
 
-See [SUPPORT.md](SUPPORT.md) for support links.
+If you find this integration useful, or want to support further development you can support my work here:
+
+[Support me](SUPPORT.md)

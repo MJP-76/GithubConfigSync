@@ -8,9 +8,6 @@
 
 Containerized Home Assistant add-on with an ingress web UI for GitHub sync operations.
 
-> [!IMPORTANT]
-> [Support me](../SUPPORT.md)
-
 ## Version Tracker
 
 <!-- VERSION:START -->
@@ -94,4 +91,6 @@ Containerized Home Assistant add-on with an ingress web UI for GitHub sync opera
 
 ## Support me
 
-See [SUPPORT.md](../SUPPORT.md) for support links.
+If you find this add-on useful, or want to support further development you can support my work here:
+
+[Support me](../SUPPORT.md)

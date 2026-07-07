@@ -2,9 +2,6 @@
 
 Use this as the single source of truth for **where we are**, **what is next**, and **what is done**.
 
-> [!IMPORTANT]
-> [Support me](SUPPORT.md)
-
 ---
 
 ## Status Snapshot
