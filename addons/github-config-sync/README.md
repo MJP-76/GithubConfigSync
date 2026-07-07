@@ -21,10 +21,10 @@ If you find this project useful, and would like to help support its continued de
 ## Version Tracker
 
 <!-- VERSION:START -->
-- Integration version: `0.2.25`
-- App version: `0.2.25`
+- Integration version: `0.2.26`
+- App version: `0.2.26`
 - Channel: `stable`
-- Release tag: `v0.2.25`
+- Release tag: `v0.2.26`
 <!-- VERSION:END -->
 
 ## What it provides
@@ -102,6 +102,7 @@ If you find this project useful, and would like to help support its continued de
 - `dry_run` is enabled by default to avoid accidental pushes.
 - This app is designed as a polished operator UI layer and can be wired to deeper sync logic incrementally.
 - The add-on repository metadata is minimal and valid for Home Assistant add-on store ingestion.
+- Version snapshots now skip ignored directories like `.cache`, even inside release snapshots.
 
 ## Verification notes
 
