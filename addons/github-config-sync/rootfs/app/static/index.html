@@ -337,6 +337,16 @@
           </div>
         </div>
         <details style="margin-top: 12px">
+          <summary style="cursor: pointer; color: var(--muted)">Mount points to sync</summary>
+          <div class="grid" style="margin-top: 10px">
+            <label><input id="includeMedia" type="checkbox" /> Include /media</label>
+            <label><input id="includeShare" type="checkbox" /> Include /share</label>
+            <label><input id="includeSsl" type="checkbox" /> Include /ssl</label>
+            <label><input id="includeBackups" type="checkbox" /> Include /backups</label>
+            <label><input id="includeWww" type="checkbox" /> Include /www</label>
+          </div>
+        </details>
+        <details style="margin-top: 12px">
           <summary style="cursor: pointer; color: var(--muted)">Troubleshooting options</summary>
           <p style="margin: 8px 0 0; font-size: 0.85rem; color: var(--muted)">
             Use the token override only if you need to test a specific GitHub token. For normal use, complete Device Login and let the app store the token.
@@ -400,6 +410,11 @@
         clientId: document.getElementById("clientId"),
         interval: document.getElementById("interval"),
         versionRetention: document.getElementById("versionRetention"),
+        includeMedia: document.getElementById("includeMedia"),
+        includeShare: document.getElementById("includeShare"),
+        includeSsl: document.getElementById("includeSsl"),
+        includeBackups: document.getElementById("includeBackups"),
+        includeWww: document.getElementById("includeWww"),
         dryRun: document.getElementById("dryRun"),
         runtime: document.getElementById("runtime"),
         progressStatus: document.getElementById("progressStatus"),
@@ -534,6 +549,11 @@
         el.interval.value = data.sync_interval_minutes ?? 1440;
         el.versionRetention.value = data.version_retention_count ?? 7;
         el.dryRun.checked = Boolean(data.dry_run);
+        el.includeMedia.checked = Boolean(data.include_media);
+        el.includeShare.checked = Boolean(data.include_share);
+        el.includeSsl.checked = Boolean(data.include_ssl ?? true);
+        el.includeBackups.checked = Boolean(data.include_backups);
+        el.includeWww.checked = Boolean(data.include_www ?? true);
       }
 
       async function loadRepositories(strict = false) {
@@ -661,6 +681,11 @@
             sync_interval_minutes: Number(el.interval.value || "60"),
             version_retention_count: Number(el.versionRetention.value || "7"),
             dry_run: el.dryRun.checked,
+            include_media: el.includeMedia.checked,
+            include_share: el.includeShare.checked,
+            include_ssl: el.includeSsl.checked,
+            include_backups: el.includeBackups.checked,
+            include_www: el.includeWww.checked,
           };
           await fetchJson(apiUrl("/api/options"), { method: "POST", body: JSON.stringify(payload) });
           setStatus("Settings saved");

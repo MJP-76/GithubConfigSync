@@ -2,7 +2,12 @@
 
 ## Unreleased
 
-- Preparing the v0.2.16 release bump.
+- Preparing the v0.2.17 release bump.
+
+## 0.2.17
+
+- Added configurable include/exclude controls for the standard Home Assistant mount points.
+- Synced the add-on, integration, docs, and release metadata to v0.2.17.
 
 ## 0.2.16
 

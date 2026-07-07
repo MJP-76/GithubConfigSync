@@ -20,10 +20,10 @@ If you find this project useful, and would like to help support its continued de
 ## Version Tracker
 
 <!-- VERSION:START -->
-- Integration version: `0.2.16`
-- Add-on version: `0.2.16`
+- Integration version: `0.2.17`
+- Add-on version: `0.2.17`
 - Channel: `stable`
-- Release tag: `v0.2.16`
+- Release tag: `v0.2.17`
 <!-- VERSION:END -->
 
 To sync versions across integration/add-on/runtime/docs automatically:

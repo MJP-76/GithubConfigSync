@@ -18,6 +18,16 @@ class SyncEngine:
         self._root_map = [
             ("", self._config_root),
             ("addon_configs", self._addon_config_root),
+            ("media", Path("/media")),
+            ("share", Path("/share")),
+            ("ssl", Path("/ssl")),
+            ("backups", Path("/backups")),
+            ("www", Path("/www")),
+        ]
+        self._root_map = [
+            item
+            for item in self._root_map
+            if self._root_enabled(item[0])
         ]
         self._github = GitHubClient(
             repository=config.repository,
@@ -269,9 +279,36 @@ class SyncEngine:
         return index
 
     def _local_path_for(self, relative: str) -> Path:
+        if relative.startswith("media/"):
+            return Path("/media") / relative.removeprefix("media/")
+        if relative.startswith("share/"):
+            return Path("/share") / relative.removeprefix("share/")
+        if relative.startswith("ssl/"):
+            return Path("/ssl") / relative.removeprefix("ssl/")
+        if relative.startswith("backups/"):
+            return Path("/backups") / relative.removeprefix("backups/")
+        if relative.startswith("www/"):
+            return Path("/www") / relative.removeprefix("www/")
         if relative.startswith("addon_configs/"):
             return self._addon_config_root / relative.removeprefix("addon_configs/")
         return self._config_root / relative
+
+    def _root_enabled(self, name: str) -> bool:
+        if name == "":
+            return True
+        if name == "addon_configs":
+            return True
+        if name == "media":
+            return self._config.include_media
+        if name == "share":
+            return self._config.include_share
+        if name == "ssl":
+            return self._config.include_ssl
+        if name == "backups":
+            return self._config.include_backups
+        if name == "www":
+            return self._config.include_www
+        return False
 
 
 def _is_sha_conflict(err: Exception) -> bool:

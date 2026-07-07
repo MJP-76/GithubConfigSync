@@ -1,6 +1,6 @@
 name: "Github Config Sync"
 description: "Home Assistant add-on for GitHub config sync operations, not backups."
-version: "0.2.16"
+version: "0.2.17"
 slug: "github_config_sync_web"
 url: "https://github.com/MJP-76/GithubConfigSync"
 init: false
@@ -19,7 +19,11 @@ arch:
 map:
   - config:rw
   - addon_configs:rw
+  - media:rw
+  - share:rw
   - ssl
+  - backups:rw
+  - www:rw
 ports:
   8099/tcp: null
 ports_description:
@@ -31,6 +35,11 @@ options:
   sync_interval_minutes: 1440
   version_retention_count: 7
   dry_run: true
+  include_media: false
+  include_share: false
+  include_ssl: true
+  include_backups: false
+  include_www: true
 schema:
   github_repository: str?
   github_branch: str
@@ -38,3 +47,8 @@ schema:
   sync_interval_minutes: int(5,1440)
   version_retention_count: int(1,100)
   dry_run: bool
+  include_media: bool
+  include_share: bool
+  include_ssl: bool
+  include_backups: bool
+  include_www: bool

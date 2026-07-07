@@ -13,7 +13,7 @@ from sync.errors import SyncError
 from sync.github_client import GitHubClient
 from sync.hashing import IGNORE_PATTERNS
 
-APP_VERSION = "0.2.16"
+APP_VERSION = "0.2.17"
 APP_PORT = 8099
 DEFAULT_OAUTH_CLIENT_ID = "Ov23li2ycCraodta6WCU"
 
@@ -36,6 +36,11 @@ DEFAULT_OPTIONS: dict[str, Any] = {
     "version_retention_count": 7,
     "manual_version_retention_days": 7,
     "dry_run": True,
+    "include_media": False,
+    "include_share": False,
+    "include_ssl": True,
+    "include_backups": False,
+    "include_www": True,
 }
 
 DEFAULT_STATE: dict[str, Any] = {
@@ -143,6 +148,10 @@ def _validate_payload(payload: dict[str, Any]) -> tuple[bool, str | None]:
     if not isinstance(payload.get("dry_run"), bool):
         return False, "dry_run must be true or false"
 
+    for key in ("include_media", "include_share", "include_ssl", "include_backups", "include_www"):
+        if not isinstance(payload.get(key), bool):
+            return False, f"{key} must be true or false"
+
     return True, None
 
 
@@ -213,6 +222,11 @@ def _sync_config(options: dict[str, Any]) -> SyncConfig:
         config_root=str(CONFIG_ROOT),
         addon_config_root="/addon_configs",
         dry_run=bool(options.get("dry_run", True)),
+        include_media=bool(options.get("include_media", False)),
+        include_share=bool(options.get("include_share", False)),
+        include_ssl=bool(options.get("include_ssl", True)),
+        include_backups=bool(options.get("include_backups", False)),
+        include_www=bool(options.get("include_www", True)),
         version_retention_count=int(options.get("version_retention_count", 7)),
     )
 
@@ -418,6 +432,11 @@ def set_options():
         "version_retention_count": payload.get("version_retention_count", 7),
         "manual_version_retention_days": payload.get("manual_version_retention_days", 7),
         "dry_run": payload.get("dry_run", True),
+        "include_media": payload.get("include_media", False),
+        "include_share": payload.get("include_share", False),
+        "include_ssl": payload.get("include_ssl", True),
+        "include_backups": payload.get("include_backups", False),
+        "include_www": payload.get("include_www", True),
     }
 
     valid, message = _validate_payload(candidate)

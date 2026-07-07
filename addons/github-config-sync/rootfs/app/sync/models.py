@@ -11,6 +11,11 @@ class SyncConfig:
     config_root: str
     dry_run: bool
     addon_config_root: str = "/addon_configs"
+    include_media: bool = False
+    include_share: bool = False
+    include_ssl: bool = True
+    include_backups: bool = False
+    include_www: bool = True
     version_retention_count: int = 7
 
 

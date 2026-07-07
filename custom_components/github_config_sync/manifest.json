@@ -1,7 +1,7 @@
 {
   "domain": "github_config_sync",
   "name": "Github Config Sync",
-  "version": "0.2.16",
+  "version": "0.2.17",
   "config_flow": true,
   "iot_class": "cloud_push",
   "documentation": "https://github.com/MJP-76/GithubConfigSync#readme",
