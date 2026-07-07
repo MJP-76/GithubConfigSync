@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- Preparing the v0.1.7 release bump.
+
+## 0.1.7
+
+- Bumped the add-on version for the next release.
+
 ## 0.1.6
 
 - Fixed ingress API path handling in the web UI to avoid 404 responses behind Home Assistant ingress.

@@ -12,7 +12,7 @@ from sync import SyncConfig, SyncEngine
 from sync.errors import SyncError
 from sync.github_client import GitHubClient
 
-APP_VERSION = "0.1.6"
+APP_VERSION = "0.1.7"
 APP_PORT = 8099
 DEFAULT_OAUTH_CLIENT_ID = "Ov23li2ycCraodta6WCU"
 
@@ -122,6 +122,36 @@ def _mask_token(options: dict[str, Any]) -> dict[str, Any]:
     return output
 
 
+def _auth_diagnostics(options: dict[str, Any]) -> dict[str, Any]:
+    token = str(options.get("github_token", "")).strip()
+    repository = str(options.get("github_repository", "")).strip()
+    return {
+        "repository_configured": bool(repository),
+        "token_configured": bool(token),
+        "token_state": "configured" if token else "missing",
+        "repository_state": "configured" if repository else "missing",
+    }
+
+
+def _sanitized_log_tail(limit: int = 4000) -> str:
+    if not LOG_PATH.exists():
+        return ""
+    return LOG_PATH.read_text(encoding="utf-8")[-limit:]
+
+
+def _diagnostics_bundle() -> dict[str, Any]:
+    options = _merge_options()
+    state = _load_state()
+    return {
+        "ok": True,
+        "version": APP_VERSION,
+        "auth": _auth_diagnostics(options),
+        "options": _mask_token(options),
+        "state": state,
+        "log_tail": _sanitized_log_tail(),
+    }
+
+
 def _sync_config(options: dict[str, Any]) -> SyncConfig:
     return SyncConfig(
         repository=str(options.get("github_repository", "")).strip(),
@@ -135,7 +165,9 @@ def _sync_config(options: dict[str, Any]) -> SyncConfig:
 def _token_client(options: dict[str, Any]) -> GitHubClient:
     token = str(options.get("github_token", "")).strip()
     if not token:
-        raise SyncError("Authenticate with Device Flow first to access repositories")
+        raise SyncError(
+            "GitHub token is missing. Complete Device Flow login before listing repositories."
+        )
     return GitHubClient(
         repository=str(options.get("github_repository", "")).strip(),
         branch=str(options.get("github_branch", "main")).strip() or "main",
@@ -229,10 +261,20 @@ def set_options():
 @app.get("/api/status")
 def get_status():
     state = _load_state()
-    logs = ""
-    if LOG_PATH.exists():
-        logs = LOG_PATH.read_text(encoding="utf-8")[-4000:]
-    return jsonify({"ok": True, "state": state, "log_tail": logs})
+    options = _merge_options()
+    return jsonify(
+        {
+            "ok": True,
+            "state": state,
+            "auth": _auth_diagnostics(options),
+            "log_tail": _sanitized_log_tail(),
+        }
+    )
+
+
+@app.get("/api/diagnostics")
+def get_diagnostics():
+    return jsonify(_diagnostics_bundle())
 
 
 @app.get("/api/auth/device")
@@ -435,16 +477,27 @@ def trigger_sync():
     if not sync_config.dry_run:
         probe_ok, probe_message = engine._github.probe_repository()  # pylint: disable=protected-access
         if not probe_ok:
+            friendly_message = probe_message
+            if "HTTP 401" in probe_message or "HTTP 403" in probe_message:
+                friendly_message = (
+                    "GitHub rejected the repository probe. "
+                    "Check that the token is valid and has repo access."
+                )
+            elif "HTTP 404" in probe_message:
+                friendly_message = (
+                    "GitHub could not find the repository. "
+                    "Check the repository name, visibility, and token access."
+                )
             state = _save_state(
                 {
                     "status": "error",
-                    "last_error": probe_message,
+                    "last_error": friendly_message,
                     "last_result": None,
                     "last_scan": scan,
                 }
             )
-            _append_log(f"Repository probe failed: {probe_message}")
-            return jsonify({"ok": False, "error": probe_message, "state": state}), 502
+            _append_log(f"Repository probe failed: {friendly_message}")
+            return jsonify({"ok": False, "error": friendly_message, "state": state}), 502
 
     try:
         result = engine.run(plan)

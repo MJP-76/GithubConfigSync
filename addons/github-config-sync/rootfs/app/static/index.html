@@ -224,6 +224,9 @@
       <div class="card">
         <h2 style="margin-top: 0; font-size: 1.1rem">Runtime Status</h2>
         <pre id="runtime">Loading status...</pre>
+        <div class="row" style="margin-top: 12px">
+          <button id="downloadDiagnosticsBtn" class="secondary">Download Diagnostics</button>
+        </div>
       </div>
     </div>
 
@@ -252,6 +255,7 @@
         createRepoBtn: document.getElementById("createRepoBtn"),
         syncBtn: document.getElementById("syncBtn"),
         refreshBtn: document.getElementById("refreshBtn"),
+        downloadDiagnosticsBtn: document.getElementById("downloadDiagnosticsBtn"),
         deviceFlowInfo: document.getElementById("deviceFlowInfo"),
       };
       let cachedRepos = [];
@@ -358,7 +362,22 @@
 
       async function loadStatus() {
         const data = await fetchJson(apiUrl("/api/status"));
-        el.runtime.textContent = JSON.stringify(data.state, null, 2) + "\n\n" + (data.log_tail || "");
+        el.runtime.textContent =
+          JSON.stringify({ state: data.state, auth: data.auth }, null, 2) +
+          "\n\n" +
+          (data.log_tail || "");
+      }
+
+      async function downloadDiagnostics() {
+        const data = await fetchJson(apiUrl("/api/diagnostics"));
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = "github-config-sync-diagnostics.json";
+        link.click();
+        URL.revokeObjectURL(url);
+        setStatus("Diagnostics downloaded");
       }
 
       async function saveOptions() {
@@ -442,6 +461,9 @@
         Promise.all([loadStatus(), loadDeviceFlowStatus(), loadRepositories(false)])
           .then(() => setStatus("Status refreshed"))
           .catch((error) => setStatus(error.message, false))
+      );
+      el.downloadDiagnosticsBtn.addEventListener("click", () =>
+        downloadDiagnostics().catch((error) => setStatus(error.message, false))
       );
 
       applyRepoMode();

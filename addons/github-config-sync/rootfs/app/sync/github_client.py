@@ -114,7 +114,12 @@ class GitHubClient:
                 return True, "Repository probe succeeded"
             return False, "Repository probe returned incomplete payload"
         except SyncError as err:
-            return False, str(err)
+            message = str(err)
+            if "HTTP 401" in message or "HTTP 403" in message:
+                return False, "Repository probe failed with an auth error"
+            if "HTTP 404" in message:
+                return False, "Repository probe failed with a not-found error"
+            return False, message
 
     def get_content(self, path: str) -> dict[str, Any] | None:
         encoded = urllib.parse.quote(path, safe="")
