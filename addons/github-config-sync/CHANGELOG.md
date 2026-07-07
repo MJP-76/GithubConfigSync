@@ -2,7 +2,10 @@
 
 ## Unreleased
 
-- Preparing the v0.2.28 release bump.
+- Preparing the v0.2.29 rollback release.
+
+- Reverted the temporary `github_sync_app/` app-path refactor and restored the local add-on app layout.
+- Kept the root docs and tracker aligned with the rollback.
 
 - Fixed GitHub OAuth client helper loading so Device Flow start completes reliably.
 - Retried version snapshot writes on stale SHA conflicts so GitHub 409s no longer abort releases.
