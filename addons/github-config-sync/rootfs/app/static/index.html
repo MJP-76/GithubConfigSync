@@ -222,6 +222,7 @@
         <div class="row" style="margin-top: 14px">
           <button id="saveBtn">Save Settings</button>
           <button id="syncBtn" class="secondary">Run Sync Now</button>
+          <button id="cleanSyncBtn" class="secondary">Clean Upload</button>
           <button id="refreshBtn" class="secondary">Refresh Status</button>
         </div>
       </div>
@@ -258,6 +259,7 @@
         newRepoPrivate: document.getElementById("newRepoPrivate"),
         createRepoBtn: document.getElementById("createRepoBtn"),
         syncBtn: document.getElementById("syncBtn"),
+        cleanSyncBtn: document.getElementById("cleanSyncBtn"),
         refreshBtn: document.getElementById("refreshBtn"),
         downloadDiagnosticsBtn: document.getElementById("downloadDiagnosticsBtn"),
         deviceFlowInfo: document.getElementById("deviceFlowInfo"),
@@ -434,11 +436,20 @@
         await loadStatus();
       }
 
+      async function runCleanSync() {
+        const data = await fetchJson(apiUrl("/api/sync/clean"), { method: "POST" });
+        setStatus(data.result || "Clean upload completed");
+        await loadStatus();
+      }
+
       el.saveBtn.addEventListener("click", () =>
         saveOptions().catch((error) => setStatus(error.message, false))
       );
       el.syncBtn.addEventListener("click", () =>
         runSync().catch((error) => setStatus(error.message, false))
+      );
+      el.cleanSyncBtn.addEventListener("click", () =>
+        runCleanSync().catch((error) => setStatus(error.message, false))
       );
       el.startDeviceBtn.addEventListener("click", () =>
         startDeviceLogin().catch((error) => setStatus(error.message, false))

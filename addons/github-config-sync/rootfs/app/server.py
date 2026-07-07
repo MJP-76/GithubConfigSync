@@ -12,7 +12,7 @@ from sync import SyncConfig, SyncEngine
 from sync.errors import SyncError
 from sync.github_client import GitHubClient
 
-APP_VERSION = "0.2.0"
+APP_VERSION = "0.2.1"
 APP_PORT = 8099
 DEFAULT_OAUTH_CLIENT_ID = "Ov23li2ycCraodta6WCU"
 
@@ -210,6 +210,44 @@ def _plan_summary(plan) -> dict[str, Any]:
         "changed_files": plan.changed[:50],
         "removed_files": plan.removed[:50],
     }
+
+
+def _run_sync(sync_config: SyncConfig, clean_upload: bool = False) -> tuple[int, dict[str, Any], str | None]:
+    previous_index = _load_json(HASH_INDEX_PATH, {})
+    engine = SyncEngine(sync_config, previous_hash_index=previous_index)
+    if clean_upload:
+        plan, current_hash_index = engine.clean_plan()
+    else:
+        plan, current_hash_index = engine.plan()
+
+    scan = _plan_summary(plan)
+    _append_log(
+        "Scan summary: "
+        f"+{scan['added_count']} "
+        f"~{scan['changed_count']} "
+        f"-{scan['removed_count']} "
+        f"files={scan['total_files']}"
+    )
+
+    if not sync_config.dry_run:
+        probe_ok, probe_message = engine._github.probe_repository()  # pylint: disable=protected-access
+        if not probe_ok:
+            friendly_message = probe_message
+            if "HTTP 401" in probe_message or "HTTP 403" in probe_message:
+                friendly_message = (
+                    "GitHub rejected the repository probe. "
+                    "Check that the token is valid and has repo access."
+                )
+            elif "HTTP 404" in probe_message:
+                friendly_message = (
+                    "GitHub could not find the repository. "
+                    "Check the repository name, visibility, and token access."
+                )
+            raise SyncError(friendly_message)
+
+    result = engine.run(plan)
+    _save_json(HASH_INDEX_PATH, current_hash_index)
+    return 200, scan, result.message
 
 
 app = Flask(__name__, static_folder=str(STATIC_DIR), static_url_path="/static")
@@ -457,50 +495,45 @@ def trigger_sync():
         )
         return jsonify({"ok": False, "error": "github_repository is required", "state": state}), 400
 
-    previous_index = _load_json(HASH_INDEX_PATH, {})
-    engine = SyncEngine(sync_config, previous_hash_index=previous_index)
-
     started = dt.datetime.now(dt.timezone.utc).isoformat()
     _save_state({"status": "running", "last_run": started, "last_error": None})
     _append_log(f"Sync started for {sync_config.repository} (dry_run={sync_config.dry_run})")
-
-    plan, current_hash_index = engine.plan()
-    scan = _plan_summary(plan)
-    _append_log(
-        "Scan summary: "
-        f"+{scan['added_count']} "
-        f"~{scan['changed_count']} "
-        f"-{scan['removed_count']} "
-        f"files={scan['total_files']}"
-    )
-
-    if not sync_config.dry_run:
-        probe_ok, probe_message = engine._github.probe_repository()  # pylint: disable=protected-access
-        if not probe_ok:
-            friendly_message = probe_message
-            if "HTTP 401" in probe_message or "HTTP 403" in probe_message:
-                friendly_message = (
-                    "GitHub rejected the repository probe. "
-                    "Check that the token is valid and has repo access."
-                )
-            elif "HTTP 404" in probe_message:
-                friendly_message = (
-                    "GitHub could not find the repository. "
-                    "Check the repository name, visibility, and token access."
-                )
-            state = _save_state(
-                {
-                    "status": "error",
-                    "last_error": friendly_message,
-                    "last_result": None,
-                    "last_scan": scan,
-                }
-            )
-            _append_log(f"Repository probe failed: {friendly_message}")
-            return jsonify({"ok": False, "error": friendly_message, "state": state}), 502
-
     try:
-        result = engine.run(plan)
+        plan, current_hash_index = SyncEngine(sync_config, previous_hash_index=_load_json(HASH_INDEX_PATH, {})).plan()
+        scan = _plan_summary(plan)
+        _append_log(
+            "Scan summary: "
+            f"+{scan['added_count']} "
+            f"~{scan['changed_count']} "
+            f"-{scan['removed_count']} "
+            f"files={scan['total_files']}"
+        )
+        if not sync_config.dry_run:
+            engine = SyncEngine(sync_config, previous_hash_index=_load_json(HASH_INDEX_PATH, {}))
+            probe_ok, probe_message = engine._github.probe_repository()  # pylint: disable=protected-access
+            if not probe_ok:
+                friendly_message = probe_message
+                if "HTTP 401" in probe_message or "HTTP 403" in probe_message:
+                    friendly_message = (
+                        "GitHub rejected the repository probe. "
+                        "Check that the token is valid and has repo access."
+                    )
+                elif "HTTP 404" in probe_message:
+                    friendly_message = (
+                        "GitHub could not find the repository. "
+                        "Check the repository name, visibility, and token access."
+                    )
+                state = _save_state(
+                    {
+                        "status": "error",
+                        "last_error": friendly_message,
+                        "last_result": None,
+                        "last_scan": scan,
+                    }
+                )
+                _append_log(f"Repository probe failed: {friendly_message}")
+                return jsonify({"ok": False, "error": friendly_message, "state": state}), 502
+        result = SyncEngine(sync_config, previous_hash_index=_load_json(HASH_INDEX_PATH, {})).run(plan)
     except SyncError as err:
         state = _save_state(
             {
@@ -538,6 +571,55 @@ def trigger_sync():
             "state": state,
         }
     )
+
+
+@app.post("/api/sync/clean")
+def trigger_clean_sync():
+    options = _merge_options()
+    sync_config = _sync_config(options)
+    if not sync_config.repository:
+        return jsonify({"ok": False, "error": "github_repository is required"}), 400
+    sync_config = SyncConfig(
+        repository=sync_config.repository,
+        branch=sync_config.branch,
+        token=sync_config.token,
+        config_root=sync_config.config_root,
+        dry_run=sync_config.dry_run,
+    )
+    started = dt.datetime.now(dt.timezone.utc).isoformat()
+    _save_state({"status": "running", "last_run": started, "last_error": None})
+    _append_log(f"Clean upload started for {sync_config.repository} (dry_run={sync_config.dry_run})")
+    try:
+        previous_index = _load_json(HASH_INDEX_PATH, {})
+        engine = SyncEngine(sync_config, previous_hash_index=previous_index)
+        plan, current_hash_index = engine.clean_plan()
+        scan = _plan_summary(plan)
+        _append_log(
+            "Clean upload summary: "
+            f"+{scan['added_count']} "
+            f"~{scan['changed_count']} "
+            f"-{scan['removed_count']} "
+            f"files={scan['total_files']}"
+        )
+        if not sync_config.dry_run:
+            probe_ok, probe_message = engine._github.probe_repository()  # pylint: disable=protected-access
+            if not probe_ok:
+                raise SyncError(probe_message)
+        result = engine.run(plan)
+        _save_json(HASH_INDEX_PATH, current_hash_index)
+    except SyncError as err:
+        state = _save_state({"status": "error", "last_error": str(err), "last_result": None})
+        return jsonify({"ok": False, "error": str(err), "state": state}), 502
+
+    state = _save_state(
+        {
+            "status": "ok",
+            "last_success": dt.datetime.now(dt.timezone.utc).isoformat(),
+            "last_result": result.message,
+            "last_error": None,
+        }
+    )
+    return jsonify({"ok": True, "result": result.message, "state": state})
 
 
 if __name__ == "__main__":

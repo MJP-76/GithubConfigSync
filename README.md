@@ -7,10 +7,10 @@ Home Assistant custom integration for syncing the Home Assistant config folder t
 ## Version Tracker
 
 <!-- VERSION:START -->
-- Integration version: `0.2.0`
-- Add-on version: `0.2.0`
+- Integration version: `0.2.1`
+- Add-on version: `0.2.1`
 - Channel: `stable`
-- Release tag: `v0.2.0`
+- Release tag: `v0.2.1`
 <!-- VERSION:END -->
 
 To sync versions across integration/add-on/runtime/docs automatically:
@@ -56,8 +56,9 @@ Add-on repository metadata is provided via `repository.yaml` so it can be added 
 1. Verify the target repository exists and is accessible with the saved token.
 2. Confirm the branch name is correct for the target repo.
 3. Set `dry_run=false` in the add-on settings.
-4. Run a sync and confirm the repository probe succeeds before the write phase.
-5. Review the status panel and logs for the final upsert/delete/skip counts.
+4. Run a sync, or use **Clean Upload** to force a full re-upload plus cleanup of remote extras.
+5. Confirm the repository probe succeeds before the write phase.
+6. Review the status panel and logs for the final upsert/delete/skip counts.
 
 ### Diagnostics bundle
 

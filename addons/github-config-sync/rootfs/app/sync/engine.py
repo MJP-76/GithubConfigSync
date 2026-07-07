@@ -32,6 +32,18 @@ class SyncEngine:
         )
         return plan, current_hash_index
 
+    def clean_plan(self) -> tuple[SyncPlan, dict[str, str]]:
+        current_hash_index = build_hash_index(self._config_root)
+        all_paths = sorted(current_hash_index.keys())
+        removed_paths = sorted(path for path in self._previous_hash_index.keys() if path not in current_hash_index)
+        plan = SyncPlan(
+            added=all_paths,
+            changed=[],
+            removed=removed_paths,
+            total_files=len(current_hash_index),
+        )
+        return plan, current_hash_index
+
     def run(self, plan: SyncPlan) -> SyncResult:
         if self._config.dry_run:
             return SyncResult(

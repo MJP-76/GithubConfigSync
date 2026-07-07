@@ -5,10 +5,10 @@ Containerized Home Assistant add-on with an ingress web UI for GitHub sync opera
 ## Version Tracker
 
 <!-- VERSION:START -->
-- Integration version: `0.2.0`
-- Add-on version: `0.2.0`
+- Integration version: `0.2.1`
+- Add-on version: `0.2.1`
 - Channel: `stable`
-- Release tag: `v0.2.0`
+- Release tag: `v0.2.1`
 <!-- VERSION:END -->
 
 ## What it provides
@@ -43,7 +43,7 @@ Containerized Home Assistant add-on with an ingress web UI for GitHub sync opera
 1. Confirm the repository is reachable with the saved token.
 2. Confirm the branch name is correct for the target repo.
 3. Disable `dry_run`.
-4. Start a sync from the UI.
+4. Start a sync from the UI, or use **Clean Upload** to force a full re-upload plus cleanup of remote extras.
 5. Confirm the probe succeeds and the final result reports upserts, deletes, and skips.
 
 ### Diagnostics bundle
