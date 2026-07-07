@@ -10,7 +10,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 
 MANIFEST_PATH = REPO_ROOT / "custom_components/github_config_sync/manifest.json"
 ADDON_CONFIG_PATH = REPO_ROOT / "addons/github-config-sync/config.yaml"
-SERVER_PATH = REPO_ROOT / "addons/github-config-sync/rootfs/app/github_sync_app/server.py"
+SERVER_PATH = REPO_ROOT / "addons/github-config-sync/rootfs/app/server.py"
 DOC_PATHS = [
     REPO_ROOT / "README.md",
     REPO_ROOT / "addons/github-config-sync/README.md",

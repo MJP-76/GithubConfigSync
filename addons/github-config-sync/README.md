@@ -21,10 +21,10 @@ If you find this project useful, and would like to help support its continued de
 ## Version Tracker
 
 <!-- VERSION:START -->
-- Integration version: `0.2.29`
-- Add-on version: `0.2.29`
+- Integration version: `0.2.28`
+- App version: `0.2.28`
 - Channel: `stable`
-- Release tag: `v0.2.29`
+- Release tag: `v0.2.28`
 <!-- VERSION:END -->
 
 ## What it provides
@@ -38,8 +38,8 @@ If you find this project useful, and would like to help support its continued de
 
 ## Architecture
 
-- `github_sync_app/server.py` is the app API surface and UI backend.
-- `github_sync_app/sync/engine.py` computes the plan from the current `/config` tree and the saved hash index.
+- `server.py` is the app API surface and UI backend.
+- `sync/engine.py` computes the plan from the current `/config` tree and the saved hash index.
 - AppDaemon configs and apps under `/addon_configs/` are included in the normal sync scan.
 - The mount-point checklist lets you include or exclude standard Home Assistant folders, and the recommended .gitignore keeps the ignore list aligned.
 - `dry_run=true` stops after planning and returns the counts that would be applied.
@@ -103,8 +103,6 @@ If you find this project useful, and would like to help support its continued de
 - This app is designed as a polished operator UI layer and can be wired to deeper sync logic incrementally.
 - The add-on repository metadata is minimal and valid for Home Assistant add-on store ingestion.
 - Version snapshots now skip ignored directories like `.cache`, even inside release snapshots.
-- The repo keeps `README.md` at the top level and the app runtime under `github_sync_app/`.
-- Clean uploads preserve `README.md`, `github_sync_app/`, and `versions/`.
 - New repository creation defaults blank name/description fields to a humanized repository name.
 - This release carries the repo-create default behavior and the sync fixes from the last two commits.
 

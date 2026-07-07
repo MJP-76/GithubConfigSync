@@ -23,10 +23,10 @@ If you find this project useful, and would like to help support its continued de
 ## Version Tracker
 
 <!-- VERSION:START -->
-- Integration version: `0.2.29`
-- Add-on version: `0.2.29`
+- Integration version: `0.2.28`
+- App version: `0.2.28`
 - Channel: `stable`
-- Release tag: `v0.2.29`
+- Release tag: `v0.2.28`
 <!-- VERSION:END -->
 
 To sync versions across integration/app/runtime/docs automatically:
@@ -57,41 +57,13 @@ App repository metadata is provided via `repository.yaml` so it can be added dir
 
 ## Architecture
 
-- Repo layout:
-
-```text
-/
-├─ README.md
-└─ github_sync_app/
-   ├─ server.py
-   ├─ sync/
-   │  ├─ __init__.py
-   │  ├─ engine.py
-   │  ├─ errors.py
-   │  ├─ github_client.py
-   │  ├─ hashing.py
-   │  └─ models.py
-   ├─ static/
-   │  └─ index.html
-   └─ tests/
-      ├─ test_engine.py
-      ├─ test_hashing.py
-      └─ test_server_api.py
-```
-
-- Clean uploads preserve `README.md`, `github_sync_app/`, and `versions/`.
-- Everything else at the repo root is treated as live sync content.
-- Version snapshots are stored under `versions/<timestamp>/...` and mirror the synced tree at that point in time.
-
 - The custom integration handles Home Assistant entities, config flow, and operator actions.
 - The app provides the ingress web UI and the sync runtime API.
-- The repo keeps the root `README.md` at the top level and the app runtime under `github_sync_app/`.
 - Sync planning is hash-based: the app scans `/config`, diffs against the last saved hash index, and classifies files as added, changed, or removed.
 - AppDaemon configs and apps under `/addon_configs/` are included in the normal sync scan.
 - The mount-point checklist lets you include or exclude standard Home Assistant folders, and the recommended .gitignore keeps the ignore list aligned.
 - Dry runs do not touch GitHub; live runs probe the repository first, then upsert and delete files through the GitHub Contents API. Remote deletes never remove local files.
 - Live runs also write versioned snapshots under `versions/<timestamp>/...` and keep the most recent 7 by default.
-- Clean uploads preserve `README.md`, `github_sync_app/`, and `versions/`.
 - State, logs, device-flow data, and the last hash index live in `/data`.
 - The app exposes a stable local API contract via `/api/health`, `/api/status`, `/api/sync`, and `/api/diagnostics`.
 - The generated `.gitignore` includes the common Home Assistant guidance entries such as `secrets.yaml`, `ip_bans.yaml`, `known_devices.yaml`, `.storage/`, and `.cloud/`, while still honoring any local user additions.

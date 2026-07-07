@@ -8,12 +8,12 @@ from urllib.parse import quote
 
 from flask import Flask, jsonify, request, send_from_directory
 
-from github_sync_app.sync import SyncConfig, SyncEngine
-from github_sync_app.sync.errors import SyncError
-from github_sync_app.sync.github_client import GitHubClient
-from github_sync_app.sync.hashing import IGNORE_PATTERNS
+from sync import SyncConfig, SyncEngine
+from sync.errors import SyncError
+from sync.github_client import GitHubClient
+from sync.hashing import IGNORE_PATTERNS
 
-APP_VERSION = "0.2.29"
+APP_VERSION = "0.2.21"
 APP_PORT = 8099
 DEFAULT_OAUTH_CLIENT_ID = "Ov23li2ycCraodta6WCU"
 
@@ -24,8 +24,7 @@ STATE_PATH = DATA_DIR / "state.json"
 LOG_PATH = DATA_DIR / "sync.log"
 HASH_INDEX_PATH = DATA_DIR / "hash_index.json"
 DEVICE_FLOW_PATH = DATA_DIR / "device_flow.json"
-APP_DIR = Path("/app/github_sync_app")
-STATIC_DIR = APP_DIR / "static"
+STATIC_DIR = Path("/app/static")
 CONFIG_ROOT = Path("/config")
 
 DEFAULT_OPTIONS: dict[str, Any] = {

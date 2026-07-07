@@ -10,8 +10,8 @@ APP_ROOT = Path(__file__).resolve().parents[1]
 if str(APP_ROOT) not in sys.path:
     sys.path.insert(0, str(APP_ROOT))
 
-from github_sync_app.sync.engine import SyncEngine
-from github_sync_app.sync.models import SyncConfig, SyncPlan
+from sync.engine import SyncEngine
+from sync.models import SyncConfig, SyncPlan
 
 
 class SyncEngineTests(unittest.TestCase):
@@ -58,7 +58,7 @@ class SyncEngineTests(unittest.TestCase):
         )
         plan = SyncPlan(added=["a.yaml"], changed=["b.yaml"], removed=["c.yaml"], total_files=2)
 
-        with patch("github_sync_app.sync.engine.GitHubClient") as client_cls:
+        with patch("sync.engine.GitHubClient") as client_cls:
             engine = SyncEngine(config, previous_hash_index={})
             result = engine.run(plan)
 
@@ -99,7 +99,7 @@ class SyncEngineTests(unittest.TestCase):
                 None,
             ]
 
-            with patch("github_sync_app.sync.engine.GitHubClient", return_value=fake_client):
+            with patch("sync.engine.GitHubClient", return_value=fake_client):
                 engine = SyncEngine(config, previous_hash_index={})
                 result = engine.run(plan)
 
@@ -136,7 +136,7 @@ class SyncEngineTests(unittest.TestCase):
                 {"content": {"html_url": "https://example.com"}},
             ]
 
-            with patch("github_sync_app.sync.engine.GitHubClient", return_value=fake_client):
+            with patch("sync.engine.GitHubClient", return_value=fake_client):
                 engine = SyncEngine(config, previous_hash_index={})
                 result = engine.run(plan)
 
@@ -144,8 +144,8 @@ class SyncEngineTests(unittest.TestCase):
             self.assertEqual(fake_client.put_content.call_count, 2)
 
     def test_put_content_retries_on_sha_conflict(self) -> None:
-        from github_sync_app.sync.github_client import GitHubClient
-        from github_sync_app.sync.errors import SyncError
+        from sync.github_client import GitHubClient
+        from sync.errors import SyncError
 
         client = GitHubClient(repository="owner/repo", branch="main", token="token")
         calls = {"count": 0}
@@ -189,7 +189,7 @@ class SyncEngineTests(unittest.TestCase):
                 calls["count"] += 1
                 return calls["count"] > 1
 
-            with patch("github_sync_app.sync.engine.GitHubClient", return_value=fake_client):
+            with patch("sync.engine.GitHubClient", return_value=fake_client):
                 engine = SyncEngine(config, previous_hash_index={})
                 engine.set_cancel_checker(cancel_checker)
                 result = engine.run(plan)
@@ -217,7 +217,7 @@ class SyncEngineTests(unittest.TestCase):
             fake_client.get_content.return_value = None
             fake_client.list_directory_contents.return_value = []
 
-            with patch("github_sync_app.sync.engine.GitHubClient", return_value=fake_client):
+            with patch("sync.engine.GitHubClient", return_value=fake_client):
                 engine = SyncEngine(config, previous_hash_index={})
                 result = engine.run(plan)
 
@@ -258,7 +258,7 @@ class SyncEngineTests(unittest.TestCase):
                 {"content": {"path": "versions/20260707T204145Z/one.yaml"}},
             ]
 
-            with patch("github_sync_app.sync.engine.GitHubClient", return_value=fake_client):
+            with patch("sync.engine.GitHubClient", return_value=fake_client):
                 engine = SyncEngine(config, previous_hash_index={})
                 result = engine.run(plan)
 
@@ -282,7 +282,7 @@ class SyncEngineTests(unittest.TestCase):
             {"type": "dir", "name": "20260601T120000Z"},
             {"type": "dir", "name": "20260707T120000Z"},
         ]
-        with patch("github_sync_app.sync.engine.GitHubClient", return_value=fake_client):
+        with patch("sync.engine.GitHubClient", return_value=fake_client):
             engine = SyncEngine(config, previous_hash_index={})
             with patch.object(engine, "_delete_remote_tree") as delete_tree:
                 engine.prune_versions_older_than_days(7)
@@ -311,7 +311,7 @@ class SyncEngineTests(unittest.TestCase):
             ],
         ]
 
-        with patch("github_sync_app.sync.engine.GitHubClient", return_value=fake_client):
+        with patch("sync.engine.GitHubClient", return_value=fake_client):
             engine = SyncEngine(config, previous_hash_index={})
             engine.clean_remote_tree()
 
@@ -326,7 +326,7 @@ class SyncEngineTests(unittest.TestCase):
             message="sync: delete root.yaml",
         )
 
-    def test_clean_remote_tree_preserves_app_folder_and_readme(self) -> None:
+    def test_clean_remote_tree_preserves_app_files_and_readme(self) -> None:
         config = SyncConfig(
             repository="owner/repo",
             branch="main",
@@ -341,18 +341,14 @@ class SyncEngineTests(unittest.TestCase):
             [
                 {"type": "dir", "name": "versions", "path": "versions"},
                 {"type": "file", "name": "README.md", "path": "README.md", "sha": "readmesha"},
-                {"type": "dir", "name": "app", "path": "app"},
+                {"type": "dir", "name": "custom_components", "path": "custom_components"},
+                {"type": "dir", "name": "addons", "path": "addons"},
+                {"type": "dir", "name": ".github", "path": ".github"},
                 {"type": "file", "name": "root.yaml", "path": "root.yaml", "sha": "rootsha"},
             ],
-            [
-                {"type": "dir", "name": "sync", "path": "app/sync"},
-                {"type": "dir", "name": "static", "path": "app/static"},
-            ],
-            [],
-            [],
         ]
 
-        with patch("github_sync_app.sync.engine.GitHubClient", return_value=fake_client):
+        with patch("sync.engine.GitHubClient", return_value=fake_client):
             engine = SyncEngine(config, previous_hash_index={})
             engine.clean_remote_tree()
 
@@ -361,7 +357,10 @@ class SyncEngineTests(unittest.TestCase):
             sha="rootsha",
             message="sync: delete root.yaml",
         )
-        self.assertNotIn(unittest.mock.call(path="README.md", sha="readmesha", message="sync: delete README.md"), fake_client.delete_content.call_args_list)
+        self.assertNotIn(
+            unittest.mock.call(path="README.md", sha="readmesha", message="sync: delete README.md"),
+            fake_client.delete_content.call_args_list,
+        )
 
 
 if __name__ == "__main__":

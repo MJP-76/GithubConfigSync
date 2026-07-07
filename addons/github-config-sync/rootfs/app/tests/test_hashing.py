@@ -10,7 +10,7 @@ APP_ROOT = Path(__file__).resolve().parents[1]
 if str(APP_ROOT) not in sys.path:
     sys.path.insert(0, str(APP_ROOT))
 
-from github_sync_app.sync.hashing import build_hash_index, diff_hash_indexes
+from sync.hashing import build_hash_index, diff_hash_indexes
 
 CONST_PATH = Path(__file__).resolve().parents[5] / "custom_components/github_config_sync/const.py"
 CONST_SPEC = importlib.util.spec_from_file_location("github_config_sync_const", CONST_PATH)
