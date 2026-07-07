@@ -4,6 +4,8 @@
 
 - Preparing the v0.2.34 release bump.
 
+- Synced the add-on runtime and add-on README to v0.2.34 so Home Assistant sees the correct version.
+
 ## 0.2.21
 
 - Added the remote-delete/local-file caution to the docs and app page.
