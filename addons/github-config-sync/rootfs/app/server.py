@@ -11,8 +11,9 @@ from flask import Flask, jsonify, request, send_from_directory
 from sync import SyncConfig, SyncEngine
 from sync.errors import SyncError
 from sync.github_client import GitHubClient
+from sync.hashing import IGNORE_PATTERNS
 
-APP_VERSION = "0.2.2"
+APP_VERSION = "0.2.4"
 APP_PORT = 8099
 DEFAULT_OAUTH_CLIENT_ID = "Ov23li2ycCraodta6WCU"
 
@@ -75,6 +76,14 @@ def _load_state() -> dict[str, Any]:
     state = dict(DEFAULT_STATE)
     state.update(_load_json(STATE_PATH, {}))
     return state
+
+
+def _set_cancel_requested(value: bool) -> dict[str, Any]:
+    return _save_state({"cancel_sync": value})
+
+
+def _is_cancel_requested() -> bool:
+    return bool(_load_state().get("cancel_sync", False))
 
 
 def _save_state(updates: dict[str, Any]) -> dict[str, Any]:
@@ -238,6 +247,13 @@ def _plan_summary(plan) -> dict[str, Any]:
     }
 
 
+def _sync_progress_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "sync_progress": payload,
+        "status": payload.get("status", "running"),
+    }
+
+
 def _run_sync(sync_config: SyncConfig, clean_upload: bool = False) -> tuple[int, dict[str, Any], str | None]:
     previous_index = _load_json(HASH_INDEX_PATH, {})
     engine = SyncEngine(sync_config, previous_hash_index=previous_index)
@@ -245,6 +261,7 @@ def _run_sync(sync_config: SyncConfig, clean_upload: bool = False) -> tuple[int,
         plan, current_hash_index = engine.clean_plan()
     else:
         plan, current_hash_index = engine.plan()
+    engine.set_progress_callback(lambda payload: _save_state(_sync_progress_payload(payload)))
 
     scan = _plan_summary(plan)
     _append_log(
@@ -332,9 +349,50 @@ def get_status():
             "state": state,
             "auth": _auth_diagnostics(options),
             "token_health": _token_health(options),
+            "cancel_sync": _is_cancel_requested(),
             "log_tail": _sanitized_log_tail(),
         }
     )
+
+
+@app.get("/api/ignore/recommendations")
+def get_ignore_recommendations():
+    gitignore_path = CONFIG_ROOT / ".gitignore"
+    current = set()
+    if gitignore_path.exists():
+        for line in gitignore_path.read_text(encoding="utf-8").splitlines():
+            stripped = line.strip()
+            if stripped and not stripped.startswith("#"):
+                current.add(stripped)
+    return jsonify(
+        {
+            "ok": True,
+            "local_gitignore": gitignore_path.exists(),
+            "patterns": [{"pattern": pattern, "selected": pattern in current} for pattern in IGNORE_PATTERNS],
+        }
+    )
+
+
+@app.post("/api/ignore/recommendations")
+def save_ignore_recommendations():
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, dict):
+        return jsonify({"ok": False, "error": "Invalid JSON body"}), 400
+    patterns = payload.get("patterns", [])
+    if not isinstance(patterns, list) or not all(isinstance(item, str) for item in patterns):
+        return jsonify({"ok": False, "error": "patterns must be a list of strings"}), 400
+    gitignore_path = CONFIG_ROOT / ".gitignore"
+    existing = []
+    if gitignore_path.exists():
+        existing = gitignore_path.read_text(encoding="utf-8").splitlines()
+    merged = list(existing)
+    for pattern in patterns:
+        if pattern not in merged:
+            merged.append(pattern)
+    gitignore_path.parent.mkdir(parents=True, exist_ok=True)
+    gitignore_path.write_text("\n".join(merged).rstrip() + "\n", encoding="utf-8")
+    _append_log("Updated local .gitignore from recommended patterns")
+    return jsonify({"ok": True, "count": len(patterns)})
 
 
 @app.get("/api/diagnostics")
@@ -524,9 +582,12 @@ def trigger_sync():
 
     started = dt.datetime.now(dt.timezone.utc).isoformat()
     _save_state({"status": "running", "last_run": started, "last_error": None})
+    _set_cancel_requested(False)
     _append_log(f"Sync started for {sync_config.repository} (dry_run={sync_config.dry_run})")
     try:
-        plan, current_hash_index = SyncEngine(sync_config, previous_hash_index=_load_json(HASH_INDEX_PATH, {})).plan()
+        engine = SyncEngine(sync_config, previous_hash_index=_load_json(HASH_INDEX_PATH, {}))
+        engine.set_cancel_checker(_is_cancel_requested)
+        plan, current_hash_index = engine.plan()
         scan = _plan_summary(plan)
         _append_log(
             "Scan summary: "
@@ -536,7 +597,6 @@ def trigger_sync():
             f"files={scan['total_files']}"
         )
         if not sync_config.dry_run:
-            engine = SyncEngine(sync_config, previous_hash_index=_load_json(HASH_INDEX_PATH, {}))
             probe_ok, probe_message = engine._github.probe_repository()  # pylint: disable=protected-access
             if not probe_ok:
                 friendly_message = probe_message
@@ -560,7 +620,7 @@ def trigger_sync():
                 )
                 _append_log(f"Repository probe failed: {friendly_message}")
                 return jsonify({"ok": False, "error": friendly_message, "state": state}), 502
-        result = SyncEngine(sync_config, previous_hash_index=_load_json(HASH_INDEX_PATH, {})).run(plan)
+        result = engine.run(plan)
     except SyncError as err:
         state = _save_state(
             {
@@ -600,6 +660,13 @@ def trigger_sync():
     )
 
 
+@app.post("/api/sync/cancel")
+def cancel_sync():
+    _set_cancel_requested(True)
+    _append_log("Cancel requested for current sync/upload")
+    return jsonify({"ok": True, "cancel_sync": True})
+
+
 @app.post("/api/sync/clean")
 def trigger_clean_sync():
     options = _merge_options()
@@ -615,10 +682,12 @@ def trigger_clean_sync():
     )
     started = dt.datetime.now(dt.timezone.utc).isoformat()
     _save_state({"status": "running", "last_run": started, "last_error": None})
+    _set_cancel_requested(False)
     _append_log(f"Clean upload started for {sync_config.repository} (dry_run={sync_config.dry_run})")
     try:
         previous_index = _load_json(HASH_INDEX_PATH, {})
         engine = SyncEngine(sync_config, previous_hash_index=previous_index)
+        engine.set_cancel_checker(_is_cancel_requested)
         plan, current_hash_index = engine.clean_plan()
         scan = _plan_summary(plan)
         _append_log(

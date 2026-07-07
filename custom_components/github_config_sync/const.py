@@ -22,6 +22,7 @@ DEFAULT_IGNORE_PATTERNS = [
     "*.log.*",
     ".storage/",
     ".cloud/",
+    ".cache/",
     "tts/",
     "automations.yaml",
     "scripts.yaml",

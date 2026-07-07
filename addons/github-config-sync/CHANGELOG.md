@@ -2,7 +2,16 @@
 
 ## Unreleased
 
-- Preparing the v0.2.2 release bump.
+- Preparing the v0.2.4 release bump.
+
+## 0.2.4
+
+- Added live sync progress with current file, remaining counts, and path queues.
+
+## 0.2.3
+
+- Added a recommended .gitignore checklist backed by the local config folder.
+- Added cancel-current-upload control for long-running syncs.
 
 ## 0.2.2
 

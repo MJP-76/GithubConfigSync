@@ -5,10 +5,10 @@ Containerized Home Assistant add-on with an ingress web UI for GitHub sync opera
 ## Version Tracker
 
 <!-- VERSION:START -->
-- Integration version: `0.2.2`
-- Add-on version: `0.2.2`
+- Integration version: `0.2.4`
+- Add-on version: `0.2.4`
 - Channel: `stable`
-- Release tag: `v0.2.2`
+- Release tag: `v0.2.4`
 <!-- VERSION:END -->
 
 ## What it provides

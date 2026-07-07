@@ -21,6 +21,9 @@ class HashingTests(unittest.TestCase):
             (root / "__pycache__" / "x.pyc").write_bytes(b"pyc")
             (root / ".storage").mkdir()
             (root / ".storage" / "core.config_entries").write_text("{}", encoding="utf-8")
+            (root / ".cache").mkdir()
+            (root / ".cache" / "brands").mkdir(parents=True)
+            (root / ".cache" / "brands" / "icon.png").write_bytes(b"png")
             (root / "home-assistant.log").write_text("log", encoding="utf-8")
 
             index = build_hash_index(root)
@@ -28,6 +31,7 @@ class HashingTests(unittest.TestCase):
             self.assertIn("automations.yaml", index)
             self.assertNotIn("__pycache__/x.pyc", index)
             self.assertNotIn(".storage/core.config_entries", index)
+            self.assertNotIn(".cache/brands/icon.png", index)
             self.assertNotIn("home-assistant.log", index)
 
     def test_diff_hash_indexes_returns_expected_added_changed_removed(self) -> None:

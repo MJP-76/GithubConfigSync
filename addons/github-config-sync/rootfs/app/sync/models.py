@@ -27,3 +27,4 @@ class SyncResult:
     skipped_count: int
     total_files: int
     message: str
+    cancelled: bool = False

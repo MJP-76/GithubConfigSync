@@ -4,7 +4,7 @@ import fnmatch
 import hashlib
 from pathlib import Path
 
-IGNORE_DIRS = {".storage", ".cloud", "tts", "__pycache__", ".git"}
+IGNORE_DIRS = {".storage", ".cloud", ".cache", "tts", "__pycache__", ".git"}
 IGNORE_PATTERNS = (
     "home-assistant.log",
     "home-assistant.log.*",

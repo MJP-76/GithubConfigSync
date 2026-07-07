@@ -132,6 +132,37 @@ class SyncEngineTests(unittest.TestCase):
             self.assertEqual(result.synced_count, 1)
             self.assertEqual(fake_client.put_content.call_count, 2)
 
+    def test_run_live_can_be_cancelled_between_writes(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "one.yaml").write_text("1", encoding="utf-8")
+            (root / "two.yaml").write_text("2", encoding="utf-8")
+
+            config = SyncConfig(
+                repository="owner/repo",
+                branch="main",
+                token="token",
+                config_root=str(root),
+                dry_run=False,
+            )
+            plan = SyncPlan(added=["one.yaml", "two.yaml"], changed=[], removed=[], total_files=2)
+            fake_client = MagicMock()
+            fake_client.get_content.return_value = None
+            calls = {"count": 0}
+
+            def cancel_checker() -> bool:
+                calls["count"] += 1
+                return calls["count"] > 1
+
+            with patch("sync.engine.GitHubClient", return_value=fake_client):
+                engine = SyncEngine(config, previous_hash_index={})
+                engine.set_cancel_checker(cancel_checker)
+                result = engine.run(plan)
+
+            self.assertTrue(result.cancelled)
+            self.assertEqual(result.synced_count, 1)
+            self.assertEqual(fake_client.put_content.call_count, 1)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -94,6 +94,7 @@ class GitHubBackupClient:
             "scenes.yaml",
             ".storage/",
             ".cloud/",
+            ".cache/",
             "tts/",
             "home-assistant_v2.db",
             "home-assistant_v2.db-shm",

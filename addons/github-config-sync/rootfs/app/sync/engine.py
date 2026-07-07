@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Callable
 
 from .github_client import GitHubClient
 from .hashing import build_hash_index, diff_hash_indexes
@@ -17,6 +18,14 @@ class SyncEngine:
             branch=config.branch,
             token=config.token,
         )
+        self._cancel_requested: Callable[[], bool] = lambda: False
+        self._progress_callback: Callable[[dict[str, object]], None] = lambda _payload: None
+
+    def set_cancel_checker(self, cancel_requested: Callable[[], bool]) -> None:
+        self._cancel_requested = cancel_requested
+
+    def set_progress_callback(self, progress_callback: Callable[[dict[str, object]], None]) -> None:
+        self._progress_callback = progress_callback
 
     def probe_repository(self) -> tuple[bool, str]:
         return self._github.probe_repository()
@@ -45,6 +54,20 @@ class SyncEngine:
         return plan, current_hash_index
 
     def run(self, plan: SyncPlan) -> SyncResult:
+        upsert_paths = [*plan.added, *plan.changed]
+        removed_paths = list(plan.removed)
+        self._progress_callback(
+            {
+                "status": "running",
+                "current_action": "starting",
+                "upsert_total": len(upsert_paths),
+                "remove_total": len(removed_paths),
+                "upsert_remaining": len(upsert_paths),
+                "remove_remaining": len(removed_paths),
+                "upsert_paths": upsert_paths[:50],
+                "remove_paths": removed_paths[:50],
+            }
+        )
         if self._config.dry_run:
             return SyncResult(
                 synced_count=len(plan.added) + len(plan.changed),
@@ -61,9 +84,22 @@ class SyncEngine:
         synced_count = 0
         deleted_count = 0
         skipped_count = 0
-        upsert_paths = [*plan.added, *plan.changed]
-
-        for relative in upsert_paths:
+        for index, relative in enumerate(upsert_paths):
+            if self._cancel_requested():
+                return self._cancelled_result(plan, synced_count, deleted_count, skipped_count)
+            self._progress_callback(
+                {
+                    "status": "running",
+                    "current_action": "upserting",
+                    "current_path": relative,
+                    "upsert_total": len(upsert_paths),
+                    "remove_total": len(removed_paths),
+                    "upsert_remaining": len(upsert_paths) - index,
+                    "remove_remaining": len(removed_paths),
+                    "upsert_paths": upsert_paths[index:index + 50],
+                    "remove_paths": removed_paths[:50],
+                }
+            )
             local_path = self._config_root / relative
             if not local_path.exists():
                 skipped_count += 1
@@ -71,7 +107,22 @@ class SyncEngine:
             self._put_with_retry(relative, local_path.read_bytes())
             synced_count += 1
 
-        for relative in plan.removed:
+        for index, relative in enumerate(removed_paths):
+            if self._cancel_requested():
+                return self._cancelled_result(plan, synced_count, deleted_count, skipped_count)
+            self._progress_callback(
+                {
+                    "status": "running",
+                    "current_action": "deleting",
+                    "current_path": relative,
+                    "upsert_total": len(upsert_paths),
+                    "remove_total": len(removed_paths),
+                    "upsert_remaining": 0,
+                    "remove_remaining": len(removed_paths) - index,
+                    "upsert_paths": [],
+                    "remove_paths": removed_paths[index:index + 50],
+                }
+            )
             remote = self._github.get_content(relative)
             if not remote or "sha" not in remote:
                 skipped_count += 1
@@ -92,6 +143,21 @@ class SyncEngine:
                 "Sync completed. "
                 f"Upserted {synced_count}, deleted {deleted_count}, skipped {skipped_count}."
             ),
+        )
+
+    def _cancelled_result(
+        self, plan: SyncPlan, synced_count: int, deleted_count: int, skipped_count: int
+    ) -> SyncResult:
+        return SyncResult(
+            synced_count=synced_count,
+            deleted_count=deleted_count,
+            skipped_count=skipped_count,
+            total_files=plan.total_files,
+            message=(
+                "Sync cancelled. "
+                f"Upserted {synced_count}, deleted {deleted_count}, skipped {skipped_count}."
+            ),
+            cancelled=True,
         )
 
     def _put_with_retry(self, relative: str, content: bytes) -> None:

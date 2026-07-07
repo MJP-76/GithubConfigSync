@@ -226,6 +226,32 @@ class ServerApiTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(body["token_health"]["state"], "missing")
 
+    def test_ignore_recommendations_round_trip_to_local_gitignore(self) -> None:
+        response = self.client.get("/api/ignore/recommendations")
+        body = response.get_json()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(body["ok"])
+        self.assertGreater(len(body["patterns"]), 0)
+
+        selected = [item["pattern"] for item in body["patterns"][:2]]
+        response = self.client.post("/api/ignore/recommendations", json={"patterns": selected})
+        body = response.get_json()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(body["ok"])
+        gitignore = (self._config_root / ".gitignore").read_text(encoding="utf-8")
+        self.assertIn(selected[0], gitignore)
+
+    def test_cancel_sync_endpoint_sets_state_flag(self) -> None:
+        response = self.client.post("/api/sync/cancel")
+        body = response.get_json()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(body["ok"])
+        status = self.client.get("/api/status").get_json()
+        self.assertTrue(status["cancel_sync"])
+
     def test_device_flow_persists_token_to_both_option_files(self) -> None:
         server.DEVICE_FLOW_PATH.write_text(
             json.dumps(

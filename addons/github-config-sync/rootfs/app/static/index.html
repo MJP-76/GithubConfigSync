@@ -106,6 +106,15 @@
         color: var(--err);
       }
 
+      .muted {
+        color: var(--muted);
+      }
+
+      .ignore-list {
+        display: grid;
+        gap: 8px;
+      }
+
       pre {
         background: #020617;
         border: 1px solid #1e293b;
@@ -224,7 +233,21 @@
           <button id="saveBtn">Save Settings</button>
           <button id="syncBtn" class="secondary">Run Sync Now</button>
           <button id="cleanSyncBtn" class="secondary">Clean Upload</button>
+          <button id="cancelSyncBtn" class="secondary">Cancel Current Upload</button>
           <button id="refreshBtn" class="secondary">Refresh Status</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2 style="margin-top: 0; font-size: 1.1rem">Recommended .gitignore entries</h2>
+        <p class="muted" style="margin-bottom: 10px">
+          These are safe defaults for Home Assistant. They are read from your local .gitignore and can be added with one click.
+        </p>
+        <div id="ignoreMeta" class="muted" style="margin-bottom: 10px"></div>
+        <div id="ignoreList" class="ignore-list"></div>
+        <div class="row" style="margin-top: 12px">
+          <button id="saveIgnoreBtn" class="secondary">Write Selected Entries to .gitignore</button>
+          <button id="refreshIgnoreBtn" class="secondary">Refresh Ignore Suggestions</button>
         </div>
       </div>
 
@@ -263,10 +286,16 @@
         cleanSyncBtn: document.getElementById("cleanSyncBtn"),
         refreshBtn: document.getElementById("refreshBtn"),
         downloadDiagnosticsBtn: document.getElementById("downloadDiagnosticsBtn"),
+        cancelSyncBtn: document.getElementById("cancelSyncBtn"),
+        ignoreList: document.getElementById("ignoreList"),
+        ignoreMeta: document.getElementById("ignoreMeta"),
+        saveIgnoreBtn: document.getElementById("saveIgnoreBtn"),
+        refreshIgnoreBtn: document.getElementById("refreshIgnoreBtn"),
         deviceFlowInfo: document.getElementById("deviceFlowInfo"),
         tokenBadge: document.getElementById("tokenBadge"),
       };
       let cachedRepos = [];
+      let cachedIgnorePatterns = [];
       const ingressBase = `${window.location.pathname.replace(/\/+$/, "")}/`;
 
       function apiUrl(path) {
@@ -394,6 +423,40 @@
           (data.log_tail || "");
       }
 
+      async function loadIgnoreRecommendations() {
+        const data = await fetchJson(apiUrl("/api/ignore/recommendations"));
+        cachedIgnorePatterns = data.patterns || [];
+        el.ignoreMeta.textContent = data.local_gitignore
+          ? "Local .gitignore found."
+          : "No local .gitignore found yet — selected entries will create one.";
+        el.ignoreList.innerHTML = "";
+        cachedIgnorePatterns.forEach((item) => {
+          const label = document.createElement("label");
+          label.className = "row";
+          label.style.justifyContent = "space-between";
+          label.style.gap = "12px";
+          label.innerHTML = `<span>${item.pattern}</span>`;
+          const input = document.createElement("input");
+          input.type = "checkbox";
+          input.checked = Boolean(item.selected);
+          input.dataset.pattern = item.pattern;
+          label.prepend(input);
+          el.ignoreList.appendChild(label);
+        });
+      }
+
+      async function saveIgnoreRecommendations() {
+        const selected = Array.from(el.ignoreList.querySelectorAll("input[type='checkbox']"))
+          .filter((item) => item.checked)
+          .map((item) => item.dataset.pattern);
+        await fetchJson(apiUrl("/api/ignore/recommendations"), {
+          method: "POST",
+          body: JSON.stringify({ patterns: selected }),
+        });
+        setStatus("Updated local .gitignore");
+        await loadIgnoreRecommendations();
+      }
+
       async function downloadDiagnostics() {
         const data = await fetchJson(apiUrl("/api/diagnostics"));
         const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
@@ -463,6 +526,12 @@
         await loadStatus();
       }
 
+      async function cancelCurrentSync() {
+        const data = await fetchJson(apiUrl("/api/sync/cancel"), { method: "POST" });
+        setStatus(data.cancel_sync ? "Cancel requested" : "Cancel unavailable");
+        await loadStatus();
+      }
+
       el.saveBtn.addEventListener("click", () =>
         saveOptions().catch((error) => setStatus(error.message, false))
       );
@@ -471,6 +540,9 @@
       );
       el.cleanSyncBtn.addEventListener("click", () =>
         runCleanSync().catch((error) => setStatus(error.message, false))
+      );
+      el.cancelSyncBtn.addEventListener("click", () =>
+        cancelCurrentSync().catch((error) => setStatus(error.message, false))
       );
       el.startDeviceBtn.addEventListener("click", () =>
         startDeviceLogin().catch((error) => setStatus(error.message, false))
@@ -495,10 +567,16 @@
       el.downloadDiagnosticsBtn.addEventListener("click", () =>
         downloadDiagnostics().catch((error) => setStatus(error.message, false))
       );
+      el.saveIgnoreBtn.addEventListener("click", () =>
+        saveIgnoreRecommendations().catch((error) => setStatus(error.message, false))
+      );
+      el.refreshIgnoreBtn.addEventListener("click", () =>
+        loadIgnoreRecommendations().catch((error) => setStatus(error.message, false))
+      );
 
       applyRepoMode();
       updateTokenBadge({ state: "checking" });
-      Promise.all([loadOptions(), loadStatus(), loadDeviceFlowStatus(), loadRepositories(false)])
+      Promise.all([loadOptions(), loadStatus(), loadDeviceFlowStatus(), loadRepositories(false), loadIgnoreRecommendations()])
         .then(() => setStatus("Ready"))
         .catch((error) => setStatus(error.message, false));
     </script>
