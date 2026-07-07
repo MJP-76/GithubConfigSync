@@ -23,10 +23,10 @@ If you find this project useful, and would like to help support its continued de
 ## Version Tracker
 
 <!-- VERSION:START -->
-- Integration version: `0.2.27`
-- App version: `0.2.27`
+- Integration version: `0.2.28`
+- App version: `0.2.28`
 - Channel: `stable`
-- Release tag: `v0.2.27`
+- Release tag: `v0.2.28`
 <!-- VERSION:END -->
 
 To sync versions across integration/app/runtime/docs automatically:
@@ -139,6 +139,7 @@ Before tagging a release:
 - If `GITHUB_OAUTH_CLIENT_ID` is set in `custom_components/github_config_sync/const.py`, the flow uses it and skips asking for client ID.
 - HACS repository metadata is currently aligned with the integration manifest: repository name, URL, maintainer, and category wiring are present.
 - New repository creation now falls back to a humanized default name/description when those fields are left blank.
+- New release includes the repo-create blank-field defaults and the sync stability fixes from the prior commits.
 
 ## Sync verification
 

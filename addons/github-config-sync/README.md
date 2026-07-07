@@ -21,10 +21,10 @@ If you find this project useful, and would like to help support its continued de
 ## Version Tracker
 
 <!-- VERSION:START -->
-- Integration version: `0.2.27`
-- App version: `0.2.27`
+- Integration version: `0.2.28`
+- App version: `0.2.28`
 - Channel: `stable`
-- Release tag: `v0.2.27`
+- Release tag: `v0.2.28`
 <!-- VERSION:END -->
 
 ## What it provides
@@ -104,6 +104,7 @@ If you find this project useful, and would like to help support its continued de
 - The add-on repository metadata is minimal and valid for Home Assistant add-on store ingestion.
 - Version snapshots now skip ignored directories like `.cache`, even inside release snapshots.
 - New repository creation defaults blank name/description fields to a humanized repository name.
+- This release carries the repo-create default behavior and the sync fixes from the last two commits.
 
 ## Verification notes
 

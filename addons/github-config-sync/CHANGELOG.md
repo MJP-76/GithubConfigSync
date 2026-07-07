@@ -2,12 +2,13 @@
 
 ## Unreleased
 
-- Preparing the v0.2.27 release bump.
+- Preparing the v0.2.28 release bump.
 
 - Fixed GitHub OAuth client helper loading so Device Flow start completes reliably.
 - Retried version snapshot writes on stale SHA conflicts so GitHub 409s no longer abort releases.
 - Skipped ignored cache/runtime files inside version snapshots so `.cache` entries no longer sync.
 - Defaulted blank create-repo fields to a humanized repository name and description.
+- Updated docs and release notes for the repo-create defaults and sync stability changes.
 
 ## 0.2.21
 
