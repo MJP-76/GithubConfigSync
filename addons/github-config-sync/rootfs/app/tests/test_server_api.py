@@ -195,6 +195,20 @@ class ServerApiTests(unittest.TestCase):
         self.assertTrue(body["ok"])
         self.assertEqual(body["repository"], "owner/new-config-repo")
 
+    def test_create_repository_uses_default_name_when_blank(self) -> None:
+        self._write_options({"github_branch": "main", "github_token": "gho_x"})
+        with patch("server.GitHubClient.create_repository") as create_repo:
+            create_repo.return_value = {"full_name": "owner/home-assistant-config"}
+            response = self.client.post(
+                "/api/repos/create",
+                json={"name": "", "private": True, "description": ""},
+            )
+
+        body = response.get_json()
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(body["ok"])
+        self.assertEqual(body["repository"], "owner/home-assistant-config")
+
     def test_status_includes_auth_diagnostics(self) -> None:
         self._write_options(
             {
