@@ -159,6 +159,10 @@ Use this as the single source of truth for **where we are**, **what is next**, a
 - [x] Minimum supported Home Assistant version decided
 - [x] Repo picker filtering/pagination decision closed
 
+## v0.1.10 — Repo Picker Selection Fix
+
+- [x] Newly created repositories are selected automatically in the repo picker
+
 ## Active Sprint Tracker (Now)
 
 ## Completed
@@ -168,6 +172,7 @@ Use this as the single source of truth for **where we are**, **what is next**, a
 - [x] Close add-on sync strategy decision
 - [x] Close minimum supported Home Assistant version decision
 - [x] Close repo picker org filtering/pagination decision
+- [x] Auto-select newly created repository in the repo picker
 
 ---
 
