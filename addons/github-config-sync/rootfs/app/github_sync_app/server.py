@@ -5,26 +5,15 @@ import json
 from pathlib import Path
 from typing import Any
 from urllib.parse import quote
-import sys
 
 from flask import Flask, jsonify, request, send_from_directory
 
-APP_ROOT = Path(__file__).resolve().parent
-if str(APP_ROOT) not in sys.path:
-    sys.path.insert(0, str(APP_ROOT))
+from github_sync_app.sync import SyncConfig, SyncEngine
+from github_sync_app.sync.errors import SyncError
+from github_sync_app.sync.github_client import GitHubClient
+from github_sync_app.sync.hashing import IGNORE_PATTERNS
 
-try:
-    from github_sync_app.sync import SyncConfig, SyncEngine
-    from github_sync_app.sync.errors import SyncError
-    from github_sync_app.sync.github_client import GitHubClient
-    from github_sync_app.sync.hashing import IGNORE_PATTERNS
-except ModuleNotFoundError:
-    from sync import SyncConfig, SyncEngine
-    from sync.errors import SyncError
-    from sync.github_client import GitHubClient
-    from sync.hashing import IGNORE_PATTERNS
-
-APP_VERSION = "0.2.32"
+APP_VERSION = "0.2.31"
 APP_PORT = 8099
 DEFAULT_OAUTH_CLIENT_ID = "Ov23li2ycCraodta6WCU"
 
