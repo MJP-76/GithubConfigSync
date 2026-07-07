@@ -126,6 +126,6 @@ Before tagging a release:
 
 ## Support me
 
-If you find this integration useful, or want to support further development you can support my work here:
+If you find this project useful, and would like to help support its continued development, you can do so here:
 
 [Support me](SUPPORT.md)

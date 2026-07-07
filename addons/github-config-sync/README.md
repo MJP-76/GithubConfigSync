@@ -91,6 +91,6 @@ Containerized Home Assistant add-on with an ingress web UI for GitHub sync opera
 
 ## Support me
 
-If you find this add-on useful, or want to support further development you can support my work here:
+If you find this project useful, and would like to help support its continued development, you can do so here:
 
 [Support me](../SUPPORT.md)
