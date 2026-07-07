@@ -6,7 +6,7 @@
 [![HASSfest](https://img.shields.io/badge/HASSfest-validated-success.svg)](https://developers.home-assistant.io/docs/add-ons/)
 [![Release](https://img.shields.io/github/v/tag/MJP-76/GithubConfigSync?label=release)](https://github.com/MJP-76/GithubConfigSync/releases)
 
-Containerized Home Assistant app with an ingress web UI for GitHub config sync operations. This is a sync tool, not a backup tool.
+Containerized Home Assistant app with an ingress web UI for GitHub config sync operations. This is a sync tool, not a backup tool. Use caution with any two-way sync or other tools that can also write to the Home Assistant config tree, because they can cause local config loss or unexpected deletions.
 
 This documentation and code were drafted with AI assistance and then reviewed/edited by the maintainer.
 
@@ -21,10 +21,10 @@ If you find this project useful, and would like to help support its continued de
 ## Version Tracker
 
 <!-- VERSION:START -->
-- Integration version: `0.2.20`
-- Add-on version: `0.2.20`
+- Integration version: `0.2.21`
+- App version: `0.2.21`
 - Channel: `stable`
-- Release tag: `v0.2.20`
+- Release tag: `v0.2.21`
 <!-- VERSION:END -->
 
 ## What it provides
@@ -43,11 +43,11 @@ If you find this project useful, and would like to help support its continued de
 - AppDaemon configs and apps under `/addon_configs/` are included in the normal sync scan.
 - The mount-point checklist lets you include or exclude standard Home Assistant folders, and the recommended .gitignore keeps the ignore list aligned.
 - `dry_run=true` stops after planning and returns the counts that would be applied.
-- `dry_run=false` probes the GitHub repository first, then performs upserts and deletes with the GitHub Contents API.
+- `dry_run=false` probes the GitHub repository first, then performs upserts and deletes with the GitHub Contents API. Remote deletes never remove local files.
 - Live runs also write versioned snapshots under `versions/<timestamp>/...` and keep the most recent 7 by default.
 - Runtime state is persisted in `/data/state.json`, `/data/hash_index.json`, `/data/device_flow.json`, and `/data/sync.log`.
 - The stable local API contract is `/api/health`, `/api/status`, `/api/sync`, and `/api/diagnostics`.
-- After a release, Home Assistant may need a rebuild/reinstall to pick up UI changes from the add-on image.
+- After a release, Home Assistant may need a rebuild/reinstall to pick up UI changes from the app image.
 
 ## Runbook
 
@@ -62,7 +62,7 @@ If you find this project useful, and would like to help support its continued de
 
 1. Sync runs once a day by default.
 2. Version snapshots keep the last 7 copies by default.
-3. Both settings are editable in the add-on UI.
+3. Both settings are editable in the app UI.
 
 ### Live run
 
@@ -80,16 +80,16 @@ If you find this project useful, and would like to help support its continued de
 
 ## Release checklist
 
-1. Bump the add-on version and sync the version tracker.
-2. Run the add-on unit tests.
+1. Bump the app version and sync the version tracker.
+2. Run the app unit tests.
 3. Update the changelog and migration notes.
 4. Publish the release tag.
 
 ## First run
 
-1. Add this repository as a Home Assistant add-on repository.
-2. Install **Github Config Sync** add-on.
-3. Open the add-on web UI and set:
+1. Add this repository as a Home Assistant repository.
+2. Install **Github Config Sync**.
+3. Open the app web UI and set:
    - `github_repository` (`owner/repo`)
    - `github_branch`
    - `github_client_id` (defaults to the built-in app ID)
@@ -100,7 +100,7 @@ If you find this project useful, and would like to help support its continued de
 ## Notes
 
 - `dry_run` is enabled by default to avoid accidental pushes.
-- This add-on is designed as a polished operator UI layer and can be wired to deeper sync logic incrementally.
+- This app is designed as a polished operator UI layer and can be wired to deeper sync logic incrementally.
 
 ## Verification notes
 

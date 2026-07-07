@@ -166,6 +166,9 @@ class SyncEngine:
             ),
         )
 
+    def clean_remote_tree(self) -> None:
+        self._delete_remote_tree_except("", excluded_names={"versions"})
+
     def _sync_version_snapshot(self) -> None:
         timestamp = dt.datetime.now(dt.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
         version_root = f"versions/{timestamp}"
@@ -258,6 +261,27 @@ class SyncEngine:
                 continue
             if item_type == "dir":
                 self._delete_remote_tree(item_path)
+                continue
+            sha = item.get("sha")
+            if not isinstance(sha, str):
+                continue
+            self._github.delete_content(
+                path=item_path,
+                sha=sha,
+                message=f"sync: delete {item_path}",
+            )
+
+    def _delete_remote_tree_except(self, root: str, excluded_names: set[str]) -> None:
+        for item in self._github.list_directory_contents(root):
+            item_type = item.get("type")
+            item_name = item.get("name")
+            item_path = item.get("path")
+            if not isinstance(item_name, str) or not isinstance(item_path, str):
+                continue
+            if root == "" and item_name in excluded_names:
+                continue
+            if item_type == "dir":
+                self._delete_remote_tree_except(item_path, excluded_names)
                 continue
             sha = item.get("sha")
             if not isinstance(sha, str):

@@ -313,6 +313,28 @@ class ServerApiTests(unittest.TestCase):
         self.assertEqual(body["summary"]["synced_count"], 1)
         self.assertIn("sync_progress", body["state"])
 
+    def test_clean_sync_clears_remote_tree_before_upload(self) -> None:
+        (self._config_root / "one.txt").write_text("one", encoding="utf-8")
+        self._write_options(
+            {
+                "github_repository": "owner/repo",
+                "github_branch": "main",
+                "github_token": "gho_test",
+                "sync_interval_minutes": 60,
+                "dry_run": True,
+            }
+        )
+
+        with patch("server.SyncEngine.clean_remote_tree") as clean_remote_tree, patch(
+            "server.GitHubClient.probe_repository", return_value=(True, "Repository probe succeeded")
+        ):
+            response = self.client.post("/api/sync/clean")
+
+        body = response.get_json()
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(body["ok"])
+        clean_remote_tree.assert_called_once()
+
     def test_manual_sync_endpoint_uses_retention_days(self) -> None:
         (self._config_root / "one.txt").write_text("one", encoding="utf-8")
         self._write_options(

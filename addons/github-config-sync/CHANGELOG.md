@@ -2,7 +2,12 @@
 
 ## Unreleased
 
-- Preparing the v0.2.20 release bump.
+- Preparing the v0.2.21 release bump.
+
+## 0.2.21
+
+- Added the remote-delete/local-file caution to the docs and app page.
+- Clarified that clean upload deletes only remote GitHub content.
 
 ## 0.2.20
 

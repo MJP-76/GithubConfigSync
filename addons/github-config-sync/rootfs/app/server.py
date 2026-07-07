@@ -13,7 +13,7 @@ from sync.errors import SyncError
 from sync.github_client import GitHubClient
 from sync.hashing import IGNORE_PATTERNS
 
-APP_VERSION = "0.2.20"
+APP_VERSION = "0.2.21"
 APP_PORT = 8099
 DEFAULT_OAUTH_CLIENT_ID = "Ov23li2ycCraodta6WCU"
 
@@ -810,6 +810,7 @@ def trigger_clean_sync():
         engine = SyncEngine(sync_config, previous_hash_index=previous_index)
         engine.set_cancel_checker(_is_cancel_requested)
         engine.set_progress_callback(lambda payload: _save_state(_sync_progress_payload(payload)))
+        engine.clean_remote_tree()
         plan, current_hash_index = engine.clean_plan()
         scan = _plan_summary(plan)
         _append_log(

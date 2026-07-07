@@ -248,6 +248,43 @@ class SyncEngineTests(unittest.TestCase):
 
         delete_tree.assert_called_once_with("versions/20260601T120000Z")
 
+    def test_clean_remote_tree_deletes_root_content_but_keeps_versions(self) -> None:
+        config = SyncConfig(
+            repository="owner/repo",
+            branch="main",
+            token="token",
+            config_root=".",
+            addon_config_root="/addon_configs",
+            dry_run=False,
+            version_retention_count=7,
+        )
+        fake_client = MagicMock()
+        fake_client.list_directory_contents.side_effect = [
+            [
+                {"type": "dir", "name": "versions", "path": "versions"},
+                {"type": "dir", "name": "config", "path": "config"},
+                {"type": "file", "name": "root.yaml", "path": "root.yaml", "sha": "rootsha"},
+            ],
+            [
+                {"type": "file", "name": "nested.yaml", "path": "config/nested.yaml", "sha": "nestedsha"},
+            ],
+        ]
+
+        with patch("sync.engine.GitHubClient", return_value=fake_client):
+            engine = SyncEngine(config, previous_hash_index={})
+            engine.clean_remote_tree()
+
+        fake_client.delete_content.assert_any_call(
+            path="config/nested.yaml",
+            sha="nestedsha",
+            message="sync: delete config/nested.yaml",
+        )
+        fake_client.delete_content.assert_any_call(
+            path="root.yaml",
+            sha="rootsha",
+            message="sync: delete root.yaml",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

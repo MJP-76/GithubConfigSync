@@ -7,7 +7,7 @@
 [![Manifest](https://img.shields.io/badge/Manifest-validated-success.svg)](https://developers.home-assistant.io/docs/creating_integration_manifest/)
 [![Release](https://img.shields.io/github/v/tag/MJP-76/GithubConfigSync?label=release)](https://github.com/MJP-76/GithubConfigSync/releases)
 
-Home Assistant custom integration for syncing the Home Assistant config folder to GitHub. This is a config sync tool, not a backup tool.
+Home Assistant custom integration for syncing the Home Assistant config folder to GitHub. This is a config sync tool, not a backup tool. Use caution with any two-way sync or other tools that can also write to the Home Assistant config tree, because they can cause local config loss or unexpected deletions.
 
 This documentation and code were drafted with AI assistance and then reviewed/edited by the maintainer.
 
@@ -22,10 +22,10 @@ If you find this project useful, and would like to help support its continued de
 ## Version Tracker
 
 <!-- VERSION:START -->
-- Integration version: `0.2.20`
-- Add-on version: `0.2.20`
+- Integration version: `0.2.21`
+- App version: `0.2.21`
 - Channel: `stable`
-- Release tag: `v0.2.20`
+- Release tag: `v0.2.21`
 <!-- VERSION:END -->
 
 To sync versions across integration/app/runtime/docs automatically:
@@ -52,7 +52,7 @@ App repository metadata is provided via `repository.yaml` so it can be added dir
 
 - Runs once a day by default.
 - Keeps 7 GitHub version snapshots by default.
-- Both values are configurable in the add-on UI.
+- Both values are configurable in the app UI.
 
 ## Architecture
 
@@ -61,10 +61,10 @@ App repository metadata is provided via `repository.yaml` so it can be added dir
 - Sync planning is hash-based: the app scans `/config`, diffs against the last saved hash index, and classifies files as added, changed, or removed.
 - AppDaemon configs and apps under `/addon_configs/` are included in the normal sync scan.
 - The mount-point checklist lets you include or exclude standard Home Assistant folders, and the recommended .gitignore keeps the ignore list aligned.
-- Dry runs do not touch GitHub; live runs probe the repository first, then upsert and delete files through the GitHub Contents API.
+- Dry runs do not touch GitHub; live runs probe the repository first, then upsert and delete files through the GitHub Contents API. Remote deletes never remove local files.
 - Live runs also write versioned snapshots under `versions/<timestamp>/...` and keep the most recent 7 by default.
 - State, logs, device-flow data, and the last hash index live in `/data`.
-- The add-on exposes a stable local API contract via `/api/health`, `/api/status`, `/api/sync`, and `/api/diagnostics`.
+- The app exposes a stable local API contract via `/api/health`, `/api/status`, `/api/sync`, and `/api/diagnostics`.
 - The generated `.gitignore` includes the common Home Assistant guidance entries such as `secrets.yaml`, `ip_bans.yaml`, `known_devices.yaml`, `.storage/`, and `.cloud/`, while still honoring any local user additions.
 - After a release, Home Assistant may need a rebuild/reinstall to pick up UI changes from the app image.
 
@@ -72,7 +72,7 @@ App repository metadata is provided via `repository.yaml` so it can be added dir
 
 ### Dry run
 
-1. Open the add-on UI and confirm `github_repository`, `github_branch`, and `dry_run=true`.
+1. Open the app UI and confirm `github_repository`, `github_branch`, and `dry_run=true`.
 2. Start or complete GitHub device login if a token is not already present.
 3. Run a sync and review the scan summary and dry-run result in the status panel.
 4. Confirm the result shows the expected upsert/delete counts without changing GitHub contents.
@@ -81,14 +81,14 @@ App repository metadata is provided via `repository.yaml` so it can be added dir
 
 1. Verify the target repository exists and is accessible with the saved token.
 2. Confirm the branch name is correct for the target repo.
-3. Set `dry_run=false` in the add-on settings.
+3. Set `dry_run=false` in the app settings.
 4. Run a sync, or use **Clean Upload** to force a full re-upload plus cleanup of remote extras.
 5. Confirm the repository probe succeeds before the write phase.
 6. Review the status panel and logs for the final upsert/delete/skip counts.
 
 ### Diagnostics bundle
 
-1. Open the add-on UI.
+1. Open the app UI.
 2. Click **Download Diagnostics**.
 3. Share the resulting JSON with support or use it to compare config, status, and sanitized logs.
 
@@ -96,18 +96,18 @@ App repository metadata is provided via `repository.yaml` so it can be added dir
 
 Before tagging a release:
 
-1. Bump the integration/add-on versions as needed.
-2. Run the repository validation workflow and the add-on test suite.
+1. Bump the integration/app versions as needed.
+2. Run the repository validation workflow and the app test suite.
 3. Confirm the docs and plan are updated.
 4. Create the tag and publish the release.
 5. Update the changelog and migration notes.
 
-## Installation (Add-on)
+## Installation (App)
 
 1. In Home Assistant, open **Settings → Add-ons → Add-on Store → Repositories**.
 2. Add this repository URL: `https://github.com/MJP-76/GithubConfigSync`.
-3. Install **Github Config Sync** add-on and start it.
-4. Open the add-on web UI (ingress), configure repository settings, and complete GitHub Device Flow login.
+3. Install **Github Config Sync** and start it.
+4. Open the app web UI (ingress), configure repository settings, and complete GitHub Device Flow login.
 
 ## Installation (HACS)
 
