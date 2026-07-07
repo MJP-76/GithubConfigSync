@@ -139,7 +139,6 @@
         </p>
         <div class="row">
           <button id="startDeviceBtn" class="secondary">Start Device Login</button>
-          <button id="completeDeviceBtn" class="secondary">Complete Device Login</button>
         </div>
         <p id="deviceFlowInfo" style="margin-top: 10px; font-size: 0.9rem"></p>
       </div>
@@ -242,7 +241,6 @@
         runtime: document.getElementById("runtime"),
         saveBtn: document.getElementById("saveBtn"),
         startDeviceBtn: document.getElementById("startDeviceBtn"),
-        completeDeviceBtn: document.getElementById("completeDeviceBtn"),
         repoMode: document.querySelectorAll("input[name='repoMode']"),
         existingRepoSection: document.getElementById("existingRepoSection"),
         createRepoSection: document.getElementById("createRepoSection"),
@@ -401,10 +399,7 @@
         });
         el.deviceFlowInfo.innerHTML = `Authorize with code <strong>${data.user_code}</strong> at <a href="${data.verification_uri_complete}" target="_blank" rel="noopener noreferrer">GitHub device login</a>`;
         window.open(data.verification_uri_complete, "_blank", "noopener,noreferrer");
-        setStatus("Device login started");
-      }
-
-      async function completeDeviceLogin() {
+        setStatus("Device login started. Waiting for authorization...");
         await fetchJson(apiUrl("/api/auth/device/complete"), { method: "POST" });
         setStatus("Device login complete. Token saved.");
         await Promise.all([loadOptions(), loadStatus(), loadDeviceFlowStatus(), loadRepositories()]);
@@ -441,9 +436,6 @@
       );
       el.startDeviceBtn.addEventListener("click", () =>
         startDeviceLogin().catch((error) => setStatus(error.message, false))
-      );
-      el.completeDeviceBtn.addEventListener("click", () =>
-        completeDeviceLogin().catch((error) => setStatus(error.message, false))
       );
       el.repoMode.forEach((item) => item.addEventListener("change", applyRepoMode));
       el.loadReposBtn.addEventListener("click", () =>

@@ -66,7 +66,7 @@ Containerized Home Assistant add-on with an ingress web UI for GitHub sync opera
    - `github_repository` (`owner/repo`)
    - `github_branch`
    - `github_client_id` (defaults to the built-in app ID)
-4. Click **Start Device Login**, approve on GitHub, then **Complete Device Login**.
+4. Click **Start Device Login**, approve on GitHub, and wait for the login to complete automatically.
 5. Save settings and click **Run Sync Now**.
 
 ## Notes
