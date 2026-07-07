@@ -8,13 +8,21 @@
 
 Containerized Home Assistant add-on with an ingress web UI for GitHub sync operations.
 
+## Support me
+
+If you find this project useful, and would like to help support its continued development, you can do so here:
+
+[![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-FFDD00?style=for-the-badge&logo=buymeacoffee&logoColor=000000)](https://www.buymeacoffee.com/mjp76)
+[![Ko-fi](https://img.shields.io/badge/Ko--fi-F16061?style=for-the-badge&logo=ko-fi&logoColor=ffffff)](https://ko-fi.com/mjp76)
+[![Octopus Energy — you get £50, I get £50](https://img.shields.io/badge/Octopus%20Energy-%E2%80%94%20you%20get%20%C2%A350%2C%20I%20get%20%C2%A350-14294A?style=for-the-badge&logo=octopus-energy&logoColor=ffffff)](https://share.octopus.energy/iron-moose-196)
+
 ## Version Tracker
 
 <!-- VERSION:START -->
-- Integration version: `0.2.13`
-- Add-on version: `0.2.13`
+- Integration version: `0.2.14`
+- Add-on version: `0.2.14`
 - Channel: `stable`
-- Release tag: `v0.2.13`
+- Release tag: `v0.2.14`
 <!-- VERSION:END -->
 
 ## What it provides
@@ -95,11 +103,3 @@ Containerized Home Assistant add-on with an ingress web UI for GitHub sync opera
 - Start with a dry run and confirm the API summary matches the expected file changes.
 - For a live run, disable `dry_run` only after the repository probe passes and the GitHub token has repo write access.
 - Missing local files during an upsert are skipped; missing remote files during deletes are skipped as well.
-
-## Support me
-
-If you find this project useful, and would like to help support its continued development, you can do so here:
-
-[![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-FFDD00?style=for-the-badge&logo=buymeacoffee&logoColor=000000)](https://www.buymeacoffee.com/mjp76)
-[![Ko-fi](https://img.shields.io/badge/Ko--fi-F16061?style=for-the-badge&logo=ko-fi&logoColor=ffffff)](https://ko-fi.com/mjp76)
-[![Octopus Energy — you get £50, I get £50](https://img.shields.io/badge/Octopus%20Energy-%E2%80%94%20you%20get%20%C2%A350%2C%20I%20get%20%C2%A350-14294A?style=for-the-badge&logo=octopus-energy&logoColor=ffffff)](https://share.octopus.energy/iron-moose-196)

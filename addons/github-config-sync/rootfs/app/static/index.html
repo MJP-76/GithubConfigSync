@@ -573,7 +573,6 @@
       }
 
       async function loadStatus() {
-        updateTokenBadge({ state: "checking" });
         const data = await fetchJson(apiUrl("/api/status"));
         updateTokenBadge(data.token_health);
         const progress = data.state?.sync_progress;

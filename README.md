@@ -9,13 +9,21 @@
 
 Home Assistant custom integration for syncing the Home Assistant config folder to GitHub.
 
+## Support me
+
+If you find this project useful, and would like to help support its continued development, you can do so here:
+
+[![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-FFDD00?style=for-the-badge&logo=buymeacoffee&logoColor=000000)](https://www.buymeacoffee.com/mjp76)
+[![Ko-fi](https://img.shields.io/badge/Ko--fi-F16061?style=for-the-badge&logo=ko-fi&logoColor=ffffff)](https://ko-fi.com/mjp76)
+[![Octopus Energy — you get £50, I get £50](https://img.shields.io/badge/Octopus%20Energy-%E2%80%94%20you%20get%20%C2%A350%2C%20I%20get%20%C2%A350-14294A?style=for-the-badge&logo=octopus-energy&logoColor=ffffff)](https://share.octopus.energy/iron-moose-196)
+
 ## Version Tracker
 
 <!-- VERSION:START -->
-- Integration version: `0.2.13`
-- Add-on version: `0.2.13`
+- Integration version: `0.2.14`
+- Add-on version: `0.2.14`
 - Channel: `stable`
-- Release tag: `v0.2.13`
+- Release tag: `v0.2.14`
 <!-- VERSION:END -->
 
 To sync versions across integration/add-on/runtime/docs automatically:
@@ -130,11 +138,3 @@ Before tagging a release:
 - **Dry run**: use `dry_run: true` first to confirm the scan is picking up added, changed, and removed files without pushing anything.
 - **Live run**: switch `dry_run` to `false` only after the dry-run summary looks correct, then confirm the repository probe succeeds and the run reports upserts/deletes as expected.
 - **Recovery check**: if a file is missing locally during a live run, it is counted as skipped rather than forcing a bad write.
-
-## Support me
-
-If you find this project useful, and would like to help support its continued development, you can do so here:
-
-[![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-FFDD00?style=for-the-badge&logo=buymeacoffee&logoColor=000000)](https://www.buymeacoffee.com/mjp76)
-[![Ko-fi](https://img.shields.io/badge/Ko--fi-F16061?style=for-the-badge&logo=ko-fi&logoColor=ffffff)](https://ko-fi.com/mjp76)
-[![Octopus Energy — you get £50, I get £50](https://img.shields.io/badge/Octopus%20Energy-%E2%80%94%20you%20get%20%C2%A350%2C%20I%20get%20%C2%A350-14294A?style=for-the-badge&logo=octopus-energy&logoColor=ffffff)](https://share.octopus.energy/iron-moose-196)
