@@ -308,7 +308,7 @@
               <input id="newRepoName" placeholder="home-assistant-config" />
             </div>
             <div class="field">
-              <label for="newRepoDescription">Description (optional)</label>
+              <label for="newRepoDescription">Description (defaults to the repo name with spaces)</label>
               <input id="newRepoDescription" placeholder="Home Assistant config sync" />
             </div>
           </div>
@@ -509,6 +509,14 @@
         const mode = getRepoMode();
         el.existingRepoSection.style.display = mode === "existing" ? "block" : "none";
         el.createRepoSection.style.display = mode === "create" ? "block" : "none";
+      }
+
+      function humanizeRepoName(name) {
+        return name
+          .trim()
+          .replace(/[_-]+/g, " ")
+          .replace(/\s+/g, " ")
+          .replace(/\b\w/g, (char) => char.toUpperCase());
       }
 
       function renderRepoPicker(repos) {
@@ -724,10 +732,12 @@
       async function createRepository() {
         setButtonBusy(el.createRepoBtn, true, "Creating...");
         try {
+          const name = el.newRepoName.value.trim();
+          const description = el.newRepoDescription.value.trim() || humanizeRepoName(name);
           const payload = {
-            name: el.newRepoName.value.trim(),
+            name,
             private: el.newRepoPrivate.checked,
-            description: el.newRepoDescription.value.trim(),
+            description,
           };
           const data = await fetchJson(apiUrl("/api/repos/create"), {
             method: "POST",
@@ -808,6 +818,11 @@
       el.createRepoBtn.addEventListener("click", () =>
         createRepository().catch((error) => setStatus(error.message, false))
       );
+      el.newRepoName.addEventListener("input", () => {
+        if (!el.newRepoDescription.value.trim()) {
+          el.newRepoDescription.value = humanizeRepoName(el.newRepoName.value);
+        }
+      });
       el.refreshBtn.addEventListener("click", () =>
         {
           setButtonBusy(el.refreshBtn, true, "Refreshing...");
