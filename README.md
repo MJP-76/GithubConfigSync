@@ -7,10 +7,10 @@ Home Assistant custom integration for syncing the Home Assistant config folder t
 ## Version Tracker
 
 <!-- VERSION:START -->
-- Integration version: `0.0.23`
-- Add-on version: `0.1.6`
+- Integration version: `0.0.24`
+- Add-on version: `0.1.7`
 - Channel: `stable`
-- Release tag: `v0.0.23`
+- Release tag: `v0.0.24`
 <!-- VERSION:END -->
 
 To sync versions across integration/add-on/runtime/docs automatically:
@@ -32,6 +32,47 @@ This repository now also includes a containerized Home Assistant add-on with ing
 `addons/github-config-sync/`
 
 Add-on repository metadata is provided via `repository.yaml` so it can be added directly in Home Assistant Add-on Store.
+
+## Architecture
+
+- The custom integration handles Home Assistant entities, config flow, and operator actions.
+- The add-on provides the ingress web UI and the sync runtime API.
+- Sync planning is hash-based: the add-on scans `/config`, diffs against the last saved hash index, and classifies files as added, changed, or removed.
+- Dry runs do not touch GitHub; live runs probe the repository first, then upsert and delete files through the GitHub Contents API.
+- State, logs, device-flow data, and the last hash index live in `/data`.
+- The add-on exposes a stable local API contract via `/api/health`, `/api/status`, `/api/sync`, and `/api/diagnostics`.
+
+## Runbook
+
+### Dry run
+
+1. Open the add-on UI and confirm `github_repository`, `github_branch`, and `dry_run=true`.
+2. Start or complete GitHub device login if a token is not already present.
+3. Run a sync and review the scan summary and dry-run result in the status panel.
+4. Confirm the result shows the expected upsert/delete counts without changing GitHub contents.
+
+### Live run
+
+1. Verify the target repository exists and is accessible with the saved token.
+2. Set `dry_run=false` in the add-on settings.
+3. Run a sync and confirm the repository probe succeeds before the write phase.
+4. Review the status panel and logs for the final upsert/delete/skip counts.
+
+### Diagnostics bundle
+
+1. Open the add-on UI.
+2. Click **Download Diagnostics**.
+3. Share the resulting JSON with support or use it to compare config, status, and sanitized logs.
+
+## Release checklist
+
+Before tagging a release:
+
+1. Bump the integration/add-on versions as needed.
+2. Run the repository validation workflow and the add-on test suite.
+3. Confirm the docs and plan are updated.
+4. Create the tag and publish the release.
+5. Update the changelog and migration notes.
 
 ## Installation (Add-on)
 

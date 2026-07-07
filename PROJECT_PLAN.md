@@ -6,18 +6,18 @@ Use this as the single source of truth for **where we are**, **what is next**, a
 
 ## Status Snapshot
 
+- **Current milestone:** `v0.1.3 — Security + Auth`
 - **Last updated:** 2026-07-07
-- **Current milestone:** `v0.1.2 — Sync Engine Hardening`
 - **Track:** Home Assistant Integration + Home Assistant Add-on (Ingress Web UI)
 - **Latest shipped improvements:** Add-on Device Flow auth + ingress path fix + repo picker/create flow
 - **Current operator UX:** Device Login section first, existing/create repo flow, troubleshooting auth overrides hidden by default
 - **Version state:** See auto-managed tracker below.
 
 <!-- VERSION:START -->
-- Integration version: `0.0.23`
-- Add-on version: `0.1.6`
+- Integration version: `0.0.24`
+- Add-on version: `0.1.7`
 - Channel: `stable`
-- Release tag: `v0.0.23`
+- Release tag: `v0.0.24`
 <!-- VERSION:END -->
 
 ---
@@ -113,34 +113,52 @@ Use this as the single source of truth for **where we are**, **what is next**, a
 - [x] Real GitHub upsert/delete sync path integrated in runtime endpoint
 - [x] Structured sync module boundaries (`github_client`, `sync_engine`, models, errors)
 - [x] Tests for hash diff + sync planning + API happy path/error path
-- [ ] End-to-end dry-run and live-run verification notes in docs
+- [x] End-to-end dry-run and live-run verification notes in docs
 
 ## v0.1.3 — Security + Auth
 
-- [ ] Token never persisted/logged in plaintext beyond required runtime paths
-- [ ] OAuth path hardened with clear fallback/error handling
-- [ ] Startup scope checks and actionable auth diagnostics
-- [ ] Security notes in docs (`SECURITY.md` or equivalent section)
+- [x] Token never persisted/logged in plaintext beyond required runtime paths
+- [x] OAuth path hardened with clear fallback/error handling
+- [x] Repository/auth diagnostics surfaced in status and diagnostics bundle
+- [x] Security notes in docs (`SECURITY.md` or equivalent section)
 
 ## v0.1.4 — Integration ↔ Add-on Contract
 
-- [ ] Define stable local API contract between integration and add-on
-- [ ] Expose add-on health/sync status in HA entities
-- [ ] Diagnostics export bundle (config + status + sanitized logs)
+- [x] Define stable local API contract between integration and add-on
+- [x] Expose add-on health/sync status in HA entities
+- [x] Diagnostics export bundle (config + status + sanitized logs)
 
 ## v0.1.5 — Quality Gate
 
-- [ ] Unit tests for sync engine + API + config validation
-- [ ] CI includes integration checks + add-on checks + tests
-- [ ] Release checklist enforced for each tag
-- [ ] Migration notes template for every milestone release
+- [x] Unit tests for sync engine + API + config validation
+- [x] CI includes integration checks + add-on checks + tests
+- [x] Release checklist enforced for each tag
+- [x] Migration notes template for every milestone release
 
----
+## v0.1.6 — Release Bump
+
+- [x] Version tracker synced across integration, add-on, runtime, and docs
+- [x] Changelog updated for the release bump
+- [x] Release checklist verified against the current repo state
 
 ## Active Sprint Tracker (Now)
 
 ## In Progress
 
+<<<<<<< HEAD
+- [x] Complete `v0.1.2` and publish next dev release
+- [x] Start `v0.1.3` auth/security hardening
+
+## Next Up
+
+- [ ] Continue `v0.1.3` security/auth hardening follow-ups
+- [ ] Prep `v0.1.4` integration ↔ add-on contract follow-up work
+
+## Blockers / Decisions Needed
+
+- [x] Sync engine direction: **git-native engine**
+- [x] Minimum supported Home Assistant version: `2026.06.2`
+=======
 - [ ] Add end-to-end dry-run and live-run verification notes in docs (close `v0.1.2`)
 - [ ] Add runbook section for add-on auth/repo-picker workflow and common recovery steps
 - [ ] Validate HACS metadata requirements tied to GitHub repo settings (description/topics/brands)
@@ -165,6 +183,7 @@ Use this as the single source of truth for **where we are**, **what is next**, a
 2. Add runbook: Device Flow/auth troubleshooting, ingress/API troubleshooting, repo picker/create troubleshooting.
 3. Confirm repository-level HACS prerequisites in GitHub settings (description/topics/brands) and reflect status here.
 4. Ship next release after docs/runbook updates and tracker refresh.
+>>>>>>> origin/main
 
 ---
 

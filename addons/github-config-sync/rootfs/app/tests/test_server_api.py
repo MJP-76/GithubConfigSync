@@ -177,6 +177,44 @@ class ServerApiTests(unittest.TestCase):
         self.assertTrue(body["ok"])
         self.assertEqual(body["repository"], "owner/new-config-repo")
 
+    def test_status_includes_auth_diagnostics(self) -> None:
+        self._write_options(
+            {
+                "github_repository": "owner/repo",
+                "github_branch": "main",
+                "github_token": "gho_test",
+                "sync_interval_minutes": 60,
+                "dry_run": True,
+            }
+        )
+
+        response = self.client.get("/api/status")
+        body = response.get_json()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(body["ok"])
+        self.assertEqual(body["auth"]["token_state"], "configured")
+        self.assertEqual(body["auth"]["repository_state"], "configured")
+
+    def test_diagnostics_bundle_masks_token(self) -> None:
+        self._write_options(
+            {
+                "github_repository": "owner/repo",
+                "github_branch": "main",
+                "github_token": "gho_test",
+                "sync_interval_minutes": 60,
+                "dry_run": True,
+            }
+        )
+
+        response = self.client.get("/api/diagnostics")
+        body = response.get_json()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(body["ok"])
+        self.assertEqual(body["options"]["github_token"], "********")
+        self.assertEqual(body["auth"]["token_state"], "configured")
+
 
 if __name__ == "__main__":
     unittest.main()

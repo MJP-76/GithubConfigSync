@@ -6,6 +6,19 @@ on:
   workflow_dispatch:
 
 jobs:
+  addon-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Run add-on unit tests
+        working-directory: addons/github-config-sync/rootfs/app
+        run: python -m unittest discover -s tests -p "test_*.py"
+
   hassfest:
     runs-on: ubuntu-latest
     steps:
