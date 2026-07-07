@@ -175,65 +175,6 @@ def _token_health(options: dict[str, Any]) -> dict[str, Any]:
         branch=str(options.get("github_branch", "main")).strip() or "main",
         token=token,
     )
-
-
-@app.post("/api/sync/manual")
-def trigger_manual_sync():
-    options = _merge_options()
-    sync_config = _sync_config(options)
-    if not sync_config.repository:
-        return jsonify({"ok": False, "error": "github_repository is required"}), 400
-
-    started = dt.datetime.now(dt.timezone.utc).isoformat()
-    _save_state({"status": "running", "last_run": started, "last_error": None})
-    _set_cancel_requested(False)
-    _append_log(f"Manual sync started for {sync_config.repository}")
-
-    try:
-        engine = SyncEngine(sync_config, previous_hash_index=_load_json(HASH_INDEX_PATH, {}))
-        engine.set_cancel_checker(_is_cancel_requested)
-        plan, current_hash_index = engine.plan()
-        scan = _plan_summary(plan)
-        if not sync_config.dry_run:
-            probe_ok, probe_message = engine._github.probe_repository()  # pylint: disable=protected-access
-            if not probe_ok:
-                raise SyncError(probe_message)
-        result = engine.run(plan)
-        engine.prune_versions_older_than_days(int(options.get("manual_version_retention_days", 7)))
-        _save_json(HASH_INDEX_PATH, current_hash_index)
-    except SyncError as err:
-        state = _save_state(
-            {
-                "status": "error",
-                "last_error": str(err),
-                "last_result": None,
-                "last_scan": scan,
-            }
-        )
-        return jsonify({"ok": False, "error": str(err), "state": state}), 502
-
-    state = _save_state(
-        {
-            "status": "ok",
-            "last_success": dt.datetime.now(dt.timezone.utc).isoformat(),
-            "last_result": result.message,
-            "last_scan": scan,
-            "last_error": None,
-        }
-    )
-    return jsonify(
-        {
-            "ok": True,
-            "result": result.message,
-            "summary": {
-                "synced_count": result.synced_count,
-                "deleted_count": result.deleted_count,
-                "skipped_count": result.skipped_count,
-                "total_files": result.total_files,
-            },
-            "state": state,
-        }
-    )
     try:
         client._request_json("GET", "https://api.github.com/user")  # pylint: disable=protected-access
     except SyncError as err:
@@ -382,6 +323,66 @@ def index():
 @app.get("/api/health")
 def health():
     return jsonify({"ok": True, "version": APP_VERSION})
+
+
+@app.post("/api/sync/manual")
+def trigger_manual_sync():
+    options = _merge_options()
+    sync_config = _sync_config(options)
+    if not sync_config.repository:
+        return jsonify({"ok": False, "error": "github_repository is required"}), 400
+
+    started = dt.datetime.now(dt.timezone.utc).isoformat()
+    _save_state({"status": "running", "last_run": started, "last_error": None})
+    _set_cancel_requested(False)
+    _append_log(f"Manual sync started for {sync_config.repository}")
+
+    scan: dict[str, Any] | None = None
+    try:
+        engine = SyncEngine(sync_config, previous_hash_index=_load_json(HASH_INDEX_PATH, {}))
+        engine.set_cancel_checker(_is_cancel_requested)
+        plan, current_hash_index = engine.plan()
+        scan = _plan_summary(plan)
+        if not sync_config.dry_run:
+            probe_ok, probe_message = engine._github.probe_repository()  # pylint: disable=protected-access
+            if not probe_ok:
+                raise SyncError(probe_message)
+        result = engine.run(plan)
+        engine.prune_versions_older_than_days(int(options.get("manual_version_retention_days", 7)))
+        _save_json(HASH_INDEX_PATH, current_hash_index)
+    except SyncError as err:
+        state = _save_state(
+            {
+                "status": "error",
+                "last_error": str(err),
+                "last_result": None,
+                "last_scan": scan,
+            }
+        )
+        return jsonify({"ok": False, "error": str(err), "state": state}), 502
+
+    state = _save_state(
+        {
+            "status": "ok",
+            "last_success": dt.datetime.now(dt.timezone.utc).isoformat(),
+            "last_result": result.message,
+            "last_scan": scan,
+            "last_error": None,
+        }
+    )
+    return jsonify(
+        {
+            "ok": True,
+            "result": result.message,
+            "summary": {
+                "synced_count": result.synced_count,
+                "deleted_count": result.deleted_count,
+                "skipped_count": result.skipped_count,
+                "total_files": result.total_files,
+            },
+            "state": state,
+        }
+    )
 
 
 @app.get("/api/options")
