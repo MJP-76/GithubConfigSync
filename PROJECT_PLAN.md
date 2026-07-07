@@ -6,7 +6,7 @@ Use this as the single source of truth for **where we are**, **what is next**, a
 
 ## Status Snapshot
 
-- **Current milestone:** `v0.2.21 — Release synced`
+- **Current milestone:** `v0.2.22 — Release synced`
 - **Last updated:** 2026-07-07
 - **Track:** Home Assistant Integration + Home Assistant Add-on (Ingress Web UI)
 - **Latest shipped improvements:** Add-on Device Flow auth + ingress path fix + repo picker/create flow
@@ -14,10 +14,10 @@ Use this as the single source of truth for **where we are**, **what is next**, a
 - **Version state:** See auto-managed tracker below.
 
 <!-- VERSION:START -->
-- Integration version: `0.2.21`
-- Add-on version: `0.2.21`
+- Integration version: `0.2.22`
+- Add-on version: `0.2.22`
 - Channel: `stable`
-- Release tag: `v0.2.21`
+- Release tag: `v0.2.22`
 <!-- VERSION:END -->
 
 ---
@@ -26,8 +26,8 @@ Use this as the single source of truth for **where we are**, **what is next**, a
 
 1. Open this file (`PROJECT_PLAN.md`) and read **Status Snapshot** + **Active Sprint Tracker**.
 2. Verify the latest tag/release in GitHub and keep this tracker aligned with the shipped version.
-3. Continue from the top unchecked item in **In Progress**.
-4. After finishing work, update this file and ship via: version bump → tag → GitHub release.
+3. Update this file after each shipped change so the tracker stays in sync.
+4. Ship via: version bump → tag → GitHub release.
 
 **Current repo context**
 
