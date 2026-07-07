@@ -1,12 +1,12 @@
 {
   "domain": "github_config_sync",
   "name": "Github Config Sync",
-  "codeowners": [
-    "@MJP-76"
-  ],
   "config_flow": true,
   "dependencies": [
     "http"
+  ],
+  "codeowners": [
+    "@MJP-76"
   ],
   "documentation": "https://github.com/MJP-76/GithubConfigSync#readme",
   "issue_tracker": "https://github.com/MJP-76/GithubConfigSync/issues",
