@@ -99,6 +99,24 @@ class ServerApiTests(unittest.TestCase):
         self.assertIn("Dry run completed", body["result"])
         self.assertEqual(body["summary"]["synced_count"], 1)
 
+    def test_options_round_trip_include_addon_configs_default_true(self) -> None:
+        self._write_options(
+            {
+                "github_repository": "owner/repo",
+                "github_branch": "main",
+                "github_token": "token",
+                "sync_interval_minutes": 60,
+                "dry_run": True,
+                "include_addon_configs": True,
+            }
+        )
+
+        response = self.client.get("/api/options")
+        body = response.get_json()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(body["include_addon_configs"])
+
     def test_start_device_flow_returns_verification_data(self) -> None:
         self._write_options({"github_client_id": "client-id", "github_branch": "main"})
         with patch("server.GitHubClient.start_device_flow") as start_flow:

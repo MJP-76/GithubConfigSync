@@ -237,7 +237,7 @@
           2. Pick an existing repository or create a new private one.
         </p>
         <p class="subtle" style="margin-bottom: 10px">
-          3. Confirm the branch, sync mode, and ignore recommendations.
+          3. Check the folder structure inclusions/exclusions and the .gitignore files.
         </p>
         <p class="subtle" style="margin-bottom: 0">
           4. Run Sync Now, Clean Upload, or Cancel Current Upload as needed.
@@ -339,6 +339,7 @@
         <details style="margin-top: 12px">
           <summary style="cursor: pointer; color: var(--muted)">Mount points to sync</summary>
           <div class="grid" style="margin-top: 10px">
+            <label><input id="includeAddonConfigs" type="checkbox" /> Include /addon_configs</label>
             <label><input id="includeMedia" type="checkbox" /> Include /media</label>
             <label><input id="includeShare" type="checkbox" /> Include /share</label>
             <label><input id="includeSsl" type="checkbox" /> Include /ssl</label>
@@ -376,7 +377,7 @@
       </div>
 
       <div class="card">
-        <details open>
+        <details>
           <summary class="section-title" style="cursor: pointer">Recommended .gitignore entries</summary>
           <p class="subtle" style="margin-bottom: 10px">
             These are safe defaults for Home Assistant. They are read from your local .gitignore and can be added with one click.
@@ -410,6 +411,7 @@
         clientId: document.getElementById("clientId"),
         interval: document.getElementById("interval"),
         versionRetention: document.getElementById("versionRetention"),
+        includeAddonConfigs: document.getElementById("includeAddonConfigs"),
         includeMedia: document.getElementById("includeMedia"),
         includeShare: document.getElementById("includeShare"),
         includeSsl: document.getElementById("includeSsl"),
@@ -549,6 +551,7 @@
         el.interval.value = data.sync_interval_minutes ?? 1440;
         el.versionRetention.value = data.version_retention_count ?? 7;
         el.dryRun.checked = Boolean(data.dry_run);
+        el.includeAddonConfigs.checked = Boolean(data.include_addon_configs ?? true);
         el.includeMedia.checked = Boolean(data.include_media);
         el.includeShare.checked = Boolean(data.include_share);
         el.includeSsl.checked = Boolean(data.include_ssl ?? true);
@@ -681,6 +684,7 @@
             sync_interval_minutes: Number(el.interval.value || "60"),
             version_retention_count: Number(el.versionRetention.value || "7"),
             dry_run: el.dryRun.checked,
+            include_addon_configs: el.includeAddonConfigs.checked,
             include_media: el.includeMedia.checked,
             include_share: el.includeShare.checked,
             include_ssl: el.includeSsl.checked,

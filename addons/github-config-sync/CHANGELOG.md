@@ -2,7 +2,12 @@
 
 ## Unreleased
 
-- Preparing the v0.2.17 release bump.
+- Preparing the v0.2.18 release bump.
+
+## 0.2.18
+
+- Added the mount-point include/exclude controls with the requested defaults and closed-by-default panels.
+- Synced the add-on, integration, docs, and release metadata to v0.2.18.
 
 ## 0.2.17
 

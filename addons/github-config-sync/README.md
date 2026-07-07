@@ -19,10 +19,10 @@ If you find this project useful, and would like to help support its continued de
 ## Version Tracker
 
 <!-- VERSION:START -->
-- Integration version: `0.2.17`
-- Add-on version: `0.2.17`
+- Integration version: `0.2.18`
+- Add-on version: `0.2.18`
 - Channel: `stable`
-- Release tag: `v0.2.17`
+- Release tag: `v0.2.18`
 <!-- VERSION:END -->
 
 ## What it provides
@@ -39,6 +39,7 @@ If you find this project useful, and would like to help support its continued de
 - `server.py` is the add-on API surface and UI backend.
 - `sync/engine.py` computes the plan from the current `/config` tree and the saved hash index.
 - AppDaemon configs and apps under `/addon_configs/` are included in the normal sync scan.
+- The mount-point checklist lets you include or exclude standard Home Assistant folders, and the recommended .gitignore keeps the ignore list aligned.
 - `dry_run=true` stops after planning and returns the counts that would be applied.
 - `dry_run=false` probes the GitHub repository first, then performs upserts and deletes with the GitHub Contents API.
 - Live runs also write versioned snapshots under `versions/<timestamp>/...` and keep the most recent 7 by default.

@@ -20,10 +20,10 @@ If you find this project useful, and would like to help support its continued de
 ## Version Tracker
 
 <!-- VERSION:START -->
-- Integration version: `0.2.17`
-- Add-on version: `0.2.17`
+- Integration version: `0.2.18`
+- Add-on version: `0.2.18`
 - Channel: `stable`
-- Release tag: `v0.2.17`
+- Release tag: `v0.2.18`
 <!-- VERSION:END -->
 
 To sync versions across integration/add-on/runtime/docs automatically:
@@ -58,6 +58,7 @@ Add-on repository metadata is provided via `repository.yaml` so it can be added 
 - The add-on provides the ingress web UI and the sync runtime API.
 - Sync planning is hash-based: the add-on scans `/config`, diffs against the last saved hash index, and classifies files as added, changed, or removed.
 - AppDaemon configs and apps under `/addon_configs/` are included in the normal sync scan.
+- The mount-point checklist lets you include or exclude standard Home Assistant folders, and the recommended .gitignore keeps the ignore list aligned.
 - Dry runs do not touch GitHub; live runs probe the repository first, then upsert and delete files through the GitHub Contents API.
 - Live runs also write versioned snapshots under `versions/<timestamp>/...` and keep the most recent 7 by default.
 - State, logs, device-flow data, and the last hash index live in `/data`.

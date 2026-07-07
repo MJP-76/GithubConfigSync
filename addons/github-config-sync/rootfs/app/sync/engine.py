@@ -14,7 +14,8 @@ class SyncEngine:
         self._config = config
         self._previous_hash_index = previous_hash_index
         self._config_root = Path(config.config_root)
-        self._addon_config_root = Path(getattr(config, "addon_config_root", "/addon_configs"))
+        addon_config_root = getattr(config, "addon_config_root", "/addon_configs")
+        self._addon_config_root = Path(addon_config_root) if addon_config_root else Path("/__missing_addon_configs__")
         self._root_map = [
             ("", self._config_root),
             ("addon_configs", self._addon_config_root),

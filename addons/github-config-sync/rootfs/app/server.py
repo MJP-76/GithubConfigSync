@@ -13,7 +13,7 @@ from sync.errors import SyncError
 from sync.github_client import GitHubClient
 from sync.hashing import IGNORE_PATTERNS
 
-APP_VERSION = "0.2.17"
+APP_VERSION = "0.2.18"
 APP_PORT = 8099
 DEFAULT_OAUTH_CLIENT_ID = "Ov23li2ycCraodta6WCU"
 
@@ -36,6 +36,7 @@ DEFAULT_OPTIONS: dict[str, Any] = {
     "version_retention_count": 7,
     "manual_version_retention_days": 7,
     "dry_run": True,
+    "include_addon_configs": True,
     "include_media": False,
     "include_share": False,
     "include_ssl": True,
@@ -148,7 +149,14 @@ def _validate_payload(payload: dict[str, Any]) -> tuple[bool, str | None]:
     if not isinstance(payload.get("dry_run"), bool):
         return False, "dry_run must be true or false"
 
-    for key in ("include_media", "include_share", "include_ssl", "include_backups", "include_www"):
+    for key in (
+        "include_addon_configs",
+        "include_media",
+        "include_share",
+        "include_ssl",
+        "include_backups",
+        "include_www",
+    ):
         if not isinstance(payload.get(key), bool):
             return False, f"{key} must be true or false"
 
@@ -220,8 +228,8 @@ def _sync_config(options: dict[str, Any]) -> SyncConfig:
         branch=str(options.get("github_branch", "main")).strip() or "main",
         token=str(options.get("github_token", "")).strip(),
         config_root=str(CONFIG_ROOT),
-        addon_config_root="/addon_configs",
         dry_run=bool(options.get("dry_run", True)),
+        addon_config_root="/addon_configs" if bool(options.get("include_addon_configs", True)) else "",
         include_media=bool(options.get("include_media", False)),
         include_share=bool(options.get("include_share", False)),
         include_ssl=bool(options.get("include_ssl", True)),
@@ -432,6 +440,7 @@ def set_options():
         "version_retention_count": payload.get("version_retention_count", 7),
         "manual_version_retention_days": payload.get("manual_version_retention_days", 7),
         "dry_run": payload.get("dry_run", True),
+        "include_addon_configs": payload.get("include_addon_configs", True),
         "include_media": payload.get("include_media", False),
         "include_share": payload.get("include_share", False),
         "include_ssl": payload.get("include_ssl", True),
