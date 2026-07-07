@@ -86,7 +86,6 @@ App repository metadata is provided via `repository.yaml` so it can be added dir
 - The custom integration handles Home Assistant entities, config flow, and operator actions.
 - The app provides the ingress web UI and the sync runtime API.
 - The repo keeps the root `README.md` at the top level and the app runtime under `github_sync_app/`.
-- The container starts `python3 /app/github_sync_app/server.py`.
 - Sync planning is hash-based: the app scans `/config`, diffs against the last saved hash index, and classifies files as added, changed, or removed.
 - AppDaemon configs and apps under `/addon_configs/` are included in the normal sync scan.
 - The mount-point checklist lets you include or exclude standard Home Assistant folders, and the recommended .gitignore keeps the ignore list aligned.

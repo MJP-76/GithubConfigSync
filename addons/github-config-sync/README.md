@@ -104,7 +104,6 @@ If you find this project useful, and would like to help support its continued de
 - The add-on repository metadata is minimal and valid for Home Assistant add-on store ingestion.
 - Version snapshots now skip ignored directories like `.cache`, even inside release snapshots.
 - The repo keeps `README.md` at the top level and the app runtime under `github_sync_app/`.
-- The container starts `python3 /app/github_sync_app/server.py`.
 - Clean uploads preserve `README.md`, `github_sync_app/`, and `versions/`.
 - PUT uploads retry on HTTP 504s before failing, so transient GitHub gateway timeouts do not immediately abort a sync.
 - New repository creation defaults blank name/description fields to a humanized repository name.
