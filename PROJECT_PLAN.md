@@ -6,7 +6,7 @@ Use this as the single source of truth for **where we are**, **what is next**, a
 
 ## Status Snapshot
 
-- **Current milestone:** `v0.2.34 — Release synced`
+- **Current milestone:** `v0.2.35 — Release synced`
 - **Last updated:** 2026-07-07
 - **Track:** Home Assistant Integration + Home Assistant Add-on (Ingress Web UI)
 - **Latest shipped improvements:** Add-on Device Flow auth + ingress path fix + repo picker/create flow
@@ -14,10 +14,10 @@ Use this as the single source of truth for **where we are**, **what is next**, a
 - **Version state:** See auto-managed tracker below.
 
 <!-- VERSION:START -->
-- Integration version: `0.2.34`
-- Add-on version: `0.2.34`
+- Integration version: `0.2.35`
+- Add-on version: `0.2.35`
 - Channel: `stable`
-- Release tag: `v0.2.34`
+- Release tag: `v0.2.35`
 <!-- VERSION:END -->
 
 ---

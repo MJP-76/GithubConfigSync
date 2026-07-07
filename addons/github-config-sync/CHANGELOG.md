@@ -2,9 +2,9 @@
 
 ## Unreleased
 
-- Preparing the v0.2.34 release bump.
+- Preparing the v0.2.35 release bump.
 
-- Synced the add-on runtime and add-on README to v0.2.34 so Home Assistant sees the correct version.
+- Synced the add-on runtime and add-on README to v0.2.35 so Home Assistant sees the correct version.
 
 ## 0.2.21
 
