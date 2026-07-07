@@ -5,6 +5,7 @@
 - Preparing the v0.2.29 release bump.
 
 - Moved the app runtime under `github_sync_app/` and kept the root `README.md` at the repo top level.
+- Fixed the add-on startup script to launch `/app/github_sync_app/server.py`.
 - Documented the repo layout and snapshot structure in the README files and project tracker.
 - Clean uploads now preserve `README.md`, `github_sync_app/`, and `versions/`.
 - PUT uploads now retry on HTTP 504 gateway timeouts before failing.
