@@ -19,10 +19,10 @@ If you find this project useful, and would like to help support its continued de
 ## Version Tracker
 
 <!-- VERSION:START -->
-- Integration version: `0.2.18`
-- Add-on version: `0.2.18`
+- Integration version: `0.2.19`
+- Add-on version: `0.2.19`
 - Channel: `stable`
-- Release tag: `v0.2.18`
+- Release tag: `v0.2.19`
 <!-- VERSION:END -->
 
 ## What it provides

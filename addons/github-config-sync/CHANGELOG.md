@@ -2,7 +2,12 @@
 
 ## Unreleased
 
-- Preparing the v0.2.18 release bump.
+- Preparing the v0.2.19 release bump.
+
+## 0.2.19
+
+- Updated the mount-point checklist wording and default dropdown behavior.
+- Synced the add-on, integration, docs, and release metadata to v0.2.19.
 
 ## 0.2.18
 
