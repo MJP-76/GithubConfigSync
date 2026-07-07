@@ -1,6 +1,5 @@
 {
   "name": "Github Config Sync",
   "render_readme": true,
-  "domain": "github_config_sync",
   "homeassistant": "2024.1.0"
 }

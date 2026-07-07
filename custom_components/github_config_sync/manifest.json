@@ -9,5 +9,8 @@
   "codeowners": [
     "@MJP-76"
   ],
-  "requirements": []
+  "requirements": [],
+  "dependencies": [
+    "http"
+  ]
 }
