@@ -6,10 +6,10 @@ Use this as the single source of truth for **where we are**, **what is next**, a
 
 ## Status Snapshot
 
-- **Current milestone:** `v0.2.29 — Repo layout synced`
+- **Current milestone:** `v0.2.30 — Upload retry added`
 - **Last updated:** 2026-07-07
 - **Track:** Home Assistant Integration + Home Assistant Add-on (Ingress Web UI)
-- **Latest shipped improvements:** github_sync_app layout + root README preserved + snapshot structure documented
+- **Latest shipped improvements:** github_sync_app layout + root README preserved + snapshot structure documented + 504 upload retry
 - **Current operator UX:** Device Login section first, existing/create repo flow, troubleshooting auth overrides hidden by default
 - **Version state:** See auto-managed tracker below.
 

@@ -92,6 +92,7 @@ App repository metadata is provided via `repository.yaml` so it can be added dir
 - Dry runs do not touch GitHub; live runs probe the repository first, then upsert and delete files through the GitHub Contents API. Remote deletes never remove local files.
 - Live runs also write versioned snapshots under `versions/<timestamp>/...` and keep the most recent 7 by default.
 - Clean uploads preserve `README.md`, `github_sync_app/`, and `versions/`.
+- PUT uploads retry on HTTP 504s before failing, so transient GitHub gateway timeouts do not immediately abort a sync.
 - State, logs, device-flow data, and the last hash index live in `/data`.
 - The app exposes a stable local API contract via `/api/health`, `/api/status`, `/api/sync`, and `/api/diagnostics`.
 - The generated `.gitignore` includes the common Home Assistant guidance entries such as `secrets.yaml`, `ip_bans.yaml`, `known_devices.yaml`, `.storage/`, and `.cloud/`, while still honoring any local user additions.
