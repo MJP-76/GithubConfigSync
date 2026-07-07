@@ -89,6 +89,8 @@ class GitHubBackupClient:
             "# Managed by Home Assistant Github Config Sync",
             "# Home Assistant core files",
             "secrets.yaml",
+            "ip_bans.yaml",
+            "known_devices.yaml",
             "automations.yaml",
             "scripts.yaml",
             "scenes.yaml",

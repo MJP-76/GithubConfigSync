@@ -7,39 +7,46 @@
     <style>
       :root {
         color-scheme: dark light;
-        --bg: #0f172a;
+        --bg: #0b1220;
         --card: #111827;
+        --card-2: #0f172a;
         --muted: #94a3b8;
-        --text: #e2e8f0;
-        --accent: #60a5fa;
+        --text: #e5eefb;
+        --accent: #5ea0ff;
+        --accent-2: #2563eb;
         --ok: #34d399;
         --err: #f87171;
+        --border: #22324a;
       }
 
       body {
         margin: 0;
         font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-        background: linear-gradient(180deg, #020617 0%, var(--bg) 100%);
+        background:
+          radial-gradient(circle at top, rgba(94, 160, 255, 0.12), transparent 30%),
+          linear-gradient(180deg, #020617 0%, var(--bg) 100%);
         color: var(--text);
       }
 
       .wrap {
-        max-width: 920px;
+        max-width: 1080px;
         margin: 0 auto;
-        padding: 24px;
+        padding: 28px 20px 40px;
       }
 
       .card {
-        background: color-mix(in hsl, var(--card) 92%, black);
-        border: 1px solid #1f2937;
-        border-radius: 16px;
-        padding: 20px;
-        margin-bottom: 16px;
+        background: linear-gradient(180deg, var(--card) 0%, color-mix(in hsl, var(--card) 88%, black) 100%);
+        border: 1px solid var(--border);
+        border-radius: 18px;
+        padding: 20px 22px;
+        margin-bottom: 18px;
+        box-shadow: 0 16px 40px rgba(0, 0, 0, 0.22);
       }
 
       h1 {
-        margin: 0 0 8px;
-        font-size: 1.6rem;
+        margin: 0 0 6px;
+        font-size: 1.8rem;
+        letter-spacing: -0.02em;
       }
 
       p {
@@ -49,7 +56,7 @@
 
       .grid {
         display: grid;
-        grid-template-columns: 1fr 1fr;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 12px;
       }
 
@@ -67,7 +74,16 @@
       input {
         border-radius: 10px;
         border: 1px solid #334155;
-        background: #0b1220;
+        background: var(--card-2);
+        color: var(--text);
+        padding: 10px 12px;
+        font-size: 0.95rem;
+      }
+
+      select {
+        border-radius: 10px;
+        border: 1px solid #334155;
+        background: var(--card-2);
         color: var(--text);
         padding: 10px 12px;
         font-size: 0.95rem;
@@ -84,18 +100,30 @@
         border: 0;
         border-radius: 10px;
         padding: 10px 14px;
-        background: var(--accent);
+        background: linear-gradient(180deg, var(--accent) 0%, var(--accent-2) 100%);
         color: white;
         font-weight: 600;
         cursor: pointer;
+        box-shadow: 0 8px 18px rgba(37, 99, 235, 0.25);
       }
 
       button.secondary {
         background: #334155;
+        box-shadow: none;
       }
 
       .status {
         font-size: 0.95rem;
+      }
+
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 7px 11px;
+        border-radius: 999px;
+        background: rgba(148, 163, 184, 0.12);
+        border: 1px solid rgba(148, 163, 184, 0.16);
       }
 
       .status.ok {
@@ -115,14 +143,24 @@
         gap: 8px;
       }
 
+      .section-title {
+        margin: 0 0 8px;
+        font-size: 1.05rem;
+      }
+
+      .subtle {
+        font-size: 0.92rem;
+        color: var(--muted);
+      }
+
       pre {
         background: #020617;
-        border: 1px solid #1e293b;
+        border: 1px solid #1f2a3b;
         border-radius: 12px;
         padding: 12px;
         font-size: 0.85rem;
         white-space: pre-wrap;
-        max-height: 260px;
+        max-height: 320px;
         overflow: auto;
       }
 
@@ -136,24 +174,28 @@
   <body>
     <div class="wrap">
       <div class="card">
-        <h1>Github Config Sync</h1>
-        <p>Configure GitHub connectivity and run sync checks from this add-on web UI.</p>
-        <div id="status" class="status">Loading...</div>
+        <div class="row" style="justify-content: space-between; align-items: flex-start">
+          <div>
+            <h1>Github Config Sync</h1>
+            <p class="subtle">GitHub-backed Home Assistant sync, device login, repository selection, and live upload control.</p>
+          </div>
+          <div id="status" class="pill status">Loading...</div>
+        </div>
       </div>
 
       <div class="card">
-        <h2 style="margin-top: 0; font-size: 1.1rem">GitHub Device Login</h2>
-        <p style="margin-bottom: 10px">
+        <h2 class="section-title">GitHub Device Login</h2>
+        <p class="subtle" style="margin-bottom: 10px">
           Connect GitHub first, then choose whether to use an existing repository or create a new one.
         </p>
-        <p style="margin: 0 0 10px; font-size: 0.9rem; color: var(--muted)">
+        <p class="subtle" style="margin: 0 0 10px">
           Private repositories are supported. Make sure the GitHub token has access to the selected private repo and the branch name is correct.
         </p>
         <div class="row">
           <button id="startDeviceBtn" class="secondary">Start Device Login</button>
-          <span id="tokenBadge" class="status">Token missing</span>
+          <span id="tokenBadge" class="pill status">Token missing</span>
         </div>
-        <p id="deviceFlowInfo" style="margin-top: 10px; font-size: 0.9rem"></p>
+        <p id="deviceFlowInfo" class="subtle" style="margin-top: 10px"></p>
       </div>
 
       <div class="card">
@@ -164,19 +206,19 @@
             <label><input type="radio" name="repoMode" value="create" /> Create new repository</label>
           </div>
         </div>
-        <div id="existingRepoSection" style="margin-top: 10px">
+        <div id="existingRepoSection" style="margin-top: 12px">
           <div class="row">
             <input id="repoSearch" placeholder="Filter repositories (including private repos)..." style="flex: 1" />
             <button id="loadReposBtn" class="secondary">Load Repositories</button>
           </div>
-          <div class="field" style="margin-top: 10px">
+          <div class="field" style="margin-top: 12px">
             <label for="repoPicker">Repository picker</label>
-            <select id="repoPicker" style="border-radius: 10px; border: 1px solid #334155; background: #0b1220; color: var(--text); padding: 10px 12px; font-size: 0.95rem;">
+            <select id="repoPicker">
               <option value="">Select a repository...</option>
             </select>
           </div>
         </div>
-        <div id="createRepoSection" style="margin-top: 10px; display: none">
+        <div id="createRepoSection" style="margin-top: 12px; display: none">
           <div class="grid">
             <div class="field">
               <label for="newRepoName">New repository name</label>
@@ -187,7 +229,7 @@
               <input id="newRepoDescription" placeholder="Home Assistant config sync" />
             </div>
           </div>
-          <div class="row" style="margin-top: 10px">
+          <div class="row" style="margin-top: 12px">
             <label><input id="newRepoPrivate" type="checkbox" checked /> Private repository</label>
             <button id="createRepoBtn" class="secondary">Create Repository</button>
           </div>
@@ -239,8 +281,8 @@
       </div>
 
       <div class="card">
-        <h2 style="margin-top: 0; font-size: 1.1rem">Recommended .gitignore entries</h2>
-        <p class="muted" style="margin-bottom: 10px">
+        <h2 class="section-title">Recommended .gitignore entries</h2>
+        <p class="subtle" style="margin-bottom: 10px">
           These are safe defaults for Home Assistant. They are read from your local .gitignore and can be added with one click.
         </p>
         <div id="ignoreMeta" class="muted" style="margin-bottom: 10px"></div>
@@ -252,7 +294,7 @@
       </div>
 
       <div class="card">
-        <h2 style="margin-top: 0; font-size: 1.1rem">Runtime Status</h2>
+        <h2 class="section-title">Runtime Status</h2>
         <pre id="runtime">Loading status...</pre>
         <div class="row" style="margin-top: 12px">
           <button id="downloadDiagnosticsBtn" class="secondary">Download Diagnostics</button>

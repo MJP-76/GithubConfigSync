@@ -7,10 +7,10 @@ Home Assistant custom integration for syncing the Home Assistant config folder t
 ## Version Tracker
 
 <!-- VERSION:START -->
-- Integration version: `0.2.4`
-- Add-on version: `0.2.4`
+- Integration version: `0.2.5`
+- Add-on version: `0.2.5`
 - Channel: `stable`
-- Release tag: `v0.2.4`
+- Release tag: `v0.2.5`
 <!-- VERSION:END -->
 
 To sync versions across integration/add-on/runtime/docs automatically:
@@ -41,6 +41,7 @@ Add-on repository metadata is provided via `repository.yaml` so it can be added 
 - Dry runs do not touch GitHub; live runs probe the repository first, then upsert and delete files through the GitHub Contents API.
 - State, logs, device-flow data, and the last hash index live in `/data`.
 - The add-on exposes a stable local API contract via `/api/health`, `/api/status`, `/api/sync`, and `/api/diagnostics`.
+- The generated `.gitignore` includes the common Home Assistant guidance entries such as `secrets.yaml`, `ip_bans.yaml`, `known_devices.yaml`, `.storage/`, and `.cloud/`, while still honoring any local user additions.
 
 ## Runbook
 

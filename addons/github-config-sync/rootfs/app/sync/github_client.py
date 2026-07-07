@@ -142,11 +142,19 @@ class GitHubClient:
         }
         if sha:
             payload["sha"] = sha
-        return self._request_json(
-            "PUT",
-            f"{self._base}/contents/{encoded}",
-            payload=payload,
-        )
+        url = f"{self._base}/contents/{encoded}"
+        try:
+            return self._request_json("PUT", url, payload=payload)
+        except SyncError as err:
+            if not _is_sha_conflict(err):
+                raise
+            remote = self.get_content(path)
+            refreshed_sha = remote.get("sha") if remote else None
+            if refreshed_sha:
+                payload["sha"] = refreshed_sha
+            else:
+                payload.pop("sha", None)
+            return self._request_json("PUT", url, payload=payload)
 
     def delete_content(self, path: str, sha: str, message: str) -> dict[str, Any]:
         encoded = urllib.parse.quote(path, safe="")
@@ -181,6 +189,11 @@ class GitHubClient:
             raise SyncError(f"GitHub API error HTTP {err.code} for {method} {url}: {body}") from err
         except urllib.error.URLError as err:
             raise SyncError(f"GitHub API request failed for {method} {url}: {err.reason}") from err
+
+
+def _is_sha_conflict(err: SyncError) -> bool:
+    message = str(err)
+    return "HTTP 409" in message or '"status":"409"' in message or '"status": "409"' in message
 
     def _oauth_request(self, method: str, path: str, payload: dict[str, Any] | None = None) -> dict[str, Any]:
         headers = {

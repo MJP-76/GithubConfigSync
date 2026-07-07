@@ -2,7 +2,11 @@
 
 ## Unreleased
 
-- Preparing the v0.2.4 release bump.
+- Preparing the v0.2.5 release bump.
+
+## 0.2.5
+
+- Refreshed the add-on UI with a more polished panel layout and better status hierarchy.
 
 ## 0.2.4
 

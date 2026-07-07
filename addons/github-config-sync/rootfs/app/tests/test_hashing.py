@@ -4,12 +4,21 @@ import tempfile
 import unittest
 from pathlib import Path
 import sys
+import importlib.util
 
 APP_ROOT = Path(__file__).resolve().parents[1]
 if str(APP_ROOT) not in sys.path:
     sys.path.insert(0, str(APP_ROOT))
 
 from sync.hashing import build_hash_index, diff_hash_indexes
+
+CONST_PATH = Path(__file__).resolve().parents[5] / "custom_components/github_config_sync/const.py"
+CONST_SPEC = importlib.util.spec_from_file_location("github_config_sync_const", CONST_PATH)
+if CONST_SPEC is None or CONST_SPEC.loader is None:
+    raise unittest.SkipTest("Could not load const module")
+_const = importlib.util.module_from_spec(CONST_SPEC)
+CONST_SPEC.loader.exec_module(_const)
+DEFAULT_IGNORE_PATTERNS = _const.DEFAULT_IGNORE_PATTERNS
 
 
 class HashingTests(unittest.TestCase):
@@ -33,6 +42,13 @@ class HashingTests(unittest.TestCase):
             self.assertNotIn(".storage/core.config_entries", index)
             self.assertNotIn(".cache/brands/icon.png", index)
             self.assertNotIn("home-assistant.log", index)
+
+    def test_default_ignore_patterns_cover_common_home_assistant_files(self) -> None:
+        self.assertIn("secrets.yaml", DEFAULT_IGNORE_PATTERNS)
+        self.assertIn("ip_bans.yaml", DEFAULT_IGNORE_PATTERNS)
+        self.assertIn("known_devices.yaml", DEFAULT_IGNORE_PATTERNS)
+        self.assertIn(".storage/", DEFAULT_IGNORE_PATTERNS)
+        self.assertIn(".cloud/", DEFAULT_IGNORE_PATTERNS)
 
     def test_diff_hash_indexes_returns_expected_added_changed_removed(self) -> None:
         previous = {"a.yaml": "1", "b.yaml": "2"}

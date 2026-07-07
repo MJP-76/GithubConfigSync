@@ -132,6 +132,29 @@ class SyncEngineTests(unittest.TestCase):
             self.assertEqual(result.synced_count, 1)
             self.assertEqual(fake_client.put_content.call_count, 2)
 
+    def test_put_content_retries_on_sha_conflict(self) -> None:
+        from sync.github_client import GitHubClient
+        from sync.errors import SyncError
+
+        client = GitHubClient(repository="owner/repo", branch="main", token="token")
+        calls = {"count": 0}
+
+        def fake_request(method: str, url: str, payload=None):  # noqa: ANN001
+            calls["count"] += 1
+            if calls["count"] == 1:
+                raise SyncError(
+                    'GitHub API error HTTP 409 for PUT https://api.github.com/repos/owner/repo/contents/.gitignore: {"status":"409"}'
+                )
+            return {"content": {"path": ".gitignore"}}
+
+        with patch.object(GitHubClient, "_request_json", side_effect=fake_request), patch.object(
+            GitHubClient, "get_content", return_value={"sha": "refreshed"}
+        ):
+            result = client.put_content(".gitignore", b"data", "update .gitignore", sha="stale")
+
+        self.assertEqual(result["content"]["path"], ".gitignore")
+        self.assertEqual(calls["count"], 2)
+
     def test_run_live_can_be_cancelled_between_writes(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
