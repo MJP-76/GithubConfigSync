@@ -2,7 +2,12 @@
 
 ## Unreleased
 
-- Preparing the v0.2.10 release bump.
+- Preparing the v0.2.11 release bump.
+
+## 0.2.11
+
+- Forced live uploads for both sync buttons so dry-run no longer blocks writes.
+- Synced the add-on, integration, docs, and release metadata to v0.2.11.
 
 ## 0.2.10
 

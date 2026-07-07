@@ -273,7 +273,48 @@ class ServerApiTests(unittest.TestCase):
         self.assertEqual(body["state"]["last_scan"]["added_count"], 1)
         self.assertEqual(body["state"]["last_result"], body["result"])
 
+    def test_clean_sync_forces_live_upload_even_when_dry_run_is_enabled(self) -> None:
+        (self._config_root / "one.txt").write_text("one", encoding="utf-8")
+        self._write_options(
+            {
+                "github_repository": "owner/repo",
+                "github_branch": "main",
+                "github_token": "gho_test",
+                "sync_interval_minutes": 60,
+                "dry_run": True,
+            }
+        )
+
+        with patch("server.GitHubClient.probe_repository", return_value=(True, "Repository probe succeeded")):
+            response = self.client.post("/api/sync/clean")
+
+        body = response.get_json()
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(body["ok"])
+        self.assertEqual(body["summary"]["synced_count"], 1)
+
     def test_manual_sync_endpoint_uses_retention_days(self) -> None:
+        (self._config_root / "one.txt").write_text("one", encoding="utf-8")
+        self._write_options(
+            {
+                "github_repository": "owner/repo",
+                "github_branch": "main",
+                "github_token": "gho_test",
+                "sync_interval_minutes": 1440,
+                "version_retention_count": 7,
+                "manual_version_retention_days": 7,
+                "dry_run": True,
+            }
+        )
+        with patch("server.GitHubClient.probe_repository", return_value=(True, "Repository probe succeeded")):
+            response = self.client.post("/api/sync/manual")
+
+        body = response.get_json()
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(body["ok"])
+        self.assertEqual(body["summary"]["synced_count"], 1)
+
+    def test_manual_sync_forces_live_upload_even_when_dry_run_is_enabled(self) -> None:
         (self._config_root / "one.txt").write_text("one", encoding="utf-8")
         self._write_options(
             {

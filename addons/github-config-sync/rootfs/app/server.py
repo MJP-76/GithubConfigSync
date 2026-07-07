@@ -13,7 +13,7 @@ from sync.errors import SyncError
 from sync.github_client import GitHubClient
 from sync.hashing import IGNORE_PATTERNS
 
-APP_VERSION = "0.2.10"
+APP_VERSION = "0.2.11"
 APP_PORT = 8099
 DEFAULT_OAUTH_CLIENT_ID = "Ov23li2ycCraodta6WCU"
 
@@ -339,14 +339,21 @@ def trigger_manual_sync():
 
     scan: dict[str, Any] | None = None
     try:
+        sync_config = SyncConfig(
+            repository=sync_config.repository,
+            branch=sync_config.branch,
+            token=sync_config.token,
+            config_root=sync_config.config_root,
+            dry_run=False,
+            version_retention_count=sync_config.version_retention_count,
+        )
         engine = SyncEngine(sync_config, previous_hash_index=_load_json(HASH_INDEX_PATH, {}))
         engine.set_cancel_checker(_is_cancel_requested)
         plan, current_hash_index = engine.plan()
         scan = _plan_summary(plan)
-        if not sync_config.dry_run:
-            probe_ok, probe_message = engine._github.probe_repository()  # pylint: disable=protected-access
-            if not probe_ok:
-                raise SyncError(probe_message)
+        probe_ok, probe_message = engine._github.probe_repository()  # pylint: disable=protected-access
+        if not probe_ok:
+            raise SyncError(probe_message)
         result = engine.run(plan)
         engine.prune_versions_older_than_days(int(options.get("manual_version_retention_days", 7)))
         _save_json(HASH_INDEX_PATH, current_hash_index)
@@ -759,12 +766,12 @@ def trigger_clean_sync():
         branch=sync_config.branch,
         token=sync_config.token,
         config_root=sync_config.config_root,
-        dry_run=sync_config.dry_run,
+        dry_run=False,
     )
     started = dt.datetime.now(dt.timezone.utc).isoformat()
     _save_state({"status": "running", "last_run": started, "last_error": None})
     _set_cancel_requested(False)
-    _append_log(f"Clean upload started for {sync_config.repository} (dry_run={sync_config.dry_run})")
+    _append_log(f"Clean upload started for {sync_config.repository} (forced live upload)")
     try:
         previous_index = _load_json(HASH_INDEX_PATH, {})
         engine = SyncEngine(sync_config, previous_hash_index=previous_index)
