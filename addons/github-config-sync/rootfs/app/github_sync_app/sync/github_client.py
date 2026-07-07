@@ -143,8 +143,17 @@ class GitHubClient:
         if sha:
             payload["sha"] = sha
         url = f"{self._base}/contents/{encoded}"
+        attempts = 0
         try:
-            return self._request_json("PUT", url, payload=payload)
+            while True:
+                attempts += 1
+                try:
+                    return self._request_json("PUT", url, payload=payload)
+                except SyncError as err:
+                    if _is_gateway_timeout(err) and attempts < 3:
+                        time.sleep(2 * attempts)
+                        continue
+                    raise
         except SyncError as err:
             if not _is_sha_conflict(err):
                 raise
@@ -243,3 +252,8 @@ class GitHubClient:
 def _is_sha_conflict(err: SyncError) -> bool:
     message = str(err)
     return "HTTP 409" in message or '"status":"409"' in message or '"status": "409"' in message
+
+
+def _is_gateway_timeout(err: SyncError) -> bool:
+    message = str(err)
+    return "HTTP 504" in message or "Gateway Timeout" in message or '"status":"504"' in message or '"status": "504"' in message
