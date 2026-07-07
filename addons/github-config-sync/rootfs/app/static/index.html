@@ -733,8 +733,8 @@
         setButtonBusy(el.createRepoBtn, true, "Creating...");
         try {
           const typedName = el.newRepoName.value.trim();
-          const name = typedName || humanizeRepoName(el.repo.value || el.branch.value || "home-assistant-config");
-          const description = el.newRepoDescription.value.trim() || humanizeRepoName(name);
+          const name = typedName || "home-assistant-config";
+          const description = el.newRepoDescription.value.trim() || "Home Assistant Config Sync";
           const payload = {
             name,
             private: el.newRepoPrivate.checked,
