@@ -171,6 +171,10 @@ Use this as the single source of truth for **where we are**, **what is next**, a
 
 - [x] Clean upload preserves version snapshots and only clears the live tree
 
+## v0.1.13 — Clean Upload App Safety
+
+- [x] Clean upload preserves app README and required app folders
+
 ## Active Sprint Tracker (Now)
 
 ## Completed
@@ -183,6 +187,7 @@ Use this as the single source of truth for **where we are**, **what is next**, a
 - [x] Auto-select newly created repository in the repo picker
 - [x] Track future upload/snapshot performance improvements for later implementation
 - [x] Clean upload preserves version snapshots and only clears the live tree
+- [x] Clean upload preserves app README and required app folders
 
 ---
 

@@ -167,7 +167,10 @@ class SyncEngine:
         )
 
     def clean_remote_tree(self) -> None:
-        self._delete_remote_tree_except("", excluded_names={"versions"})
+        self._delete_remote_tree_except(
+            "",
+            excluded_names={"versions", "README.md", "custom_components", "addons", ".github"},
+        )
 
     def _sync_version_snapshot(self) -> None:
         timestamp = dt.datetime.now(dt.timezone.utc).strftime("%Y%m%dT%H%M%SZ")

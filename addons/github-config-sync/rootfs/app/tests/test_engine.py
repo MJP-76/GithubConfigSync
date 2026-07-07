@@ -326,6 +326,42 @@ class SyncEngineTests(unittest.TestCase):
             message="sync: delete root.yaml",
         )
 
+    def test_clean_remote_tree_preserves_app_files_and_readme(self) -> None:
+        config = SyncConfig(
+            repository="owner/repo",
+            branch="main",
+            token="token",
+            config_root=".",
+            addon_config_root="/addon_configs",
+            dry_run=False,
+            version_retention_count=7,
+        )
+        fake_client = MagicMock()
+        fake_client.list_directory_contents.side_effect = [
+            [
+                {"type": "dir", "name": "versions", "path": "versions"},
+                {"type": "file", "name": "README.md", "path": "README.md", "sha": "readmesha"},
+                {"type": "dir", "name": "custom_components", "path": "custom_components"},
+                {"type": "dir", "name": "addons", "path": "addons"},
+                {"type": "dir", "name": ".github", "path": ".github"},
+                {"type": "file", "name": "root.yaml", "path": "root.yaml", "sha": "rootsha"},
+            ],
+        ]
+
+        with patch("sync.engine.GitHubClient", return_value=fake_client):
+            engine = SyncEngine(config, previous_hash_index={})
+            engine.clean_remote_tree()
+
+        fake_client.delete_content.assert_any_call(
+            path="root.yaml",
+            sha="rootsha",
+            message="sync: delete root.yaml",
+        )
+        self.assertNotIn(
+            unittest.mock.call(path="README.md", sha="readmesha", message="sync: delete README.md"),
+            fake_client.delete_content.call_args_list,
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
