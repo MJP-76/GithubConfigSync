@@ -165,6 +165,33 @@ class GitHubClient:
             payload=payload,
         )
 
+    def get_branch_head_sha(self) -> str:
+        payload = self._request_json("GET", f"{self._base}/git/ref/heads/{urllib.parse.quote(self.branch, safe='')}")
+        object_payload = payload.get("object")
+        if not isinstance(object_payload, dict) or not isinstance(object_payload.get("sha"), str):
+            raise SyncError("GitHub ref response was incomplete")
+        return object_payload["sha"]
+
+    def create_git_tree(self, base_tree: str | None = None, tree: list[dict[str, Any]] | None = None) -> dict[str, Any]:
+        payload: dict[str, Any] = {}
+        if base_tree:
+            payload["base_tree"] = base_tree
+        if tree is not None:
+            payload["tree"] = tree
+        return self._request_json("POST", f"{self._base}/git/trees", payload=payload)
+
+    def create_git_commit(self, message: str, tree_sha: str, parent_sha: str) -> dict[str, Any]:
+        payload = {"message": message, "tree": tree_sha, "parents": [parent_sha]}
+        return self._request_json("POST", f"{self._base}/git/commits", payload=payload)
+
+    def update_branch_ref(self, commit_sha: str) -> dict[str, Any]:
+        payload = {"sha": commit_sha, "force": True}
+        return self._request_json(
+            "PATCH",
+            f"{self._base}/git/refs/heads/{urllib.parse.quote(self.branch, safe='')}",
+            payload=payload,
+        )
+
     def list_directory_contents(self, path: str = "") -> list[dict[str, Any]]:
         suffix = ""
         if path:

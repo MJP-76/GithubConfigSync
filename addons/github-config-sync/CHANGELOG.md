@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Make Clean Repo use a single git commit/ref update instead of recursive file-by-file deletes.
+
+## 0.2.61
+
+- Make Clean Repo use a single git commit/ref update instead of recursive file-by-file deletes.
+
 - Add debounced autosave in the web UI so settings persist without manual Save clicks.
 
 ## 0.2.60

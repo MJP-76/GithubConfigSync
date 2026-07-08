@@ -250,7 +250,7 @@ class ServerApiTests(unittest.TestCase):
 
         self.assertEqual(status["auth"]["token_state"], "configured")
         self.assertEqual(status["repo_versions"]["stable"], "0.2.39")
-        self.assertEqual(status["repo_versions"]["dev"], "0.2.60")
+        self.assertEqual(status["repo_versions"]["dev"], "0.2.61")
         self.assertEqual(diagnostics["options"]["github_token"], "********")
 
     def test_create_repository_uses_default_name_when_blank(self) -> None:
