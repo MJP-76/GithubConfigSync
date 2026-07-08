@@ -78,7 +78,7 @@ Security hardening is part of the current release: private repos only, sensitive
 
 ### Dry run
 
-1. Open the app UI and confirm `github_repository`, `github_branch`, and `dry_run=true`.
+1. Open the app UI and confirm the target repository, target branch, and `dry_run=true`.
 2. Start or complete GitHub device login if a token is not already present.
 3. Run a sync and review the scan summary and dry-run result in the status panel.
 4. Confirm the result shows the expected upsert/delete counts without changing GitHub contents.

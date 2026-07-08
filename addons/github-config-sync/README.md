@@ -93,8 +93,8 @@ If you find this project useful, and would like to help support its continued de
 1. Add this repository as a Home Assistant repository.
 2. Install **Github Config Sync**.
 3. Open the app web UI and set:
-   - `github_repository` (`owner/repo`)
-   - `github_branch`
+   - `github_repository` (`owner/repo`): the private GitHub repo that receives your synced Home Assistant config
+   - `github_branch`: the target branch in that repo, usually `main` for stable or `dev` for development
    - `github_client_id` (defaults to the built-in app ID)
 4. Click **Start Device Login**, approve on GitHub, and wait for the login to complete automatically.
 5. Save settings and click **Run Sync Now**.
