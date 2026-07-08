@@ -556,6 +556,9 @@
       let cachedIgnorePatterns = [];
       let statusPollTimer = null;
       let confirmAction = null;
+      let autoSaveTimer = null;
+      let autoSaveInFlight = false;
+      let autoSaveQueued = false;
       const ingressBase = `${window.location.pathname.replace(/\/+$/, "")}/`;
 
       function apiUrl(path) {
@@ -809,6 +812,7 @@
       }
 
       async function saveOptions() {
+        autoSaveInFlight = true;
         setButtonBusy(el.saveBtn, true, "Saving...");
         try {
           const payload = {
@@ -833,7 +837,26 @@
           await Promise.all([loadStatus(), loadDeviceFlowStatus()]);
         } finally {
           setButtonBusy(el.saveBtn, false);
+          autoSaveInFlight = false;
+          if (autoSaveQueued) {
+            autoSaveQueued = false;
+            scheduleAutoSave();
+          }
         }
+      }
+
+      function scheduleAutoSave() {
+        if (autoSaveTimer) {
+          window.clearTimeout(autoSaveTimer);
+        }
+        autoSaveTimer = window.setTimeout(() => {
+          autoSaveTimer = null;
+          if (autoSaveInFlight) {
+            autoSaveQueued = true;
+            return;
+          }
+          saveOptions().catch((error) => setStatus(error.message, false));
+        }, 900);
       }
 
       async function startDeviceLogin() {
@@ -975,6 +998,25 @@
         if (!el.newRepoDescription.value.trim()) {
           el.newRepoDescription.value = humanizeRepoName(el.newRepoName.value);
         }
+      });
+      [
+        el.repo,
+        el.authMethod,
+        el.branch,
+        el.clientId,
+        el.interval,
+        el.versionRetention,
+        el.dryRun,
+        el.scheduledLiveSync,
+        el.includeAddonConfigs,
+        el.includeMedia,
+        el.includeShare,
+        el.includeSsl,
+        el.includeBackups,
+        el.includeWww,
+      ].forEach((item) => {
+        const eventName = item && item.type === "checkbox" ? "change" : "input";
+        item.addEventListener(eventName, scheduleAutoSave);
       });
       el.refreshBtn.addEventListener("click", () =>
         {

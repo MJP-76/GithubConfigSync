@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Add debounced autosave in the web UI so settings persist without manual Save clicks.
+
+## 0.2.60
+
+- Add debounced autosave in the web UI so settings persist without manual Save clicks.
+
 - Clean Upload now always runs live too, matching Clean Repo.
 
 ## 0.2.59
