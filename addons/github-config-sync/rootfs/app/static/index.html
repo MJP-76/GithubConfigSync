@@ -248,10 +248,7 @@
           Use a private GitHub repository only; public repositories are blocked by design.
         </div>
         <div class="danger" style="margin-top: 12px">
-          <strong>Danger zone:</strong> Home Assistant config can contain secrets, tokens, device data, and other sensitive files. Public repositories are blocked, sensitive paths are filtered, and any two-way sync or inbound write path can put your local config at risk.
-        </div>
-        <div class="danger" style="margin-top: 12px">
-          <strong>Danger zone:</strong> Home Assistant config can contain secrets, tokens, device data, and other sensitive files. Public repositories are blocked, sensitive paths are filtered, and any two-way sync or inbound write path can put your local config at risk.
+          <strong style="color: var(--err)">Danger Zone:</strong> Home Assistant config can contain secrets, tokens, device data, and other sensitive files. Public repositories are blocked, sensitive paths are filtered, and any two-way sync or inbound write path can put your local config at risk.
         </div>
       </div>
 
@@ -299,9 +296,6 @@
         <p class="subtle" style="margin-bottom: 10px">
           Private repositories are supported. Make sure the GitHub token has access to the selected private repo and the branch name is correct.
         </p>
-        <p class="subtle" style="margin-bottom: 10px; color: var(--err)">
-          Danger zone: never use a public repo here, and do not combine this with any other tool that writes back into your Home Assistant config tree.
-        </p>
         <div class="row">
           <button id="startDeviceBtn" class="secondary">Start Device Login</button>
           <span id="tokenBadge" class="pill status">Token missing</span>
@@ -318,6 +312,9 @@
           </div>
         </div>
         <div id="existingRepoSection" style="margin-top: 12px">
+          <p class="subtle" style="margin-bottom: 10px; color: var(--err)">
+            <strong style="color: var(--err)">Danger Zone:</strong> never use a public repo here, and do not combine this with any other tool that writes back into your Home Assistant config tree.
+          </p>
           <div class="row">
             <input id="repoSearch" placeholder="Filter repositories (including private repos)..." style="flex: 1" />
             <button id="loadReposBtn" class="secondary">Load Repositories</button>
@@ -413,7 +410,7 @@
       </div>
 
       <div class="card danger">
-        <h2 class="section-title">Danger zone</h2>
+        <h2 class="section-title"><strong style="color: var(--err)">Danger Zone</strong></h2>
         <p class="subtle" style="margin-bottom: 10px">
           Destructive actions live here. Clean Upload rebuilds the remote repo from the current local config, and Clean Repo Skeleton clears the live repo back to a bare starter state for fresh uploads.
         </p>

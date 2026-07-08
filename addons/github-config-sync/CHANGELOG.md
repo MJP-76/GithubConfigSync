@@ -2,7 +2,12 @@
 
 ## Unreleased
 
-- Preparing the v0.2.36 release bump.
+- Preparing the v0.2.40-dev release bump.
+
+## 0.2.40-dev
+
+- Moved the danger-zone warning into the repo setup section and made the danger wording consistently bold red.
+- Added app/header release metadata improvements for dev testing.
 
 ## 0.2.36
 
