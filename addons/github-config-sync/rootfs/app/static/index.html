@@ -324,6 +324,19 @@
             <span id="removeTotal" class="progress-value">0</span>
           </div>
         </div>
+        <details style="margin-top: 12px">
+          <summary class="section-title" style="cursor: pointer">Dry-run plan</summary>
+          <div class="grid" style="margin-top: 10px">
+            <div class="field">
+              <label>Could be uploaded</label>
+              <pre id="dryRunUpserts" style="min-height: 140px">No dry-run yet.</pre>
+            </div>
+            <div class="field">
+              <label>Could be deleted</label>
+              <pre id="dryRunDeletes" style="min-height: 140px">No dry-run yet.</pre>
+            </div>
+          </div>
+        </details>
       </div>
 
       <div class="card">
@@ -521,6 +534,8 @@
         removeRemaining: document.getElementById("removeRemaining"),
         upsertTotal: document.getElementById("upsertTotal"),
         removeTotal: document.getElementById("removeTotal"),
+        dryRunUpserts: document.getElementById("dryRunUpserts"),
+        dryRunDeletes: document.getElementById("dryRunDeletes"),
         saveBtn: document.getElementById("saveBtn"),
         startDeviceBtn: document.getElementById("startDeviceBtn"),
         repoMode: document.querySelectorAll("input[name='repoMode']"),
@@ -646,6 +661,13 @@
           option.textContent = `${repo.full_name}${repo.private ? " (private)" : ""}`;
           el.repoPicker.appendChild(option);
         });
+      }
+
+      function renderDryRunPlan(summary) {
+        const upserts = [].concat(summary?.added_files || [], summary?.changed_files || []);
+        const deletes = summary?.removed_files || [];
+        el.dryRunUpserts.textContent = upserts.length ? upserts.join("\n") : "Nothing to upload.";
+        el.dryRunDeletes.textContent = deletes.length ? deletes.join("\n") : "Nothing to delete.";
       }
 
       async function fetchJson(url, options = {}) {
@@ -913,6 +935,7 @@
         try {
           const data = await fetchJson(apiUrl("/api/sync/manual"), { method: "POST" });
           if (data.summary) {
+            renderDryRunPlan(data.summary);
             setStatus(
               `${data.result || "Sync completed"} (${data.summary.added_count + data.summary.changed_count} upserts, ${data.summary.removed_count} deletes)`,
               true
