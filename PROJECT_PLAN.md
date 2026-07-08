@@ -16,10 +16,10 @@ Use this as the single source of truth for **where we are**, **what is next**, a
 - **Versioning rule:** keep numeric versions only, and bump them in sequence for stable, RC, and dev releases.
 
 <!-- VERSION:START -->
-- Integration version: `0.3.1-dev`
-- Add-on version: `0.3.1-dev`
+- Integration version: `0.3.1`
+- Add-on version: `0.3.1`
 - Channel: `dev`
-- Release tag: `v0.3.1-dev`
+- Release tag: `v0.3.1`
 <!-- VERSION:END -->
 
 ---
