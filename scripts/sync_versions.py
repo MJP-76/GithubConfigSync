@@ -29,7 +29,11 @@ def _assert_simple_version(value: str, flag_name: str) -> None:
 
 
 def _channelize(version: str, channel: str) -> str:
-    return version if channel == "stable" else f"{version}-dev"
+    if channel == "stable":
+        return version
+    if channel == "rc":
+        return f"{version}-rc"
+    return f"{version}-dev"
 
 
 def _read(path: Path) -> str:
@@ -95,9 +99,9 @@ def main() -> int:
     parser.add_argument("--addon", help="Base add-on version in x.y.z format (defaults to --integration)")
     parser.add_argument(
         "--channel",
-        choices=["stable", "dev"],
+        choices=["stable", "rc", "dev"],
         required=True,
-        help="Release channel; dev appends -dev suffix to versions.",
+        help="Release channel; rc/dev append suffixes to versions.",
     )
     parser.add_argument(
         "--check",
