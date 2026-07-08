@@ -223,6 +223,38 @@
         padding: 10px 12px;
       }
 
+      .modal-backdrop {
+        position: fixed;
+        inset: 0;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        background: rgba(0, 0, 0, 0.5);
+        padding: 20px;
+        z-index: 9999;
+      }
+
+      .modal-backdrop.open {
+        display: flex;
+      }
+
+      .modal {
+        width: min(520px, 100%);
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 18px 20px;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+      }
+
+      .modal h3 {
+        margin: 0 0 8px;
+      }
+
+      .modal p {
+        margin: 0 0 14px;
+      }
+
       pre {
         background: var(--card-2);
         border: 1px solid var(--border);
@@ -473,6 +505,17 @@
           </div>
         </details>
       </div>
+
+      <div id="confirmModal" class="modal-backdrop" aria-hidden="true">
+        <div class="modal" role="dialog" aria-modal="true" aria-labelledby="confirmTitle">
+          <h3 id="confirmTitle">Confirm action</h3>
+          <p id="confirmBody">Are you sure?</p>
+          <div class="row" style="justify-content: flex-end">
+            <button id="confirmCancelBtn" class="secondary">Cancel</button>
+            <button id="confirmOkBtn">OK</button>
+          </div>
+        </div>
+      </div>
     </div>
 
     <script>
@@ -522,6 +565,11 @@
         downloadDiagnosticsBtn: document.getElementById("downloadDiagnosticsBtn"),
         cancelSyncBtn: document.getElementById("cancelSyncBtn"),
         cancelProcessBtn: document.getElementById("cancelProcessBtn"),
+        confirmModal: document.getElementById("confirmModal"),
+        confirmTitle: document.getElementById("confirmTitle"),
+        confirmBody: document.getElementById("confirmBody"),
+        confirmOkBtn: document.getElementById("confirmOkBtn"),
+        confirmCancelBtn: document.getElementById("confirmCancelBtn"),
         ignoreList: document.getElementById("ignoreList"),
         ignoreMeta: document.getElementById("ignoreMeta"),
         saveIgnoreBtn: document.getElementById("saveIgnoreBtn"),
@@ -532,6 +580,7 @@
       let cachedRepos = [];
       let cachedIgnorePatterns = [];
       let statusPollTimer = null;
+      let confirmAction = null;
       const ingressBase = `${window.location.pathname.replace(/\/+$/, "")}/`;
 
       function apiUrl(path) {
@@ -546,6 +595,20 @@
       function setButtonBusy(button, busy, label) {
         if (!button) {
           return;
+        }
+
+        function openConfirmModal(title, body, onConfirm) {
+          confirmAction = onConfirm;
+          el.confirmTitle.textContent = title;
+          el.confirmBody.textContent = body;
+          el.confirmModal.classList.add("open");
+          el.confirmModal.setAttribute("aria-hidden", "false");
+        }
+
+        function closeConfirmModal() {
+          confirmAction = null;
+          el.confirmModal.classList.remove("open");
+          el.confirmModal.setAttribute("aria-hidden", "true");
         }
         if (busy) {
           if (!button.dataset.originalLabel) {
@@ -909,10 +972,18 @@
         runSync().catch((error) => setStatus(error.message, false))
       );
       el.cleanSyncBtn.addEventListener("click", () =>
-        runCleanSync().catch((error) => setStatus(error.message, false))
+        openConfirmModal(
+          "Confirm Clean Upload",
+          `Run Clean Upload on ${el.repo.value.trim() || "the selected repository"}? This will rebuild the remote repo from the current local config.`,
+          () => runCleanSync().catch((error) => setStatus(error.message, false))
+        )
       );
       el.cleanRepoBtn.addEventListener("click", () =>
-        cleanRepoSkeleton().catch((error) => setStatus(error.message, false))
+        openConfirmModal(
+          "Confirm Clean Repo Skeleton",
+          `Run Clean Repo Skeleton on ${el.repo.value.trim() || "the selected repository"}? This will clear the remote repo and restore the base skeleton.`,
+          () => cleanRepoSkeleton().catch((error) => setStatus(error.message, false))
+        )
       );
       el.cancelSyncBtn.addEventListener("click", () =>
         cancelCurrentSync().catch((error) => setStatus(error.message, false))
@@ -920,6 +991,19 @@
       el.cancelProcessBtn.addEventListener("click", () =>
         cancelCurrentSync().catch((error) => setStatus(error.message, false))
       );
+      el.confirmOkBtn.addEventListener("click", () => {
+        const action = confirmAction;
+        closeConfirmModal();
+        if (action) {
+          action();
+        }
+      });
+      el.confirmCancelBtn.addEventListener("click", closeConfirmModal);
+      el.confirmModal.addEventListener("click", (event) => {
+        if (event.target === el.confirmModal) {
+          closeConfirmModal();
+        }
+      });
       el.startDeviceBtn.addEventListener("click", () =>
         startDeviceLogin().catch((error) => setStatus(error.message, false))
       );

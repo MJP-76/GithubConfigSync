@@ -326,7 +326,7 @@ class SyncEngineTests(unittest.TestCase):
             message="sync: delete root.yaml",
         )
 
-    def test_clean_remote_tree_preserves_app_files_and_readme(self) -> None:
+    def test_clean_remote_tree_rebuilds_repo_skeleton(self) -> None:
         config = SyncConfig(
             repository="owner/repo",
             branch="main",
@@ -346,6 +346,13 @@ class SyncEngineTests(unittest.TestCase):
                 {"type": "dir", "name": ".github", "path": ".github"},
                 {"type": "file", "name": "root.yaml", "path": "root.yaml", "sha": "rootsha"},
             ],
+            [
+                {"type": "file", "name": "nested.yaml", "path": "custom_components/nested.yaml", "sha": "nestedsha"},
+            ],
+            [
+                {"type": "file", "name": "addon.yaml", "path": "addons/addon.yaml", "sha": "addonsha"},
+            ],
+            [],
         ]
 
         with patch("sync.engine.GitHubClient", return_value=fake_client):
@@ -357,9 +364,13 @@ class SyncEngineTests(unittest.TestCase):
             sha="rootsha",
             message="sync: delete root.yaml",
         )
-        self.assertNotIn(
-            unittest.mock.call(path="README.md", sha="readmesha", message="sync: delete README.md"),
-            fake_client.delete_content.call_args_list,
+        restore_calls = [call.kwargs for call in fake_client.put_content.call_args_list if call.kwargs.get("message", "").startswith("sync: restore ")]
+        self.assertTrue(any(call.get("path") == "README.md" for call in restore_calls))
+        self.assertTrue(any(call.get("path") == "repository.yaml" for call in restore_calls))
+        fake_client.delete_content.assert_any_call(
+            path="README.md",
+            sha="readmesha",
+            message="sync: delete README.md",
         )
 
 

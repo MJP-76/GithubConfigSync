@@ -167,10 +167,8 @@ class SyncEngine:
         )
 
     def clean_remote_tree(self) -> None:
-        self._delete_remote_tree_except(
-            "",
-            excluded_names={"versions", "README.md", "custom_components", "addons", ".github"},
-        )
+        self._delete_remote_tree_except("", excluded_names={"versions"})
+        self._restore_repo_skeleton()
 
     def _sync_version_snapshot(self) -> None:
         timestamp = dt.datetime.now(dt.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
@@ -293,6 +291,16 @@ class SyncEngine:
                 sha=sha,
                 message=f"sync: delete {item_path}",
             )
+
+    def _restore_repo_skeleton(self) -> None:
+        repo_root = Path(__file__).resolve().parents[5]
+        skeleton_files = [
+            ("README.md", repo_root / "README.md"),
+            ("repository.yaml", repo_root / "repository.yaml"),
+        ]
+        for remote_path, local_path in skeleton_files:
+            if local_path.exists():
+                self._put_with_retry(remote_path, local_path.read_bytes(), message=f"sync: restore {remote_path}")
 
     def _build_hash_index(self) -> dict[str, str]:
         index: dict[str, str] = {}
