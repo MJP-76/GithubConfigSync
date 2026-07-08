@@ -1,5 +1,5 @@
 name: "Github Config Sync"
-description: "Home Assistant app for GitHub config sync operations, not backups. Release v0.2.62. Public repositories are blocked by design; use a private repo only."
+description: "Home Assistant app for GitHub config sync operations, not backups. Release v0.3.0. Public repositories are blocked by design; use a private repo only."
 version: "0.3.0"
 slug: "github_config_sync_web"
 url: "https://github.com/MJP-76/GithubConfigSync"
