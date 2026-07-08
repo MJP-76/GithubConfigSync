@@ -167,13 +167,7 @@ class SyncEngine:
         )
 
     def clean_remote_tree(self) -> None:
-        head_sha = self._github.get_branch_head_sha()
-        empty_tree = self._github.create_git_tree(tree=[])["sha"]
-        commit = self._github.create_git_commit("sync: clean repo", empty_tree, head_sha)
-        commit_sha = commit.get("sha")
-        if not isinstance(commit_sha, str) or not commit_sha:
-            raise RuntimeError("GitHub create commit returned incomplete payload")
-        self._github.update_branch_ref(commit_sha)
+        self._delete_remote_tree("")
 
     def restore_repo_skeleton(self) -> None:
         self._restore_repo_skeleton()
