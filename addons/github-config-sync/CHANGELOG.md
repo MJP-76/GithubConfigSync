@@ -4,6 +4,10 @@
 
 - Main repo is now stable-only; dev work continues in the `GithubConfigSync-dev` fork repo.
 
+## 0.2.46-dev
+
+- Switched the add-on UI to older-browser-compatible JavaScript so the page can initialize correctly in Home Assistant.
+
 ## 0.2.45-dev
 
 - Fixed the add-on UI initialization bug caused by the confirmation modal helper nesting.

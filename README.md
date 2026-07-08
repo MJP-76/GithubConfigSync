@@ -23,10 +23,10 @@ If you find this project useful, and would like to help support its continued de
 ## Version Tracker
 
 <!-- VERSION:START -->
-- Integration version: `0.2.45-dev`
-- App version: `0.2.45-dev`
+- Integration version: `0.2.46-dev`
+- App version: `0.2.46-dev`
 - Channel: `dev`
-- Release tag: `v0.2.45-dev`
+- Release tag: `v0.2.46-dev`
 <!-- VERSION:END -->
 
 To sync versions across integration/app/runtime/docs automatically:
@@ -51,6 +51,7 @@ Security hardening is part of the current release: private repos only, sensitive
 - Both values are configurable in the app UI.
 - Dev work now lives in the `GithubConfigSync-dev` fork repo; the main repo stays on stable releases.
 - Release track split: `MJP-76/GithubConfigSync` publishes stable releases, and `MJP-76/GithubConfigSync-dev` publishes dev prereleases.
+- Versioning rule: stable releases advance the middle version segment, while dev prereleases advance the patch segment with a `-dev` suffix.
 
 ## Architecture
 
