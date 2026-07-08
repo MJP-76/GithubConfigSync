@@ -269,11 +269,14 @@
           </div>
         </div>
         <div class="notice" style="margin-top: 14px">
-          <strong>Rebuild note:</strong> after a new release, Home Assistant may keep using a cached add-on image. If you do not see a UI change, rebuild/reinstall the add-on image and then restart the add-on.
-          Remote deletes only affect GitHub and never remove local files.
-          Use caution with any two-way sync or other tools that can also write to the Home Assistant config tree, because they can cause local config loss or unexpected deletions.
-          Use a private GitHub repository only; public repositories are blocked by design.
-          Stable releases ship from `MJP-76/GithubConfigSync`, and dev prereleases ship from `MJP-76/GithubConfigSync-dev`.
+          <strong>Rebuild note:</strong> after a new release, Home Assistant may still use a cached add-on image.
+          If the UI does not change, rebuild/reinstall the add-on and restart it.
+        </div>
+        <div class="notice" style="margin-top: 12px">
+          <strong>Safety note:</strong> remote deletes only affect GitHub and never remove local files.
+        </div>
+        <div class="notice" style="margin-top: 12px">
+          <strong>Release tracks:</strong> stable releases ship from `MJP-76/GithubConfigSync`, and dev prereleases ship from `MJP-76/GithubConfigSync-dev`.
           Stable releases advance the middle version segment; dev prereleases advance the patch segment with a `-dev` suffix.
         </div>
         <div class="danger" style="margin-top: 12px">
@@ -443,6 +446,9 @@
         <h2 class="section-title"><strong style="color: var(--err)">Danger Zone</strong></h2>
         <p class="subtle" style="margin-bottom: 10px">
           Destructive actions live here. Clean Upload rebuilds the remote repo from the current local config, and Clean Repo Skeleton clears the live repo back to a bare starter state for fresh uploads.
+        </p>
+        <p class="subtle" style="margin-bottom: 10px; color: var(--err)">
+          <strong style="color: var(--err)">Danger:</strong> use a private repository only, and avoid any two-way sync tools that can write back into your Home Assistant config tree.
         </p>
         <div class="row">
           <button id="cleanSyncBtn">Clean Upload</button>

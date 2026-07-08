@@ -4,6 +4,10 @@
 
 - Main repo is now stable-only; dev work continues in the `GithubConfigSync-dev` fork repo.
 
+## 0.2.52-dev
+
+- Clean Repo now performs a full remote wipe before restoring the skeleton files.
+
 ## 0.2.51-dev
 
 - Replaced the custom confirmation modal with native browser confirms to avoid add-on UI runtime errors.

@@ -289,7 +289,7 @@ class SyncEngineTests(unittest.TestCase):
 
         delete_tree.assert_called_once_with("versions/20260601T120000Z")
 
-    def test_clean_remote_tree_deletes_root_content_but_keeps_versions(self) -> None:
+    def test_clean_remote_tree_wipes_root_tree(self) -> None:
         config = SyncConfig(
             repository="owner/repo",
             branch="main",
@@ -302,7 +302,6 @@ class SyncEngineTests(unittest.TestCase):
         fake_client = MagicMock()
         fake_client.list_directory_contents.side_effect = [
             [
-                {"type": "dir", "name": "versions", "path": "versions"},
                 {"type": "dir", "name": "config", "path": "config"},
                 {"type": "file", "name": "root.yaml", "path": "root.yaml", "sha": "rootsha"},
             ],
@@ -339,7 +338,6 @@ class SyncEngineTests(unittest.TestCase):
         fake_client = MagicMock()
         fake_client.list_directory_contents.side_effect = [
             [
-                {"type": "dir", "name": "versions", "path": "versions"},
                 {"type": "file", "name": "README.md", "path": "README.md", "sha": "readmesha"},
                 {"type": "dir", "name": "custom_components", "path": "custom_components"},
                 {"type": "dir", "name": "addons", "path": "addons"},

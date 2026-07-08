@@ -12,6 +12,8 @@ Use this as the single source of truth for **where we are**, **what is next**, a
 - **Latest shipped improvements:** added danger-zone security hardening (private repos only, sensitive-path filtering, two-way sync warnings)
 - **Current operator UX:** Device Login section first, existing/create repo flow, troubleshooting auth overrides hidden by default
 - **Version state:** Synced to the current release below.
+- **Release tracks:** stable releases ship from `GithubConfigSync`, and dev prereleases ship from `GithubConfigSync-dev`.
+- **Versioning rule:** stable releases advance the middle version segment; dev prereleases advance the patch segment with a `-dev` suffix.
 
 <!-- VERSION:START -->
 - Integration version: `0.2.39`
@@ -83,6 +85,9 @@ Use this as the single source of truth for **where we are**, **what is next**, a
 - [x] Added warnings against public repositories and two-way sync risk.
 - [x] Added a hard filter for obvious sensitive Home Assistant files and paths.
 - [x] Documented that remote deletes do not remove local files.
+- [ ] Lock down local API endpoints with Supervisor/Ingress header checks and review diagnostics exposure.
+- [ ] Revisit mount-point path resolution and path ancestry checks for any user-controlled filesystem inputs.
+- [ ] Tighten diagnostics redaction to strip auth headers, URLs, and token-shaped secrets before export.
 - [ ] Review whether any additional secret-scanning or blocklist patterns should be added later.
 
 ---
