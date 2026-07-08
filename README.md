@@ -34,7 +34,7 @@ Stable and RC releases are cut from the same main repository and share the same 
 To sync versions across integration/app/runtime/docs automatically:
 
 ```bash
-python3 scripts/sync_versions.py --integration 0.2.62 --addon 0.2.62 --channel stable
+python3 scripts/sync_versions.py --integration 0.3.1 --addon 0.3.1 --channel dev
 ```
 
 ## Home Assistant App (Web UI)
@@ -52,7 +52,7 @@ Security hardening is part of the current release: private repos only, sensitive
 - Keeps 7 GitHub version snapshots by default.
 - Both values are configurable in the app UI.
 - Numeric releases stay in sequence across stable, RC, and dev.
-- Stable and RC live in the main repository; dev remains the prerelease/testing track.
+- Stable and RC live in the main repository; dev lives in the forked prerelease repository.
 
 ## Architecture
 

@@ -4,7 +4,7 @@ Use `E:\NextCloud\_Projects\GitHub\GithubConfigSync\SESSION_HANDOVER.md` as the 
 
 ## Current snapshot
 
-- Release line: `0.3.0` RC
+- Release line: `0.3.1` dev
 - Branch: `dev`
 - Central repo path: `E:\NextCloud\_Projects\GitHub\GithubConfigSync`
 
@@ -13,4 +13,4 @@ Use `E:\NextCloud\_Projects\GitHub\GithubConfigSync\SESSION_HANDOVER.md` as the 
 1. Read `PROJECT_PLAN.md`.
 2. Read `SESSION_SHORTCUTS.md`.
 3. Read `SESSION_MULTI_DEVICE.md`.
-4. Fetch and continue on `dev` or the current release branch, then keep the tracker aligned with the shared mainline version.
+4. Fetch and continue on `dev`, then keep the tracker aligned with the forked prerelease version line.
