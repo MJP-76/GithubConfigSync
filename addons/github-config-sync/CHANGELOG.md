@@ -2,12 +2,10 @@
 
 ## Unreleased
 
-- Preparing the v0.2.41-dev release bump.
+- Main repo is now stable-only; dev work continues in the `GithubConfigSync-dev` fork repo.
+## 0.2.39
 
-## 0.2.41-dev
-
-- Added a security-focused auth choice between GitHub Device Flow and fine-grained PAT.
-- Tightened the danger-zone wording and repo setup warnings.
+- Stable release baseline for the main repository.
 
 ## 0.2.40-dev
 

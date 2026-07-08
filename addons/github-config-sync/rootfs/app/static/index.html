@@ -237,7 +237,6 @@
           </div>
           <div class="row" style="justify-content: flex-end">
             <span id="versionBadge" class="pill status">Version...</span>
-            <span id="channelBadge" class="pill status">Channel...</span>
             <span id="status" class="pill status">Loading...</span>
           </div>
         </div>
@@ -355,13 +354,6 @@
       <div class="card">
         <div class="grid">
           <div class="field">
-            <label for="releaseChannel">Release Channel</label>
-            <select id="releaseChannel">
-              <option value="stable">Stable</option>
-              <option value="dev">Dev</option>
-            </select>
-          </div>
-          <div class="field">
             <label for="repo">Target repository (owner/repo)</label>
             <input id="repo" placeholder="MJP-76/GithubConfigSync" />
           </div>
@@ -458,9 +450,7 @@
       const el = {
         status: document.getElementById("status"),
         versionBadge: document.getElementById("versionBadge"),
-        channelBadge: document.getElementById("channelBadge"),
         repo: document.getElementById("repo"),
-        releaseChannel: document.getElementById("releaseChannel"),
         authMethod: document.getElementById("authMethod"),
         authMethodHelp: document.getElementById("authMethodHelp"),
         branch: document.getElementById("branch"),
@@ -624,7 +614,6 @@
       async function loadOptions() {
         const data = await fetchJson(apiUrl("/api/options"));
         el.repo.value = data.github_repository || "";
-        el.releaseChannel.value = data.release_channel || "stable";
         el.authMethod.value = data.auth_method || "device_flow";
         el.branch.value = data.github_branch || "main";
         el.token.value = "";
@@ -699,8 +688,7 @@
           "\n\n" +
           (data.log_tail || "");
         el.versionBadge.textContent = `Version: ${data.version || "unknown"}`;
-        el.channelBadge.textContent = `Channel: ${data.release_channel || "stable"}`;
-        setStatus(`Channel: ${data.release_channel || "stable"} | ${data.state?.status || "idle"}`, data.state?.status !== "error");
+        setStatus(`${data.state?.status || "idle"}`, data.state?.status !== "error");
       }
 
       function startStatusPolling() {
@@ -763,7 +751,6 @@
         try {
           const payload = {
             github_repository: el.repo.value.trim(),
-            release_channel: el.releaseChannel.value,
             auth_method: el.authMethod.value,
             github_branch: el.branch.value.trim() || "main",
             github_token: el.token.value.trim(),

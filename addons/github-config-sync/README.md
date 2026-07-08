@@ -6,9 +6,10 @@
 [![HASSfest](https://img.shields.io/badge/HASSfest-validated-success.svg)](https://developers.home-assistant.io/docs/add-ons/)
 [![Release](https://img.shields.io/github/v/tag/MJP-76/GithubConfigSync?label=release)](https://github.com/MJP-76/GithubConfigSync/releases)
 
-Containerized Home Assistant app with an ingress web UI for GitHub config sync operations. Dev release v0.2.41-dev. This is a sync tool, not a backup tool.
+Containerized Home Assistant app with an ingress web UI for GitHub config sync operations. Stable release v0.2.39. This is a sync tool, not a backup tool.
 
 Authentication supports GitHub Device Flow or a fine-grained PAT scoped to the single target repository.
+
 
 <strong style="color:#ef4444">Danger Zone:</strong> <strong>use a private GitHub repository only.</strong> Use caution with any two-way sync or other tools that can also write to the Home Assistant config tree, because they can cause local config loss or unexpected deletions. The developer and maintainer are not responsible for data loss.
 
@@ -25,10 +26,10 @@ If you find this project useful, and would like to help support its continued de
 ## Version Tracker
 
 <!-- VERSION:START -->
-- Integration version: `0.2.41-dev`
-- App version: `0.2.41-dev`
-- Channel: `dev`
-- Release tag: `v0.2.41-dev`
+- Integration version: `0.2.39`
+- App version: `0.2.39`
+- Channel: `stable`
+- Release tag: `v0.2.39`
 <!-- VERSION:END -->
 
 ## What it provides
@@ -108,7 +109,6 @@ If you find this project useful, and would like to help support its continued de
 - This app is designed as a polished operator UI layer and can be wired to deeper sync logic incrementally.
 - Security-focused safeguards are in place: private repositories only, sensitive-path filtering, and two-way sync warnings.
 - The latest release includes the danger-zone security updates in the changelog.
-- The UI lets users choose the stable or dev release channel.
 - The add-on repository metadata is minimal and valid for Home Assistant add-on store ingestion.
 - Version snapshots now skip ignored directories like `.cache`, even inside release snapshots.
 - New repository creation defaults blank name/description fields to a humanized repository name.

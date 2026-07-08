@@ -28,7 +28,6 @@ STATIC_DIR = Path("/app/static")
 CONFIG_ROOT = Path("/config")
 
 DEFAULT_OPTIONS: dict[str, Any] = {
-    "release_channel": "stable",
     "auth_method": "device_flow",
     "github_repository": "",
     "github_branch": "main",
@@ -150,9 +149,6 @@ def _validate_payload(payload: dict[str, Any]) -> tuple[bool, str | None]:
 
     if not isinstance(payload.get("dry_run"), bool):
         return False, "dry_run must be true or false"
-
-    if str(payload.get("release_channel", "stable")) not in ("stable", "dev"):
-        return False, "release_channel must be stable or dev"
 
     if str(payload.get("auth_method", "device_flow")) not in ("device_flow", "fine_grained_pat"):
         return False, "auth_method must be device_flow or fine_grained_pat"
@@ -437,8 +433,6 @@ def set_options():
         return jsonify({"ok": False, "error": "Invalid JSON body"}), 400
 
     candidate = {
-        "release_channel": str(payload.get("release_channel", _merge_options().get("release_channel", "stable"))).strip()
-        or "stable",
         "auth_method": str(payload.get("auth_method", _merge_options().get("auth_method", "device_flow"))).strip()
         or "device_flow",
         "github_repository": str(payload.get("github_repository", "")).strip(),
@@ -480,7 +474,6 @@ def get_status():
             "state": state,
             "auth": _auth_diagnostics(options),
             "version": APP_VERSION,
-            "release_channel": str(options.get("release_channel", "stable")),
             "token_health": _token_health(options),
             "cancel_sync": _is_cancel_requested(),
             "log_tail": _sanitized_log_tail(),

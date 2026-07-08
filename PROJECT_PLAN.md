@@ -6,7 +6,7 @@ Use this as the single source of truth for **where we are**, **what is next**, a
 
 ## Status Snapshot
 
-- **Current milestone:** `v0.2.40-dev — Dev release`
+- **Current milestone:** `v0.2.39 — Stable-only main repo`
 - **Last updated:** 2026-07-08
 - **Track:** Home Assistant Integration + Home Assistant Add-on (Ingress Web UI)
 - **Latest shipped improvements:** added danger-zone security hardening (private repos only, sensitive-path filtering, two-way sync warnings)
@@ -14,10 +14,10 @@ Use this as the single source of truth for **where we are**, **what is next**, a
 - **Version state:** Synced to the current release below.
 
 <!-- VERSION:START -->
-- Integration version: `0.2.40-dev`
-- Add-on version: `0.2.40-dev`
-- Channel: `dev`
-- Release tag: `v0.2.40-dev`
+- Integration version: `0.2.39`
+- Add-on version: `0.2.39`
+- Channel: `stable`
+- Release tag: `v0.2.39`
 <!-- VERSION:END -->
 
 ---
@@ -27,7 +27,7 @@ Use this as the single source of truth for **where we are**, **what is next**, a
 1. Open this file (`PROJECT_PLAN.md`) and read **Status Snapshot** + **Active Sprint Tracker**.
 2. Verify the latest tag/release in GitHub and keep this tracker aligned with the shipped version.
 3. Update this file after each shipped change so the tracker stays in sync.
-4. Ship via: version bump → tag → GitHub release.
+4. Ship stable releases from the main repo; keep dev work in `GithubConfigSync-dev`.
 
 **Current repo context**
 

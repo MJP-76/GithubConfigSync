@@ -23,22 +23,16 @@ If you find this project useful, and would like to help support its continued de
 ## Version Tracker
 
 <!-- VERSION:START -->
-- Integration version: `0.2.40-dev`
-- App version: `0.2.40-dev`
-- Channel: `dev`
-- Release tag: `v0.2.40-dev`
+- Integration version: `0.2.39`
+- App version: `0.2.39`
+- Channel: `stable`
+- Release tag: `v0.2.39`
 <!-- VERSION:END -->
 
 To sync versions across integration/app/runtime/docs automatically:
 
 ```bash
 python3 scripts/sync_versions.py --integration 0.0.20 --addon 0.1.3 --channel stable
-```
-
-For a dev release:
-
-```bash
-python3 scripts/sync_versions.py --integration 0.0.20 --addon 0.1.3 --channel dev
 ```
 
 ## Home Assistant App (Web UI)
@@ -55,7 +49,7 @@ Security hardening is part of the current release: private repos only, sensitive
 - Runs once a day by default.
 - Keeps 7 GitHub version snapshots by default.
 - Both values are configurable in the app UI.
-- The app UI also lets users choose the stable or dev release channel.
+- Dev work now lives in the `GithubConfigSync-dev` fork repo; the main repo stays on stable releases.
 
 ## Architecture
 
@@ -69,6 +63,7 @@ Security hardening is part of the current release: private repos only, sensitive
 - Live runs also write versioned snapshots under `versions/<timestamp>/...` and keep the most recent 7 by default.
 - State, logs, device-flow data, and the last hash index live in `/data`.
 - The app exposes a stable local API contract via `/api/health`, `/api/status`, `/api/sync`, and `/api/diagnostics`.
+- Single-repo release flow: normal releases are stable, and prerelease tags are used for dev testing from the same repository.
 - The generated `.gitignore` includes the common Home Assistant guidance entries such as `secrets.yaml`, `ip_bans.yaml`, `known_devices.yaml`, `.storage/`, and `.cloud/`, while still honoring any local user additions.
 - After a release, Home Assistant may need a rebuild/reinstall to pick up UI changes from the app image.
 
