@@ -13,7 +13,9 @@ from sync.errors import SyncError
 from sync.github_client import GitHubClient
 from sync.hashing import IGNORE_PATTERNS
 
-APP_VERSION = "0.2.42-dev"
+APP_VERSION = "0.2.43-dev"
+STABLE_REPO_VERSION = "0.2.39"
+DEV_REPO_VERSION = APP_VERSION
 APP_PORT = 8099
 DEFAULT_OAUTH_CLIENT_ID = "Ov23li2ycCraodta6WCU"
 
@@ -474,6 +476,11 @@ def get_status():
             "state": state,
             "auth": _auth_diagnostics(options),
             "version": APP_VERSION,
+            "repo_versions": {
+                "stable": STABLE_REPO_VERSION,
+                "dev": DEV_REPO_VERSION,
+                "current": APP_VERSION,
+            },
             "token_health": _token_health(options),
             "cancel_sync": _is_cancel_requested(),
             "log_tail": _sanitized_log_tail(),
@@ -884,6 +891,53 @@ def trigger_clean_sync():
                 "skipped_count": result.skipped_count,
                 "total_files": result.total_files,
             },
+            "state": state,
+        }
+    )
+
+
+@app.post("/api/sync/clean-repo")
+def trigger_clean_repo():
+    options = _merge_options()
+    sync_config = _sync_config(options)
+
+    if not sync_config.repository:
+        return jsonify({"ok": False, "error": "github_repository is required"}), 400
+
+    started = dt.datetime.now(dt.timezone.utc).isoformat()
+    _save_state({"status": "running", "last_run": started, "last_error": None})
+    _set_cancel_requested(False)
+    _append_log(f"Clean repo requested for {sync_config.repository}")
+
+    try:
+        engine = SyncEngine(sync_config, previous_hash_index=_load_json(HASH_INDEX_PATH, {}))
+        engine.clean_remote_tree()
+    except SyncError as err:
+        state = _save_state(
+            {
+                "status": "error",
+                "last_error": str(err),
+                "last_result": None,
+                "last_scan": None,
+            }
+        )
+        _append_log(f"Clean repo failed: {err}")
+        return jsonify({"ok": False, "error": str(err), "state": state}), 502
+
+    state = _save_state(
+        {
+            "status": "ok",
+            "last_success": dt.datetime.now(dt.timezone.utc).isoformat(),
+            "last_result": "Clean repo completed. Remote repo skeleton cleared.",
+            "last_scan": None,
+            "last_error": None,
+        }
+    )
+    _append_log("Clean repo completed")
+    return jsonify(
+        {
+            "ok": True,
+            "result": "Clean repo completed. Remote repo skeleton cleared.",
             "state": state,
         }
     )

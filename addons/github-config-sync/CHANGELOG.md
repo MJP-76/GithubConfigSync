@@ -3,6 +3,10 @@
 ## Unreleased
 
 - Main repo is now stable-only; dev work continues in the `GithubConfigSync-dev` fork repo.
+
+## 0.2.43-dev
+
+- Added a separate Cancel Process button in the danger zone for stopping the current job.
 ## 0.2.39
 
 - Stable release baseline for the main repository.

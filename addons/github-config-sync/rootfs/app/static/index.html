@@ -209,6 +209,20 @@
         font-weight: 700;
       }
 
+      .version-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 10px;
+        margin-top: 10px;
+      }
+
+      .version-item {
+        background: var(--card-2);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 10px 12px;
+      }
+
       pre {
         background: var(--card-2);
         border: 1px solid var(--border);
@@ -238,6 +252,20 @@
           <div class="row" style="justify-content: flex-end">
             <span id="versionBadge" class="pill status">Version...</span>
             <span id="status" class="pill status">Loading...</span>
+          </div>
+        </div>
+        <div class="version-grid">
+          <div class="version-item">
+            <span class="progress-label">Stable repo</span>
+            <span id="stableRepoVersion" class="progress-value">Loading...</span>
+          </div>
+          <div class="version-item">
+            <span class="progress-label">Dev repo</span>
+            <span id="devRepoVersion" class="progress-value">Loading...</span>
+          </div>
+          <div class="version-item">
+            <span class="progress-label">Current add-on</span>
+            <span id="currentRepoVersion" class="progress-value">Loading...</span>
           </div>
         </div>
         <div class="notice" style="margin-top: 14px">
@@ -417,6 +445,7 @@
         <div class="row">
           <button id="cleanSyncBtn">Clean Upload</button>
           <button id="cleanRepoBtn" class="secondary">Clean Repo Skeleton</button>
+          <button id="cancelProcessBtn" class="secondary">Cancel Process</button>
         </div>
       </div>
 
@@ -450,6 +479,9 @@
       const el = {
         status: document.getElementById("status"),
         versionBadge: document.getElementById("versionBadge"),
+        stableRepoVersion: document.getElementById("stableRepoVersion"),
+        devRepoVersion: document.getElementById("devRepoVersion"),
+        currentRepoVersion: document.getElementById("currentRepoVersion"),
         repo: document.getElementById("repo"),
         authMethod: document.getElementById("authMethod"),
         authMethodHelp: document.getElementById("authMethodHelp"),
@@ -489,6 +521,7 @@
         refreshBtn: document.getElementById("refreshBtn"),
         downloadDiagnosticsBtn: document.getElementById("downloadDiagnosticsBtn"),
         cancelSyncBtn: document.getElementById("cancelSyncBtn"),
+        cancelProcessBtn: document.getElementById("cancelProcessBtn"),
         ignoreList: document.getElementById("ignoreList"),
         ignoreMeta: document.getElementById("ignoreMeta"),
         saveIgnoreBtn: document.getElementById("saveIgnoreBtn"),
@@ -688,6 +721,9 @@
           "\n\n" +
           (data.log_tail || "");
         el.versionBadge.textContent = `Version: ${data.version || "unknown"}`;
+        el.stableRepoVersion.textContent = data.repo_versions?.stable || "unknown";
+        el.devRepoVersion.textContent = data.repo_versions?.dev || "unknown";
+        el.currentRepoVersion.textContent = data.repo_versions?.current || data.version || "unknown";
         setStatus(`${data.state?.status || "idle"}`, data.state?.status !== "error");
       }
 
@@ -844,6 +880,17 @@
         }
       }
 
+      async function cleanRepoSkeleton() {
+        setButtonBusy(el.cleanRepoBtn, true, "Cleaning...");
+        try {
+          const data = await fetchJson(apiUrl("/api/sync/clean-repo"), { method: "POST" });
+          setStatus(data.result || "Clean repo completed");
+          await loadStatus();
+        } finally {
+          setButtonBusy(el.cleanRepoBtn, false);
+        }
+      }
+
       async function cancelCurrentSync() {
         setButtonBusy(el.cancelSyncBtn, true, "Cancelling...");
         try {
@@ -865,9 +912,12 @@
         runCleanSync().catch((error) => setStatus(error.message, false))
       );
       el.cleanRepoBtn.addEventListener("click", () =>
-        runCleanSync().catch((error) => setStatus(error.message, false))
+        cleanRepoSkeleton().catch((error) => setStatus(error.message, false))
       );
       el.cancelSyncBtn.addEventListener("click", () =>
+        cancelCurrentSync().catch((error) => setStatus(error.message, false))
+      );
+      el.cancelProcessBtn.addEventListener("click", () =>
         cancelCurrentSync().catch((error) => setStatus(error.message, false))
       );
       el.startDeviceBtn.addEventListener("click", () =>

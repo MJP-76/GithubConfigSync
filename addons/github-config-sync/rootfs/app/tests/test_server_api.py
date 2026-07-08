@@ -249,6 +249,8 @@ class ServerApiTests(unittest.TestCase):
         diagnostics = self.client.get("/api/diagnostics").get_json()
 
         self.assertEqual(status["auth"]["token_state"], "configured")
+        self.assertEqual(status["repo_versions"]["stable"], "0.2.39")
+        self.assertEqual(status["repo_versions"]["dev"], "0.2.43-dev")
         self.assertEqual(diagnostics["options"]["github_token"], "********")
 
     def test_create_repository_uses_default_name_when_blank(self) -> None:
@@ -444,6 +446,28 @@ class ServerApiTests(unittest.TestCase):
         body = response.get_json()
         self.assertEqual(response.status_code, 200)
         self.assertTrue(body["ok"])
+        engine.clean_remote_tree.assert_called_once()
+
+    def test_clean_repo_endpoint_clears_remote_tree_without_upload(self) -> None:
+        self._write_options(
+            {
+                "github_repository": "owner/repo",
+                "github_branch": "main",
+                "github_token": "gho_test",
+                "sync_interval_minutes": 60,
+                "dry_run": True,
+            }
+        )
+
+        with patch("server.SyncEngine") as engine_cls:
+            engine = engine_cls.return_value
+            engine.clean_remote_tree.return_value = None
+            response = self.client.post("/api/sync/clean-repo")
+
+        body = response.get_json()
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(body["ok"])
+        self.assertIn("Clean repo completed", body["result"])
         engine.clean_remote_tree.assert_called_once()
 
     def test_manual_sync_endpoint_uses_retention_days(self) -> None:
