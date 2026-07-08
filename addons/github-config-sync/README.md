@@ -6,7 +6,9 @@
 [![HASSfest](https://img.shields.io/badge/HASSfest-validated-success.svg)](https://developers.home-assistant.io/docs/add-ons/)
 [![Release](https://img.shields.io/github/v/tag/MJP-76/GithubConfigSync?label=release)](https://github.com/MJP-76/GithubConfigSync/releases)
 
-Containerized Home Assistant app with an ingress web UI for GitHub config sync operations. This is a sync tool, not a backup tool. **Use a private GitHub repository only.** Use caution with any two-way sync or other tools that can also write to the Home Assistant config tree, because they can cause local config loss or unexpected deletions.
+Containerized Home Assistant app with an ingress web UI for GitHub config sync operations. Dev release v0.2.39-dev. This is a sync tool, not a backup tool.
+
+**Important warning:** use a private GitHub repository only. Use caution with any two-way sync or other tools that can also write to the Home Assistant config tree, because they can cause local config loss or unexpected deletions. The developer and maintainer are not responsible for data loss.
 
 This documentation and code were drafted with AI assistance and then reviewed/edited by the maintainer.
 
