@@ -4,6 +4,10 @@
 
 - Main repo is now stable-only; dev work continues in the `GithubConfigSync-dev` fork repo.
 
+## 0.2.48-dev
+
+- Fixed the remaining modal close handler scope issue in the add-on UI.
+
 ## 0.2.47-dev
 
 - Removed remaining modern JavaScript syntax from the add-on UI so older Home Assistant webviews can initialize it.

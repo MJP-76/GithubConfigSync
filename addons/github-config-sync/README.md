@@ -6,7 +6,7 @@
 [![HASSfest](https://img.shields.io/badge/HASSfest-validated-success.svg)](https://developers.home-assistant.io/docs/add-ons/)
 [![Release](https://img.shields.io/github/v/tag/MJP-76/GithubConfigSync?label=release)](https://github.com/MJP-76/GithubConfigSync/releases)
 
-Containerized Home Assistant app with an ingress web UI for GitHub config sync operations. Dev release v0.2.47-dev. This is a sync tool, not a backup tool.
+Containerized Home Assistant app with an ingress web UI for GitHub config sync operations. Dev release v0.2.48-dev. This is a sync tool, not a backup tool.
 
 Authentication supports GitHub Device Flow or a fine-grained PAT scoped to the single target repository.
 
@@ -26,10 +26,10 @@ If you find this project useful, and would like to help support its continued de
 ## Version Tracker
 
 <!-- VERSION:START -->
-- Integration version: `0.2.47-dev`
-- App version: `0.2.47-dev`
+- Integration version: `0.2.48-dev`
+- App version: `0.2.48-dev`
 - Channel: `dev`
-- Release tag: `v0.2.47-dev`
+- Release tag: `v0.2.48-dev`
 <!-- VERSION:END -->
 
 ## What it provides
@@ -107,7 +107,7 @@ If you find this project useful, and would like to help support its continued de
 
 - `dry_run` is enabled by default to avoid accidental pushes.
 - This app is designed as a polished operator UI layer and can be wired to deeper sync logic incrementally.
-- Security-focused safeguards are in place: private repositories only, sensitive-path filtering, and two-way sync warnings.
+- Security-focused safeguards are in place: private repositories only, sensitive-path filtering, and two-way sync warnings. Follow-up work includes local API auth checks, path ancestry validation, and stronger diagnostics redaction.
 - The latest release includes the danger-zone security updates in the changelog.
 - The add-on repository metadata is minimal and valid for Home Assistant add-on store ingestion.
 - Version snapshots now skip ignored directories like `.cache`, even inside release snapshots.

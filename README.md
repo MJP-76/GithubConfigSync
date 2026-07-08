@@ -23,10 +23,10 @@ If you find this project useful, and would like to help support its continued de
 ## Version Tracker
 
 <!-- VERSION:START -->
-- Integration version: `0.2.47-dev`
-- App version: `0.2.47-dev`
+- Integration version: `0.2.48-dev`
+- App version: `0.2.48-dev`
 - Channel: `dev`
-- Release tag: `v0.2.47-dev`
+- Release tag: `v0.2.48-dev`
 <!-- VERSION:END -->
 
 To sync versions across integration/app/runtime/docs automatically:
@@ -42,7 +42,7 @@ This repository now also includes a containerized Home Assistant app with ingres
 `addons/github-config-sync/`
 
 App repository metadata is provided via `repository.yaml` so it can be added directly in Home Assistant Add-on Store.
-Security hardening is part of the current release: private repos only, sensitive-path filtering, and two-way sync warnings.
+Security hardening is part of the current release: private repos only, sensitive-path filtering, and two-way sync warnings. Follow-up work includes local API auth checks, path ancestry validation, and stronger diagnostics redaction.
 
 ## Sync defaults
 
