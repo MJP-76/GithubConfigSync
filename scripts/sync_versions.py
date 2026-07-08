@@ -32,7 +32,7 @@ def _channelize(version: str, channel: str) -> str:
     if channel == "stable":
         return version
     if channel == "rc":
-        return f"{version}-rc"
+        return version
     return f"{version}-dev"
 
 
@@ -101,7 +101,7 @@ def main() -> int:
         "--channel",
         choices=["stable", "rc", "dev"],
         required=True,
-        help="Release channel; rc/dev append suffixes to versions.",
+        help="Release channel; rc uses the base version and dev appends -dev suffix to versions.",
     )
     parser.add_argument(
         "--check",

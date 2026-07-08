@@ -23,11 +23,13 @@ If you find this project useful, and would like to help support its continued de
 ## Version Tracker
 
 <!-- VERSION:START -->
-- Integration version: `0.2.62`
-- Add-on version: `0.2.62`
-- Channel: `stable`
-- Release tag: `v0.2.62`
+- Integration version: `0.3.0`
+- Add-on version: `0.3.0`
+- Channel: `rc`
+- Release tag: `v0.3.0`
 <!-- VERSION:END -->
+
+Stable and RC releases are cut from the same main repository and share the same numeric version line; RC is the pre-release track for that line.
 
 To sync versions across integration/app/runtime/docs automatically:
 
@@ -49,9 +51,8 @@ Security hardening is part of the current release: private repos only, sensitive
 - Runs once a day by default.
 - Keeps 7 GitHub version snapshots by default.
 - Both values are configurable in the app UI.
-- Numeric releases stay in sequence across stable, RC, and dev; the main repo stays on stable releases and `GithubConfigSync-dev` carries prereleases.
-- Release track split: `MJP-76/GithubConfigSync` publishes `x`, and `MJP-76/GithubConfigSync-dev` publishes `y`/`z` prereleases.
-- Versioning rule: keep numeric versions, but label the tracks as `x` (stable), `y` (RC), and `z` (dev).
+- Numeric releases stay in sequence across stable, RC, and dev.
+- Stable and RC live in the main repository; dev remains the prerelease/testing track.
 
 ## Architecture
 

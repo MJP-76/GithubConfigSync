@@ -26,10 +26,10 @@ If you find this project useful, and would like to help support its continued de
 ## Version Tracker
 
 <!-- VERSION:START -->
-- Integration version: `0.2.62`
-- Add-on version: `0.2.62`
-- Channel: `stable`
-- Release tag: `v0.2.62`
+- Integration version: `0.3.0`
+- Add-on version: `0.3.0`
+- Channel: `rc`
+- Release tag: `v0.3.0`
 <!-- VERSION:END -->
 
 ## What it provides
@@ -55,6 +55,8 @@ If you find this project useful, and would like to help support its continued de
 - Runtime state is persisted in `/data/state.json`, `/data/hash_index.json`, `/data/device_flow.json`, and `/data/sync.log`.
 - The stable local API contract is `/api/health`, `/api/status`, `/api/sync`, and `/api/diagnostics`.
 - After a release, Home Assistant may need a rebuild/reinstall to pick up UI changes from the app image.
+
+Stable and RC releases share the same main repository version line; RC is the pre-release track for that line.
 
 ## Runbook
 
