@@ -235,7 +235,11 @@
             <h1>Github Config Sync</h1>
             <p class="subtle">GitHub-backed Home Assistant sync, device login, repository selection, and live upload control.</p>
           </div>
-          <div id="status" class="pill status">Loading...</div>
+          <div class="row" style="justify-content: flex-end">
+            <span id="versionBadge" class="pill status">Version...</span>
+            <span id="channelBadge" class="pill status">Channel...</span>
+            <span id="status" class="pill status">Loading...</span>
+          </div>
         </div>
         <div class="notice" style="margin-top: 14px">
           <strong>Rebuild note:</strong> after a new release, Home Assistant may keep using a cached add-on image. If you do not see a UI change, rebuild/reinstall the add-on image and then restart the add-on.
@@ -448,6 +452,8 @@
     <script>
       const el = {
         status: document.getElementById("status"),
+        versionBadge: document.getElementById("versionBadge"),
+        channelBadge: document.getElementById("channelBadge"),
         repo: document.getElementById("repo"),
         releaseChannel: document.getElementById("releaseChannel"),
         branch: document.getElementById("branch"),
@@ -670,6 +676,8 @@
           JSON.stringify({ state: data.state, auth: data.auth, token_health: data.token_health }, null, 2) +
           "\n\n" +
           (data.log_tail || "");
+        el.versionBadge.textContent = `Version: ${data.version || "unknown"}`;
+        el.channelBadge.textContent = `Channel: ${data.release_channel || "stable"}`;
         setStatus(`Channel: ${data.release_channel || "stable"} | ${data.state?.status || "idle"}`, data.state?.status !== "error");
       }
 

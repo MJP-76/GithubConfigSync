@@ -473,6 +473,7 @@ def get_status():
             "ok": True,
             "state": state,
             "auth": _auth_diagnostics(options),
+            "version": APP_VERSION,
             "release_channel": str(options.get("release_channel", "stable")),
             "token_health": _token_health(options),
             "cancel_sync": _is_cancel_requested(),
