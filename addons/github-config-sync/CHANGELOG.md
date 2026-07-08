@@ -2,19 +2,9 @@
 
 ## Unreleased
 
-- Preparing the v0.2.29 rollback release.
+- Preparing the v0.2.35 release bump.
 
-- Reverted the temporary `github_sync_app/` app-path refactor and restored the local add-on app layout.
-- Kept the root docs and tracker aligned with the rollback.
-
-- Fixed GitHub OAuth client helper loading so Device Flow start completes reliably.
-- Retried version snapshot writes on stale SHA conflicts so GitHub 409s no longer abort releases.
-- Skipped ignored cache/runtime files inside version snapshots so `.cache` entries no longer sync.
-- Defaulted blank create-repo fields to a humanized repository name and description.
-- Updated docs and release notes for the repo-create defaults and sync stability changes.
-- Clean Upload preserves `versions/` and only clears the live tree.
-
-## 0.2.21
+## 0.2.35
 
 - Added the remote-delete/local-file caution to the docs and app page.
 - Clarified that clean upload deletes only remote GitHub content.

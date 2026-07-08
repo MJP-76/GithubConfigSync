@@ -6,18 +6,18 @@ Use this as the single source of truth for **where we are**, **what is next**, a
 
 ## Status Snapshot
 
-- **Current milestone:** `v0.2.29 — Layout rollback`
-- **Last updated:** 2026-07-07
+- **Current milestone:** `v0.2.35 — Release sync`
+- **Last updated:** 2026-07-08
 - **Track:** Home Assistant Integration + Home Assistant Add-on (Ingress Web UI)
 - **Latest shipped improvements:** rolled back the temporary github_sync_app app-path refactor
 - **Current operator UX:** Device Login section first, existing/create repo flow, troubleshooting auth overrides hidden by default
-- **Version state:** See auto-managed tracker below.
+- **Version state:** Synced to the current release below.
 
 <!-- VERSION:START -->
-- Integration version: `0.2.33`
-- Add-on version: `0.2.33`
+- Integration version: `0.2.35`
+- Add-on version: `0.2.35`
 - Channel: `stable`
-- Release tag: `v0.2.33`
+- Release tag: `v0.2.35`
 <!-- VERSION:END -->
 
 ---
