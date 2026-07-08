@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Quiet Flask/Werkzeug access logs so repeated status polling does not flood the add-on log.
+
+## 0.2.58
+
+- Quiet Flask/Werkzeug access logs so repeated status polling does not flood the add-on log.
+
 - Bundle the starter README and repository.yaml inside the add-on image so Clean Repo can restore them.
 
 ## 0.2.57

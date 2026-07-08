@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import datetime as dt
 import json
+import logging
 from pathlib import Path
 from typing import Any
 from urllib.parse import quote
@@ -13,7 +14,7 @@ from sync.errors import SyncError
 from sync.github_client import GitHubClient
 from sync.hashing import IGNORE_PATTERNS
 
-APP_VERSION = "0.2.57"
+APP_VERSION = "0.2.58"
 STABLE_REPO_VERSION = "0.2.39"
 RC_REPO_VERSION = "0.2.52"
 DEV_REPO_VERSION = APP_VERSION
@@ -29,6 +30,8 @@ HASH_INDEX_PATH = DATA_DIR / "hash_index.json"
 DEVICE_FLOW_PATH = DATA_DIR / "device_flow.json"
 STATIC_DIR = Path("/app/static")
 CONFIG_ROOT = Path("/config")
+
+logging.getLogger("werkzeug").setLevel(logging.ERROR)
 
 DEFAULT_OPTIONS: dict[str, Any] = {
     "auth_method": "device_flow",
