@@ -14,10 +14,10 @@ Use this as the single source of truth for **where we are**, **what is next**, a
 - **Version state:** Synced to the current release below.
 
 <!-- VERSION:START -->
-- Integration version: `0.2.38`
-- Add-on version: `0.2.38`
+- Integration version: `0.2.39`
+- Add-on version: `0.2.39`
 - Channel: `stable`
-- Release tag: `v0.2.38`
+- Release tag: `v0.2.39`
 <!-- VERSION:END -->
 
 ---

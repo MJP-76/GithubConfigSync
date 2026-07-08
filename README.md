@@ -26,7 +26,7 @@ If you find this project useful, and would like to help support its continued de
 
 <!-- VERSION:START -->
 - Integration version: `0.2.39`
-- App version: `0.2.39`
+- Add-on version: `0.2.39`
 - Channel: `stable`
 - Release tag: `v0.2.39`
 <!-- VERSION:END -->
