@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Bundle the starter README and repository.yaml inside the add-on image so Clean Repo can restore them.
+
+## 0.2.57
+
+- Bundle the starter README and repository.yaml inside the add-on image so Clean Repo can restore them.
+
 - Force a fresh add-on release to pick up the cleaned repo restore path in Home Assistant.
 
 ## 0.2.56
