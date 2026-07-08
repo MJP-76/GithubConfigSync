@@ -23,16 +23,16 @@ If you find this project useful, and would like to help support its continued de
 ## Version Tracker
 
 <!-- VERSION:START -->
-- Integration version: `0.2.52-dev`
-- App version: `0.2.52-dev`
-- Channel: `dev`
-- Release tag: `v0.2.52-dev`
+- Integration version: `0.2.53`
+- App version: `0.2.53`
+- Channel: numeric
+- Release tag: `v0.2.53`
 <!-- VERSION:END -->
 
 To sync versions across integration/app/runtime/docs automatically:
 
 ```bash
-python3 scripts/sync_versions.py --integration 0.0.20 --addon 0.1.3 --channel stable
+python3 scripts/sync_versions.py --integration 0.0.20 --addon 0.1.3 --channel numeric
 ```
 
 ## Home Assistant App (Web UI)
@@ -49,9 +49,9 @@ Security hardening is part of the current release: private repos only, sensitive
 - Runs once a day by default.
 - Keeps 7 GitHub version snapshots by default.
 - Both values are configurable in the app UI.
-- Dev work now lives in the `GithubConfigSync-dev` fork repo; the main repo stays on stable releases.
-- Release track split: `MJP-76/GithubConfigSync` publishes stable releases, and `MJP-76/GithubConfigSync-dev` publishes dev prereleases.
-- Versioning rule: stable releases advance the middle version segment, while dev prereleases advance the patch segment with a `-dev` suffix.
+- Numeric releases stay in sequence across stable, RC, and dev; the main repo stays on stable releases and `GithubConfigSync-dev` carries prereleases.
+- Release track split: `MJP-76/GithubConfigSync` publishes `x`, and `MJP-76/GithubConfigSync-dev` publishes `y`/`z` prereleases.
+- Versioning rule: keep numeric versions, but label the tracks as `x` (stable), `y` (RC), and `z` (dev).
 
 ## Architecture
 
@@ -65,7 +65,7 @@ Security hardening is part of the current release: private repos only, sensitive
 - Live runs also write versioned snapshots under `versions/<timestamp>/...` and keep the most recent 7 by default.
 - State, logs, device-flow data, and the last hash index live in `/data`.
 - The app exposes a stable local API contract via `/api/health`, `/api/status`, `/api/sync`, and `/api/diagnostics`.
-- Single-repo release flow: normal releases are stable, and prerelease tags are used for dev testing from the same repository.
+- Single-repo release flow: releases are numeric and sequential, and the same repository can be used for stable or prerelease testing.
 - The generated `.gitignore` includes the common Home Assistant guidance entries such as `secrets.yaml`, `ip_bans.yaml`, `known_devices.yaml`, `.storage/`, and `.cloud/`, while still honoring any local user additions.
 - After a release, Home Assistant may need a rebuild/reinstall to pick up UI changes from the app image.
 
@@ -83,7 +83,7 @@ Security hardening is part of the current release: private repos only, sensitive
 1. Verify the target repository exists and is accessible with the saved token.
 2. Confirm the branch name is correct for the target repo.
 3. Set `dry_run=false` in the app settings.
-4. Run a sync, or use **Clean Upload** to force a full re-upload plus cleanup of remote extras.
+4. Run a sync, or use **Clean Upload** to force a full re-upload plus cleanup of remote extras. **Clean Repo** now empties the remote repo, and **Restore Skeleton** puts back the starter files. If you want scheduled runs to ignore dry run, enable the scheduled override in the add-on UI.
 5. Confirm the repository probe succeeds before the write phase.
 6. Review the status panel and logs for the final upsert/delete/skip counts.
 

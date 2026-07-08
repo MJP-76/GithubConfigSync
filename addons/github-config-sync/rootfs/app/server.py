@@ -13,7 +13,7 @@ from sync.errors import SyncError
 from sync.github_client import GitHubClient
 from sync.hashing import IGNORE_PATTERNS
 
-APP_VERSION = "0.2.52-dev"
+APP_VERSION = "0.2.53"
 STABLE_REPO_VERSION = "0.2.39"
 DEV_REPO_VERSION = APP_VERSION
 APP_PORT = 8099
@@ -39,6 +39,7 @@ DEFAULT_OPTIONS: dict[str, Any] = {
     "version_retention_count": 7,
     "manual_version_retention_days": 7,
     "dry_run": True,
+    "scheduled_live_sync": False,
     "include_addon_configs": True,
     "include_media": False,
     "include_share": False,
@@ -151,6 +152,8 @@ def _validate_payload(payload: dict[str, Any]) -> tuple[bool, str | None]:
 
     if not isinstance(payload.get("dry_run"), bool):
         return False, "dry_run must be true or false"
+    if not isinstance(payload.get("scheduled_live_sync"), bool):
+        return False, "scheduled_live_sync must be true or false"
 
     if str(payload.get("auth_method", "device_flow")) not in ("device_flow", "fine_grained_pat"):
         return False, "auth_method must be device_flow or fine_grained_pat"
@@ -360,6 +363,10 @@ def trigger_manual_sync():
     sync_config = _sync_config(options)
     if not sync_config.repository:
         return jsonify({"ok": False, "error": "github_repository is required"}), 400
+    if sync_config.dry_run:
+        started = dt.datetime.now(dt.timezone.utc).isoformat()
+        _save_state({"status": "ok", "last_run": started, "last_error": None, "last_result": "Dry run completed. No remote changes were made."})
+        return jsonify({"ok": True, "result": "Dry run completed. No remote changes were made.", "state": _load_state()})
 
     started = dt.datetime.now(dt.timezone.utc).isoformat()
     _save_state({"status": "running", "last_run": started, "last_error": None})
@@ -374,7 +381,7 @@ def trigger_manual_sync():
             token=sync_config.token,
             config_root=sync_config.config_root,
             addon_config_root=sync_config.addon_config_root,
-            dry_run=False,
+            dry_run=bool(options.get("dry_run", True)),
             version_retention_count=sync_config.version_retention_count,
         )
         engine = SyncEngine(sync_config, previous_hash_index=_load_json(HASH_INDEX_PATH, {}))
@@ -448,6 +455,7 @@ def set_options():
         "version_retention_count": payload.get("version_retention_count", 7),
         "manual_version_retention_days": payload.get("manual_version_retention_days", 7),
         "dry_run": payload.get("dry_run", True),
+        "scheduled_live_sync": payload.get("scheduled_live_sync", False),
         "include_addon_configs": payload.get("include_addon_configs", True),
         "include_media": payload.get("include_media", False),
         "include_share": payload.get("include_share", False),
@@ -702,6 +710,21 @@ def create_repo():
 def trigger_sync():
     options = _merge_options()
     sync_config = _sync_config(options)
+    if bool(options.get("scheduled_live_sync", False)):
+        sync_config = SyncConfig(
+            repository=sync_config.repository,
+            branch=sync_config.branch,
+            token=sync_config.token,
+            config_root=sync_config.config_root,
+            addon_config_root=sync_config.addon_config_root,
+            dry_run=False,
+            include_media=sync_config.include_media,
+            include_share=sync_config.include_share,
+            include_ssl=sync_config.include_ssl,
+            include_backups=sync_config.include_backups,
+            include_www=sync_config.include_www,
+            version_retention_count=sync_config.version_retention_count,
+        )
 
     if not sync_config.repository:
         state = _save_state(
@@ -807,13 +830,17 @@ def trigger_clean_sync():
     sync_config = _sync_config(options)
     if not sync_config.repository:
         return jsonify({"ok": False, "error": "github_repository is required"}), 400
+    if sync_config.dry_run:
+        started = dt.datetime.now(dt.timezone.utc).isoformat()
+        _save_state({"status": "ok", "last_run": started, "last_error": None})
+        return jsonify({"ok": True, "result": "Dry run completed. No remote changes were made.", "state": _load_state()})
     sync_config = SyncConfig(
         repository=sync_config.repository,
         branch=sync_config.branch,
         token=sync_config.token,
         config_root=sync_config.config_root,
         addon_config_root=sync_config.addon_config_root,
-        dry_run=False,
+        dry_run=bool(options.get("dry_run", True)),
     )
     started = dt.datetime.now(dt.timezone.utc).isoformat()
     _save_state({"status": "running", "last_run": started, "last_error": None})
@@ -903,6 +930,10 @@ def trigger_clean_repo():
 
     if not sync_config.repository:
         return jsonify({"ok": False, "error": "github_repository is required"}), 400
+    if sync_config.dry_run:
+        started = dt.datetime.now(dt.timezone.utc).isoformat()
+        _save_state({"status": "ok", "last_run": started, "last_error": None})
+        return jsonify({"ok": True, "result": "Dry run completed. No remote changes were made.", "state": _load_state()})
 
     started = dt.datetime.now(dt.timezone.utc).isoformat()
     _save_state({"status": "running", "last_run": started, "last_error": None})
@@ -912,6 +943,7 @@ def trigger_clean_repo():
     try:
         engine = SyncEngine(sync_config, previous_hash_index=_load_json(HASH_INDEX_PATH, {}))
         engine.clean_remote_tree()
+        engine.restore_repo_skeleton()
     except SyncError as err:
         state = _save_state(
             {
@@ -928,16 +960,16 @@ def trigger_clean_repo():
         {
             "status": "ok",
             "last_success": dt.datetime.now(dt.timezone.utc).isoformat(),
-            "last_result": "Clean repo completed. Remote repo skeleton cleared.",
+            "last_result": "Clean repo completed. Remote repo skeleton restored.",
             "last_scan": None,
             "last_error": None,
         }
     )
-    _append_log("Clean repo completed")
+    _append_log("Clean repo completed and skeleton restored")
     return jsonify(
         {
             "ok": True,
-            "result": "Clean repo completed. Remote repo skeleton cleared.",
+            "result": "Clean repo completed. Remote repo skeleton restored.",
             "state": state,
         }
     )

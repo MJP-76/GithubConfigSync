@@ -12,13 +12,13 @@ Use this as the single source of truth for **where we are**, **what is next**, a
 - **Latest shipped improvements:** added danger-zone security hardening (private repos only, sensitive-path filtering, two-way sync warnings)
 - **Current operator UX:** Device Login section first, existing/create repo flow, troubleshooting auth overrides hidden by default
 - **Version state:** Synced to the current release below.
-- **Release tracks:** stable releases ship from `GithubConfigSync`, and dev prereleases ship from `GithubConfigSync-dev`.
-- **Versioning rule:** stable releases advance the middle version segment; dev prereleases advance the patch segment with a `-dev` suffix.
+- **Release tracks:** stable, RC, and dev all use numeric versions in sequence; stable releases ship from `GithubConfigSync`, and prereleases ship from `GithubConfigSync-dev`.
+- **Versioning rule:** keep numeric versions only, and bump them in sequence for stable, RC, and dev releases.
 
 <!-- VERSION:START -->
 - Integration version: `0.2.39`
 - Add-on version: `0.2.39`
-- Channel: `stable`
+- Channel: numeric
 - Release tag: `v0.2.39`
 <!-- VERSION:END -->
 
@@ -214,7 +214,7 @@ Use this as the single source of truth for **where we are**, **what is next**, a
 ## Release Checklist (Per Tag)
 
 - [ ] Version bumped (integration/add-on as applicable)
-- [ ] Run `python3 scripts/sync_versions.py ...` for stable/dev channel
+- [ ] Run `python3 scripts/sync_versions.py ...` for numeric sequence channel
 - [ ] Validation/CI green
 - [ ] Docs updated (features + migration notes)
 - [ ] Tag created and pushed

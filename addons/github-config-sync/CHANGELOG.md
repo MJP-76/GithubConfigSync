@@ -2,11 +2,16 @@
 
 ## Unreleased
 
-- Main repo is now stable-only; dev work continues in the `GithubConfigSync-dev` fork repo.
+- Main repo is now stable-only; numeric sequential release wording now replaces the old stable/dev phrasing.
 
-## 0.2.52-dev
+## 0.2.53
 
-- Clean Repo now performs a full remote wipe before restoring the skeleton files.
+- Recombined Clean Repo and skeleton restore into one flow.
+
+## 0.2.52
+
+- Added a scheduled-sync override checkbox so automated runs can ignore dry run while manual actions stay preview-only.
+- Clean Repo now performs a true wipe and restores the starter skeleton in one process.
 
 ## 0.2.51-dev
 
@@ -54,7 +59,7 @@
 
 ## 0.2.36
 
-- Added the stable/dev release channel selector to the UI and backend settings.
+- Added the `x`/`y`/`z` release-track selector wording to the UI and backend settings.
 - Continued the security-focused UI and docs updates.
 
 ## 0.2.35

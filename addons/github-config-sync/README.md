@@ -6,7 +6,7 @@
 [![HASSfest](https://img.shields.io/badge/HASSfest-validated-success.svg)](https://developers.home-assistant.io/docs/add-ons/)
 [![Release](https://img.shields.io/github/v/tag/MJP-76/GithubConfigSync?label=release)](https://github.com/MJP-76/GithubConfigSync/releases)
 
-Containerized Home Assistant app with an ingress web UI for GitHub config sync operations. Dev release v0.2.52-dev. This is a sync tool, not a backup tool.
+Containerized Home Assistant app with an ingress web UI for GitHub config sync operations. Release v0.2.52. This is a sync tool, not a backup tool.
 
 Authentication supports GitHub Device Flow or a fine-grained PAT scoped to the single target repository.
 
@@ -26,10 +26,10 @@ If you find this project useful, and would like to help support its continued de
 ## Version Tracker
 
 <!-- VERSION:START -->
-- Integration version: `0.2.52-dev`
-- App version: `0.2.52-dev`
-- Channel: `dev`
-- Release tag: `v0.2.52-dev`
+- Integration version: `0.2.53`
+- App version: `0.2.53`
+- Channel: numeric
+- Release tag: `v0.2.53`
 <!-- VERSION:END -->
 
 ## What it provides
@@ -47,7 +47,7 @@ If you find this project useful, and would like to help support its continued de
 - `sync/engine.py` computes the plan from the current `/config` tree and the saved hash index.
 - AppDaemon configs and apps under `/addon_configs/` are included in the normal sync scan.
 - The mount-point checklist lets you include or exclude standard Home Assistant folders, and the recommended .gitignore keeps the ignore list aligned.
-- `dry_run=true` stops after planning and returns the counts that would be applied.
+- `dry_run=true` stops after planning and returns the counts that would be applied for manual actions. A separate scheduled-sync checkbox can override dry run for automated runs.
 - `dry_run=false` probes the GitHub repository first, then performs upserts and deletes with the GitHub Contents API. Remote deletes never remove local files.
 - Public repositories are blocked by design; repository creation is forced private.
 - Live runs also write versioned snapshots under `versions/<timestamp>/...` and keep the most recent 7 by default.
@@ -75,7 +75,7 @@ If you find this project useful, and would like to help support its continued de
 1. Confirm the repository is reachable with the saved token.
 2. Confirm the branch name is correct for the target repo.
 3. Disable `dry_run`.
-4. Start a sync from the UI, or use **Clean Upload** to force a full re-upload plus cleanup of remote extras.
+4. Start a sync from the UI, or use **Clean Upload** to force a full re-upload plus cleanup of remote extras. **Clean Repo** empties the remote repo, and **Restore Skeleton** puts back the starter files. If scheduled sync should ignore dry run, enable the scheduled override checkbox first.
 5. Confirm the probe succeeds and the final result reports upserts, deletes, and skips.
 
 ### Diagnostics bundle
@@ -113,8 +113,8 @@ If you find this project useful, and would like to help support its continued de
 - Version snapshots now skip ignored directories like `.cache`, even inside release snapshots.
 - New repository creation defaults blank name/description fields to a humanized repository name.
 - This release carries the repo-create default behavior and the sync fixes from the last two commits.
-- Release track split: `MJP-76/GithubConfigSync` publishes stable releases, and `MJP-76/GithubConfigSync-dev` publishes dev prereleases.
-- Versioning rule: stable releases advance the middle version segment, while dev prereleases advance the patch segment with a `-dev` suffix.
+- Release track split: `MJP-76/GithubConfigSync` publishes `x`, and `MJP-76/GithubConfigSync-dev` publishes `y`/`z` prereleases.
+- Versioning rule: keep numeric versions, but label the tracks as `x` (stable), `y` (RC), and `z` (dev).
 
 ## Verification notes
 

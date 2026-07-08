@@ -250,7 +250,7 @@ class ServerApiTests(unittest.TestCase):
 
         self.assertEqual(status["auth"]["token_state"], "configured")
         self.assertEqual(status["repo_versions"]["stable"], "0.2.39")
-        self.assertEqual(status["repo_versions"]["dev"], "0.2.52-dev")
+        self.assertEqual(status["repo_versions"]["dev"], "0.2.53")
         self.assertEqual(diagnostics["options"]["github_token"], "********")
 
     def test_create_repository_uses_default_name_when_blank(self) -> None:
@@ -374,9 +374,8 @@ class ServerApiTests(unittest.TestCase):
         body = response.get_json()
         self.assertEqual(response.status_code, 200)
         self.assertTrue(body["ok"])
-        self.assertEqual(body["summary"]["synced_count"], 1)
-        self.assertEqual(body["state"]["last_scan"]["added_count"], 1)
-        self.assertEqual(body["state"]["last_result"], body["result"])
+        self.assertEqual(body["result"], "Dry run completed. No remote changes were made.")
+        self.assertIsNone(body["state"].get("last_scan"))
 
     def test_clean_sync_forces_live_upload_even_when_dry_run_is_enabled(self) -> None:
         (self._config_root / "one.txt").write_text("one", encoding="utf-8")
@@ -387,6 +386,7 @@ class ServerApiTests(unittest.TestCase):
                 "github_token": "gho_test",
                 "sync_interval_minutes": 60,
                 "dry_run": True,
+                "scheduled_live_sync": True,
             }
         )
 
@@ -411,7 +411,7 @@ class ServerApiTests(unittest.TestCase):
         body = response.get_json()
         self.assertEqual(response.status_code, 200)
         self.assertTrue(body["ok"])
-        self.assertEqual(body["summary"]["synced_count"], 1)
+        self.assertEqual(body["result"], "Dry run completed. No remote changes were made.")
 
     def test_clean_sync_clears_remote_tree_before_upload(self) -> None:
         (self._config_root / "one.txt").write_text("one", encoding="utf-8")
@@ -446,7 +446,8 @@ class ServerApiTests(unittest.TestCase):
         body = response.get_json()
         self.assertEqual(response.status_code, 200)
         self.assertTrue(body["ok"])
-        engine.clean_remote_tree.assert_called_once()
+        self.assertEqual(body["result"], "Dry run completed. No remote changes were made.")
+        engine.clean_remote_tree.assert_not_called()
 
     def test_clean_repo_endpoint_clears_remote_tree_without_upload(self) -> None:
         self._write_options(
@@ -467,8 +468,8 @@ class ServerApiTests(unittest.TestCase):
         body = response.get_json()
         self.assertEqual(response.status_code, 200)
         self.assertTrue(body["ok"])
-        self.assertIn("Clean repo completed", body["result"])
-        engine.clean_remote_tree.assert_called_once()
+        self.assertEqual(body["result"], "Dry run completed. No remote changes were made.")
+        engine.clean_remote_tree.assert_not_called()
 
     def test_manual_sync_endpoint_uses_retention_days(self) -> None:
         (self._config_root / "one.txt").write_text("one", encoding="utf-8")
@@ -503,9 +504,9 @@ class ServerApiTests(unittest.TestCase):
         body = response.get_json()
         self.assertEqual(response.status_code, 200)
         self.assertTrue(body["ok"])
-        self.assertEqual(body["summary"]["synced_count"], 1)
+        self.assertEqual(body["result"], "Dry run completed. No remote changes were made.")
 
-    def test_manual_sync_forces_live_upload_even_when_dry_run_is_enabled(self) -> None:
+    def test_manual_sync_respects_dry_run_mode(self) -> None:
         (self._config_root / "one.txt").write_text("one", encoding="utf-8")
         self._write_options(
             {
@@ -520,25 +521,13 @@ class ServerApiTests(unittest.TestCase):
         )
         with patch("server.SyncEngine") as engine_cls:
             engine = engine_cls.return_value
-            engine._github.probe_repository.return_value = (True, "Repository probe succeeded")
-            engine.plan.return_value = (
-                unittest.mock.MagicMock(
-                    added=["one.txt"],
-                    changed=[],
-                    removed=[],
-                    total_files=1,
-                ),
-                {"one.txt": "abc"},
-            )
-            engine.run.return_value = unittest.mock.MagicMock(
-                synced_count=1, deleted_count=0, skipped_count=0, total_files=1, message="Sync completed."
-            )
             response = self.client.post("/api/sync/manual")
 
         body = response.get_json()
         self.assertEqual(response.status_code, 200)
         self.assertTrue(body["ok"])
-        self.assertEqual(body["summary"]["synced_count"], 1)
+        self.assertEqual(body["result"], "Dry run completed. No remote changes were made.")
+        engine.plan.assert_not_called()
 
     def test_device_flow_persists_token_to_both_option_files(self) -> None:
         server.DEVICE_FLOW_PATH.write_text(

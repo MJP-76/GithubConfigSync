@@ -168,6 +168,8 @@ class SyncEngine:
 
     def clean_remote_tree(self) -> None:
         self._delete_remote_tree("")
+
+    def restore_repo_skeleton(self) -> None:
         self._restore_repo_skeleton()
 
     def _sync_version_snapshot(self) -> None:

@@ -325,7 +325,49 @@ class SyncEngineTests(unittest.TestCase):
             message="sync: delete root.yaml",
         )
 
-    def test_clean_remote_tree_rebuilds_repo_skeleton(self) -> None:
+    def test_clean_remote_tree_only_wipes_root_tree(self) -> None:
+        config = SyncConfig(
+            repository="owner/repo",
+            branch="main",
+            token="token",
+            config_root=".",
+            addon_config_root="/addon_configs",
+            dry_run=False,
+            version_retention_count=7,
+        )
+        fake_client = MagicMock()
+        fake_client.list_directory_contents.side_effect = [
+            [
+                {"type": "file", "name": "README.md", "path": "README.md", "sha": "readmesha"},
+                {"type": "dir", "name": "custom_components", "path": "custom_components"},
+                {"type": "dir", "name": "addons", "path": "addons"},
+                {"type": "dir", "name": ".github", "path": ".github"},
+                {"type": "file", "name": "root.yaml", "path": "root.yaml", "sha": "rootsha"},
+            ],
+            [
+                {"type": "file", "name": "nested.yaml", "path": "custom_components/nested.yaml", "sha": "nestedsha"},
+            ],
+            [],
+            [],
+        ]
+
+        with patch("sync.engine.GitHubClient", return_value=fake_client):
+            engine = SyncEngine(config, previous_hash_index={})
+            engine.clean_remote_tree()
+
+        fake_client.delete_content.assert_any_call(
+            path="root.yaml",
+            sha="rootsha",
+            message="sync: delete root.yaml",
+        )
+        fake_client.delete_content.assert_any_call(
+            path="README.md",
+            sha="readmesha",
+            message="sync: delete README.md",
+        )
+        fake_client.put_content.assert_not_called()
+
+    def test_restore_repo_skeleton_recreates_base_files(self) -> None:
         config = SyncConfig(
             repository="owner/repo",
             branch="main",
@@ -351,25 +393,16 @@ class SyncEngineTests(unittest.TestCase):
                 {"type": "file", "name": "addon.yaml", "path": "addons/addon.yaml", "sha": "addonsha"},
             ],
             [],
+            [],
         ]
 
         with patch("sync.engine.GitHubClient", return_value=fake_client):
             engine = SyncEngine(config, previous_hash_index={})
-            engine.clean_remote_tree()
+            engine.restore_repo_skeleton()
 
-        fake_client.delete_content.assert_any_call(
-            path="root.yaml",
-            sha="rootsha",
-            message="sync: delete root.yaml",
-        )
         restore_calls = [call.kwargs for call in fake_client.put_content.call_args_list if call.kwargs.get("message", "").startswith("sync: restore ")]
         self.assertTrue(any(call.get("path") == "README.md" for call in restore_calls))
         self.assertTrue(any(call.get("path") == "repository.yaml" for call in restore_calls))
-        fake_client.delete_content.assert_any_call(
-            path="README.md",
-            sha="readmesha",
-            message="sync: delete README.md",
-        )
 
 
 if __name__ == "__main__":
