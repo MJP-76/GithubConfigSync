@@ -21,10 +21,10 @@ If you find this project useful, and would like to help support its continued de
 ## Version Tracker
 
 <!-- VERSION:START -->
-- Integration version: `0.2.36`
-- App version: `0.2.36`
+- Integration version: `0.2.37`
+- App version: `0.2.37`
 - Channel: `stable`
-- Release tag: `v0.2.36`
+- Release tag: `v0.2.37`
 <!-- VERSION:END -->
 
 ## What it provides
@@ -104,7 +104,7 @@ If you find this project useful, and would like to help support its continued de
 - This app is designed as a polished operator UI layer and can be wired to deeper sync logic incrementally.
 - Security-focused safeguards are in place: private repositories only, sensitive-path filtering, and two-way sync warnings.
 - The latest release includes the danger-zone security updates in the changelog.
-- The UI lets users choose the stable or dev release channel.
+- Stable/dev release selection is handled in add-on options, not in the app UI.
 - The add-on repository metadata is minimal and valid for Home Assistant add-on store ingestion.
 - Version snapshots now skip ignored directories like `.cache`, even inside release snapshots.
 - New repository creation defaults blank name/description fields to a humanized repository name.

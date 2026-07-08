@@ -246,9 +246,6 @@
         <div class="danger" style="margin-top: 12px">
           <strong>Danger zone:</strong> Home Assistant config can contain secrets, tokens, device data, and other sensitive files. Public repositories are blocked, sensitive paths are filtered, and any two-way sync or inbound write path can put your local config at risk.
         </div>
-        <div class="danger" style="margin-top: 12px">
-          <strong>Danger zone:</strong> Home Assistant config can contain secrets, tokens, device data, and other sensitive files. Public repositories are blocked, sensitive paths are filtered, and any two-way sync or inbound write path can put your local config at risk.
-        </div>
       </div>
 
       <div class="card">
@@ -346,13 +343,6 @@
       <div class="card">
         <div class="grid">
           <div class="field">
-            <label for="releaseChannel">Release Channel</label>
-            <select id="releaseChannel">
-              <option value="stable">Stable</option>
-              <option value="dev">Dev</option>
-            </select>
-          </div>
-          <div class="field">
             <label for="repo">Selected Repository (owner/repo)</label>
             <input id="repo" placeholder="MJP-76/GithubConfigSync" />
           </div>
@@ -449,7 +439,6 @@
       const el = {
         status: document.getElementById("status"),
         repo: document.getElementById("repo"),
-        releaseChannel: document.getElementById("releaseChannel"),
         branch: document.getElementById("branch"),
         token: document.getElementById("token"),
         clientId: document.getElementById("clientId"),
@@ -598,7 +587,6 @@
       async function loadOptions() {
         const data = await fetchJson(apiUrl("/api/options"));
         el.repo.value = data.github_repository || "";
-        el.releaseChannel.value = data.release_channel || "stable";
         el.branch.value = data.github_branch || "main";
         el.token.value = "";
         el.clientId.value = data.github_client_id || "";
@@ -670,7 +658,7 @@
           JSON.stringify({ state: data.state, auth: data.auth, token_health: data.token_health }, null, 2) +
           "\n\n" +
           (data.log_tail || "");
-        setStatus(`Channel: ${data.release_channel || "stable"} | ${data.state?.status || "idle"}`, data.state?.status !== "error");
+        setStatus(`${data.state?.status || "idle"}`, data.state?.status !== "error");
       }
 
       function startStatusPolling() {
@@ -733,7 +721,7 @@
         try {
           const payload = {
             github_repository: el.repo.value.trim(),
-            release_channel: el.releaseChannel.value,
+
             github_branch: el.branch.value.trim() || "main",
             github_token: el.token.value.trim(),
             github_client_id: el.clientId.value.trim(),

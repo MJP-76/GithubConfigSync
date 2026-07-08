@@ -2,7 +2,12 @@
 
 ## Unreleased
 
-- Preparing the v0.2.36 release bump.
+- Preparing the v0.2.37 release bump.
+
+## 0.2.37
+
+- Moved release-channel control out of the app page and back into release metadata/tracking.
+- Kept the app focused on config sync, snapshots, and danger-zone safeguards.
 
 ## 0.2.36
 

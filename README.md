@@ -23,10 +23,10 @@ If you find this project useful, and would like to help support its continued de
 ## Version Tracker
 
 <!-- VERSION:START -->
-- Integration version: `0.2.36`
-- App version: `0.2.36`
+- Integration version: `0.2.37`
+- App version: `0.2.37`
 - Channel: `stable`
-- Release tag: `v0.2.36`
+- Release tag: `v0.2.37`
 <!-- VERSION:END -->
 
 To sync versions across integration/app/runtime/docs automatically:
@@ -55,7 +55,7 @@ Security hardening is part of the current release: private repos only, sensitive
 - Runs once a day by default.
 - Keeps 7 GitHub version snapshots by default.
 - Both values are configurable in the app UI.
-- The app UI also lets users choose the stable or dev release channel.
+- The stable/dev release stream is controlled at the add-on options level, not in the app UI.
 
 ## Architecture
 

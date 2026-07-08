@@ -1,6 +1,6 @@
 name: "Github Config Sync"
 description: "Home Assistant app for GitHub config sync operations, not backups. Public repositories are blocked by design; use a private repo only."
-version: "0.2.36"
+version: "0.2.37"
 slug: "github_config_sync_web"
 url: "https://github.com/MJP-76/GithubConfigSync"
 init: false
@@ -29,7 +29,6 @@ ports:
 ports_description:
   8099/tcp: "Web UI (optional when using ingress)"
 options:
-  release_channel: "stable"
   github_repository: ""
   github_branch: "main"
   github_token: ""
@@ -43,7 +42,6 @@ options:
   include_backups: false
   include_www: true
 schema:
-  release_channel: str
   github_repository: str?
   github_branch: str
   github_token: password?

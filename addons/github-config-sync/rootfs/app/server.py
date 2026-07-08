@@ -13,7 +13,7 @@ from sync.errors import SyncError
 from sync.github_client import GitHubClient
 from sync.hashing import IGNORE_PATTERNS
 
-APP_VERSION = "0.2.36"
+APP_VERSION = "0.2.37"
 APP_PORT = 8099
 DEFAULT_OAUTH_CLIENT_ID = "Ov23li2ycCraodta6WCU"
 
@@ -28,7 +28,6 @@ STATIC_DIR = Path("/app/static")
 CONFIG_ROOT = Path("/config")
 
 DEFAULT_OPTIONS: dict[str, Any] = {
-    "release_channel": "stable",
     "github_repository": "",
     "github_branch": "main",
     "github_token": "",
@@ -149,9 +148,6 @@ def _validate_payload(payload: dict[str, Any]) -> tuple[bool, str | None]:
 
     if not isinstance(payload.get("dry_run"), bool):
         return False, "dry_run must be true or false"
-
-    if str(payload.get("release_channel", "stable")) not in ("stable", "dev"):
-        return False, "release_channel must be stable or dev"
 
     for key in (
         "include_addon_configs",
@@ -433,8 +429,6 @@ def set_options():
         return jsonify({"ok": False, "error": "Invalid JSON body"}), 400
 
     candidate = {
-        "release_channel": str(payload.get("release_channel", _merge_options().get("release_channel", "stable"))).strip()
-        or "stable",
         "github_repository": str(payload.get("github_repository", "")).strip(),
         "github_branch": str(payload.get("github_branch", "main")).strip() or "main",
         "github_token": str(payload.get("github_token", "")).strip() or _merge_options().get("github_token", ""),
@@ -473,7 +467,6 @@ def get_status():
             "ok": True,
             "state": state,
             "auth": _auth_diagnostics(options),
-            "release_channel": str(options.get("release_channel", "stable")),
             "token_health": _token_health(options),
             "cancel_sync": _is_cancel_requested(),
             "log_tail": _sanitized_log_tail(),
