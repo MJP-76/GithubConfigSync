@@ -223,38 +223,6 @@
         padding: 10px 12px;
       }
 
-      .modal-backdrop {
-        position: fixed;
-        inset: 0;
-        display: none;
-        align-items: center;
-        justify-content: center;
-        background: rgba(0, 0, 0, 0.5);
-        padding: 20px;
-        z-index: 9999;
-      }
-
-      .modal-backdrop.open {
-        display: flex;
-      }
-
-      .modal {
-        width: min(520px, 100%);
-        background: var(--card);
-        border: 1px solid var(--border);
-        border-radius: 16px;
-        padding: 18px 20px;
-        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
-      }
-
-      .modal h3 {
-        margin: 0 0 8px;
-      }
-
-      .modal p {
-        margin: 0 0 14px;
-      }
-
       pre {
         background: var(--card-2);
         border: 1px solid var(--border);
@@ -305,6 +273,8 @@
           Remote deletes only affect GitHub and never remove local files.
           Use caution with any two-way sync or other tools that can also write to the Home Assistant config tree, because they can cause local config loss or unexpected deletions.
           Use a private GitHub repository only; public repositories are blocked by design.
+          Stable releases ship from `MJP-76/GithubConfigSync`, and dev prereleases ship from `MJP-76/GithubConfigSync-dev`.
+          Stable releases advance the middle version segment; dev prereleases advance the patch segment with a `-dev` suffix.
         </div>
         <div class="danger" style="margin-top: 12px">
           <strong style="color: var(--err)">Danger Zone:</strong> Home Assistant config can contain secrets, tokens, device data, and other sensitive files. Public repositories are blocked, sensitive paths are filtered, and any two-way sync or inbound write path can put your local config at risk.
@@ -506,16 +476,6 @@
         </details>
       </div>
 
-      <div id="confirmModal" class="modal-backdrop" aria-hidden="true">
-        <div class="modal" role="dialog" aria-modal="true" aria-labelledby="confirmTitle">
-          <h3 id="confirmTitle">Confirm action</h3>
-          <p id="confirmBody">Are you sure?</p>
-          <div class="row" style="justify-content: flex-end">
-            <button id="confirmCancelBtn" class="secondary">Cancel</button>
-            <button id="confirmOkBtn">OK</button>
-          </div>
-        </div>
-      </div>
     </div>
 
     <script>
@@ -596,20 +556,6 @@
         if (!button) {
           return;
         }
-
-        function openConfirmModal(title, body, onConfirm) {
-          confirmAction = onConfirm;
-          el.confirmTitle.textContent = title;
-          el.confirmBody.textContent = body;
-          el.confirmModal.classList.add("open");
-          el.confirmModal.setAttribute("aria-hidden", "false");
-        }
-
-        function closeConfirmModal() {
-          confirmAction = null;
-          el.confirmModal.classList.remove("open");
-          el.confirmModal.setAttribute("aria-hidden", "true");
-        }
         if (busy) {
           if (!button.dataset.originalLabel) {
             button.dataset.originalLabel = button.textContent;
@@ -627,7 +573,7 @@
       }
 
       function updateTokenBadge(tokenHealth) {
-        const state = tokenHealth?.state || "missing";
+        const state = (tokenHealth && tokenHealth.state) || "missing";
         const isGood = state === "valid" || state === "configured";
         const isChecking = state === "checking";
         const label =
@@ -657,7 +603,7 @@
 
       function getRepoMode() {
         const selected = Array.from(el.repoMode).find((item) => item.checked);
-        return selected?.value || "existing";
+        return (selected && selected.value) || "existing";
       }
 
       function applyRepoMode() {
@@ -714,15 +660,15 @@
         el.branch.value = data.github_branch || "main";
         el.token.value = "";
         el.clientId.value = data.github_client_id || "";
-        el.interval.value = data.sync_interval_minutes ?? 1440;
-        el.versionRetention.value = data.version_retention_count ?? 7;
+        el.interval.value = data.sync_interval_minutes || 1440;
+        el.versionRetention.value = data.version_retention_count || 7;
         el.dryRun.checked = Boolean(data.dry_run);
-        el.includeAddonConfigs.checked = Boolean(data.include_addon_configs ?? true);
+        el.includeAddonConfigs.checked = Boolean(data.include_addon_configs !== false);
         el.includeMedia.checked = Boolean(data.include_media);
         el.includeShare.checked = Boolean(data.include_share);
-        el.includeSsl.checked = Boolean(data.include_ssl ?? true);
+        el.includeSsl.checked = Boolean(data.include_ssl !== false);
         el.includeBackups.checked = Boolean(data.include_backups);
-        el.includeWww.checked = Boolean(data.include_www ?? true);
+        el.includeWww.checked = Boolean(data.include_www !== false);
         updateAuthMethodHelp();
       }
 
@@ -765,13 +711,13 @@
       async function loadStatus() {
         const data = await fetchJson(apiUrl("/api/status"));
         updateTokenBadge(data.token_health);
-        const progress = data.state?.sync_progress;
+        const progress = data.state && data.state.sync_progress;
         if (progress) {
           el.progressStatus.textContent = `${progress.current_action || "running"} (${progress.status || "running"})`;
-          el.upsertRemaining.textContent = String(progress.upsert_remaining ?? 0);
-          el.removeRemaining.textContent = String(progress.remove_remaining ?? 0);
-          el.upsertTotal.textContent = String(progress.upsert_total ?? 0);
-          el.removeTotal.textContent = String(progress.remove_total ?? 0);
+          el.upsertRemaining.textContent = String(progress.upsert_remaining || 0);
+          el.removeRemaining.textContent = String(progress.remove_remaining || 0);
+          el.upsertTotal.textContent = String(progress.upsert_total || 0);
+          el.removeTotal.textContent = String(progress.remove_total || 0);
         } else {
           el.progressStatus.textContent = "No upload in progress.";
           el.upsertRemaining.textContent = "0";
@@ -784,10 +730,10 @@
           "\n\n" +
           (data.log_tail || "");
         el.versionBadge.textContent = `Version: ${data.version || "unknown"}`;
-        el.stableRepoVersion.textContent = data.repo_versions?.stable || "unknown";
-        el.devRepoVersion.textContent = data.repo_versions?.dev || "unknown";
-        el.currentRepoVersion.textContent = data.repo_versions?.current || data.version || "unknown";
-        setStatus(`${data.state?.status || "idle"}`, data.state?.status !== "error");
+        el.stableRepoVersion.textContent = (data.repo_versions && data.repo_versions.stable) || "unknown";
+        el.devRepoVersion.textContent = (data.repo_versions && data.repo_versions.dev) || "unknown";
+        el.currentRepoVersion.textContent = (data.repo_versions && data.repo_versions.current) || data.version || "unknown";
+        setStatus(`${(data.state && data.state.status) || "idle"}`, !(data.state && data.state.status === "error"));
       }
 
       function startStatusPolling() {
@@ -971,39 +917,22 @@
       el.syncBtn.addEventListener("click", () =>
         runSync().catch((error) => setStatus(error.message, false))
       );
-      el.cleanSyncBtn.addEventListener("click", () =>
-        openConfirmModal(
-          "Confirm Clean Upload",
-          `Run Clean Upload on ${el.repo.value.trim() || "the selected repository"}? This will rebuild the remote repo from the current local config.`,
-          () => runCleanSync().catch((error) => setStatus(error.message, false))
-        )
-      );
-      el.cleanRepoBtn.addEventListener("click", () =>
-        openConfirmModal(
-          "Confirm Clean Repo Skeleton",
-          `Run Clean Repo Skeleton on ${el.repo.value.trim() || "the selected repository"}? This will clear the remote repo and restore the base skeleton.`,
-          () => cleanRepoSkeleton().catch((error) => setStatus(error.message, false))
-        )
-      );
+      el.cleanSyncBtn.addEventListener("click", () => {
+        if (window.confirm(`Run Clean Upload on ${el.repo.value.trim() || "the selected repository"}? This will rebuild the remote repo from the current local config.`)) {
+          runCleanSync().catch((error) => setStatus(error.message, false));
+        }
+      });
+      el.cleanRepoBtn.addEventListener("click", () => {
+        if (window.confirm(`Run Clean Repo Skeleton on ${el.repo.value.trim() || "the selected repository"}? This will clear the remote repo and restore the base skeleton.`)) {
+          cleanRepoSkeleton().catch((error) => setStatus(error.message, false));
+        }
+      });
       el.cancelSyncBtn.addEventListener("click", () =>
         cancelCurrentSync().catch((error) => setStatus(error.message, false))
       );
       el.cancelProcessBtn.addEventListener("click", () =>
         cancelCurrentSync().catch((error) => setStatus(error.message, false))
       );
-      el.confirmOkBtn.addEventListener("click", () => {
-        const action = confirmAction;
-        closeConfirmModal();
-        if (action) {
-          action();
-        }
-      });
-      el.confirmCancelBtn.addEventListener("click", closeConfirmModal);
-      el.confirmModal.addEventListener("click", (event) => {
-        if (event.target === el.confirmModal) {
-          closeConfirmModal();
-        }
-      });
       el.startDeviceBtn.addEventListener("click", () =>
         startDeviceLogin().catch((error) => setStatus(error.message, false))
       );

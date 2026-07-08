@@ -4,6 +4,10 @@
 
 - Main repo is now stable-only; dev work continues in the `GithubConfigSync-dev` fork repo.
 
+## 0.2.51-dev
+
+- Replaced the custom confirmation modal with native browser confirms to avoid add-on UI runtime errors.
+
 ## 0.2.50-dev
 
 - Confirmed the add-on UI modal close handling is inline and scope-safe.
