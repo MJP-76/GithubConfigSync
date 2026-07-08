@@ -1,6 +1,6 @@
 name: "Github Config Sync"
-description: "Home Assistant app for GitHub config sync operations, not backups. Danger Zone: dev release v0.2.39-dev. Public repositories are blocked by design; use a private repo only."
-version: "0.2.40-dev"
+description: "Home Assistant app for GitHub config sync operations, not backups. Danger Zone: dev release v0.2.41-dev. Public repositories are blocked by design; use a private repo only."
+version: "0.2.41-dev"
 slug: "github_config_sync_web"
 url: "https://github.com/MJP-76/GithubConfigSync"
 init: false

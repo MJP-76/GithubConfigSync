@@ -13,7 +13,7 @@ from sync.errors import SyncError
 from sync.github_client import GitHubClient
 from sync.hashing import IGNORE_PATTERNS
 
-APP_VERSION = "0.2.40-dev"
+APP_VERSION = "0.2.41-dev"
 APP_PORT = 8099
 DEFAULT_OAUTH_CLIENT_ID = "Ov23li2ycCraodta6WCU"
 
@@ -29,6 +29,7 @@ CONFIG_ROOT = Path("/config")
 
 DEFAULT_OPTIONS: dict[str, Any] = {
     "release_channel": "stable",
+    "auth_method": "device_flow",
     "github_repository": "",
     "github_branch": "main",
     "github_token": "",
@@ -152,6 +153,9 @@ def _validate_payload(payload: dict[str, Any]) -> tuple[bool, str | None]:
 
     if str(payload.get("release_channel", "stable")) not in ("stable", "dev"):
         return False, "release_channel must be stable or dev"
+
+    if str(payload.get("auth_method", "device_flow")) not in ("device_flow", "fine_grained_pat"):
+        return False, "auth_method must be device_flow or fine_grained_pat"
 
     for key in (
         "include_addon_configs",
@@ -435,6 +439,8 @@ def set_options():
     candidate = {
         "release_channel": str(payload.get("release_channel", _merge_options().get("release_channel", "stable"))).strip()
         or "stable",
+        "auth_method": str(payload.get("auth_method", _merge_options().get("auth_method", "device_flow"))).strip()
+        or "device_flow",
         "github_repository": str(payload.get("github_repository", "")).strip(),
         "github_branch": str(payload.get("github_branch", "main")).strip() or "main",
         "github_token": str(payload.get("github_token", "")).strip() or _merge_options().get("github_token", ""),

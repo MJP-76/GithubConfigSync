@@ -2,7 +2,12 @@
 
 ## Unreleased
 
-- Preparing the v0.2.40-dev release bump.
+- Preparing the v0.2.41-dev release bump.
+
+## 0.2.41-dev
+
+- Added a security-focused auth choice between GitHub Device Flow and fine-grained PAT.
+- Tightened the danger-zone wording and repo setup warnings.
 
 ## 0.2.40-dev
 

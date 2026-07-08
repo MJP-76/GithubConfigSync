@@ -6,7 +6,9 @@
 [![HASSfest](https://img.shields.io/badge/HASSfest-validated-success.svg)](https://developers.home-assistant.io/docs/add-ons/)
 [![Release](https://img.shields.io/github/v/tag/MJP-76/GithubConfigSync?label=release)](https://github.com/MJP-76/GithubConfigSync/releases)
 
-Containerized Home Assistant app with an ingress web UI for GitHub config sync operations. Dev release v0.2.40-dev. This is a sync tool, not a backup tool.
+Containerized Home Assistant app with an ingress web UI for GitHub config sync operations. Dev release v0.2.41-dev. This is a sync tool, not a backup tool.
+
+Authentication supports GitHub Device Flow or a fine-grained PAT scoped to the single target repository.
 
 <strong style="color:#ef4444">Danger Zone:</strong> <strong>use a private GitHub repository only.</strong> Use caution with any two-way sync or other tools that can also write to the Home Assistant config tree, because they can cause local config loss or unexpected deletions. The developer and maintainer are not responsible for data loss.
 
@@ -23,10 +25,10 @@ If you find this project useful, and would like to help support its continued de
 ## Version Tracker
 
 <!-- VERSION:START -->
-- Integration version: `0.2.40-dev`
-- App version: `0.2.40-dev`
+- Integration version: `0.2.41-dev`
+- App version: `0.2.41-dev`
 - Channel: `dev`
-- Release tag: `v0.2.40-dev`
+- Release tag: `v0.2.41-dev`
 <!-- VERSION:END -->
 
 ## What it provides
