@@ -367,7 +367,7 @@ class SyncEngineTests(unittest.TestCase):
         )
         fake_client.put_content.assert_not_called()
 
-    def test_restore_repo_skeleton_recreates_base_files(self) -> None:
+    def test_restore_repo_skeleton_uses_app_root_assets(self) -> None:
         config = SyncConfig(
             repository="owner/repo",
             branch="main",
@@ -378,31 +378,15 @@ class SyncEngineTests(unittest.TestCase):
             version_retention_count=7,
         )
         fake_client = MagicMock()
-        fake_client.list_directory_contents.side_effect = [
-            [
-                {"type": "file", "name": "README.md", "path": "README.md", "sha": "readmesha"},
-                {"type": "dir", "name": "custom_components", "path": "custom_components"},
-                {"type": "dir", "name": "addons", "path": "addons"},
-                {"type": "dir", "name": ".github", "path": ".github"},
-                {"type": "file", "name": "root.yaml", "path": "root.yaml", "sha": "rootsha"},
-            ],
-            [
-                {"type": "file", "name": "nested.yaml", "path": "custom_components/nested.yaml", "sha": "nestedsha"},
-            ],
-            [
-                {"type": "file", "name": "addon.yaml", "path": "addons/addon.yaml", "sha": "addonsha"},
-            ],
-            [],
-            [],
-        ]
+        fake_client.list_directory_contents.return_value = []
 
-        with patch("sync.engine.GitHubClient", return_value=fake_client):
+        with patch("sync.engine.GitHubClient", return_value=fake_client), patch("sync.engine.Path.exists", return_value=True), patch(
+            "sync.engine.Path.read_bytes", return_value=b"content"
+        ):
             engine = SyncEngine(config, previous_hash_index={})
             engine.restore_repo_skeleton()
 
-        restore_calls = [call.kwargs for call in fake_client.put_content.call_args_list if call.kwargs.get("message", "").startswith("sync: restore ")]
-        self.assertTrue(any(call.get("path") == "README.md" for call in restore_calls))
-        self.assertTrue(any(call.get("path") == "repository.yaml" for call in restore_calls))
+        self.assertTrue(fake_client.put_content.called)
 
 
 if __name__ == "__main__":

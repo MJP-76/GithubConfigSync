@@ -295,7 +295,7 @@ class SyncEngine:
             )
 
     def _restore_repo_skeleton(self) -> None:
-        repo_root = Path(__file__).resolve().parents[5]
+        repo_root = Path(__file__).resolve().parents[1]
         skeleton_files = [
             ("README.md", repo_root / "README.md"),
             ("repository.yaml", repo_root / "repository.yaml"),

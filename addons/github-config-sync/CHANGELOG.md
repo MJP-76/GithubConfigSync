@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Force a fresh add-on release to pick up the cleaned repo restore path in Home Assistant.
+
+## 0.2.56
+
+- Force a fresh add-on release to pick up the cleaned repo restore path in Home Assistant.
+
 - Main repo is now stable-only; numeric sequential release wording now replaces the old stable/dev phrasing.
 
 ## 0.2.55
