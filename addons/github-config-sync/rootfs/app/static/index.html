@@ -314,19 +314,16 @@
             <span id="removeTotal" class="progress-value">0</span>
           </div>
         </div>
-        <details style="margin-top: 12px">
-          <summary class="section-title" style="cursor: pointer">Dry-run plan</summary>
-          <div class="grid" style="margin-top: 10px">
-            <div class="field">
-              <label>Could be uploaded</label>
-              <pre id="dryRunUpserts" style="min-height: 140px">No dry-run yet.</pre>
-            </div>
-            <div class="field">
-              <label>Could be deleted</label>
-              <pre id="dryRunDeletes" style="min-height: 140px">No dry-run yet.</pre>
-            </div>
+        <div class="progress-grid" style="margin-top: 12px">
+          <div class="progress-item">
+            <span class="progress-label">Could be uploaded</span>
+            <pre id="dryRunUpserts" style="min-height: 140px; margin: 8px 0 0">No dry-run yet.</pre>
           </div>
-        </details>
+          <div class="progress-item">
+            <span class="progress-label">Could be deleted</span>
+            <pre id="dryRunDeletes" style="min-height: 140px; margin: 8px 0 0">No dry-run yet.</pre>
+          </div>
+        </div>
       </div>
 
       <div class="card">
@@ -755,6 +752,11 @@
           el.removeRemaining.textContent = "0";
           el.upsertTotal.textContent = "0";
           el.removeTotal.textContent = "0";
+        }
+        if (data.state && data.state.last_scan) {
+          renderDryRunPlan(data.state.last_scan);
+        } else {
+          renderDryRunPlan({});
         }
         el.runtime.textContent =
           JSON.stringify({ state: data.state, auth: data.auth, token_health: data.token_health }, null, 2) +
