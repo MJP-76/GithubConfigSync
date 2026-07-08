@@ -24,15 +24,15 @@ If you find this project useful, and would like to help support its continued de
 
 <!-- VERSION:START -->
 - Integration version: `0.2.62`
-- App version: `0.2.62`
-- Channel: numeric
+- Add-on version: `0.2.62`
+- Channel: `stable`
 - Release tag: `v0.2.62`
 <!-- VERSION:END -->
 
 To sync versions across integration/app/runtime/docs automatically:
 
 ```bash
-python3 scripts/sync_versions.py --integration 0.0.20 --addon 0.1.3 --channel numeric
+python3 scripts/sync_versions.py --integration 0.2.62 --addon 0.2.62 --channel stable
 ```
 
 ## Home Assistant App (Web UI)

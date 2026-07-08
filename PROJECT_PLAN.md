@@ -18,7 +18,7 @@ Use this as the single source of truth for **where we are**, **what is next**, a
 <!-- VERSION:START -->
 - Integration version: `0.2.62`
 - Add-on version: `0.2.62`
-- Channel: numeric
+- Channel: `stable`
 - Release tag: `v0.2.62`
 <!-- VERSION:END -->
 
