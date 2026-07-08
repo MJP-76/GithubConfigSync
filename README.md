@@ -23,10 +23,10 @@ If you find this project useful, and would like to help support its continued de
 ## Version Tracker
 
 <!-- VERSION:START -->
-- Integration version: `0.2.53`
-- App version: `0.2.53`
+- Integration version: `0.2.54`
+- App version: `0.2.54`
 - Channel: numeric
-- Release tag: `v0.2.53`
+- Release tag: `v0.2.54`
 <!-- VERSION:END -->
 
 To sync versions across integration/app/runtime/docs automatically:
@@ -83,7 +83,7 @@ Security hardening is part of the current release: private repos only, sensitive
 1. Verify the target repository exists and is accessible with the saved token.
 2. Confirm the branch name is correct for the target repo.
 3. Set `dry_run=false` in the app settings.
-4. Run a sync, or use **Clean Upload** to force a full re-upload plus cleanup of remote extras. **Clean Repo** now empties the remote repo, and **Restore Skeleton** puts back the starter files. If you want scheduled runs to ignore dry run, enable the scheduled override in the add-on UI.
+4. Run a sync, or use **Clean Upload** to force a full re-upload plus cleanup of remote extras. **Clean Repo** now empties the remote repo and restores the starter files in one live step. If you want scheduled runs to ignore dry run, enable the scheduled override in the add-on UI.
 5. Confirm the repository probe succeeds before the write phase.
 6. Review the status panel and logs for the final upsert/delete/skip counts.
 

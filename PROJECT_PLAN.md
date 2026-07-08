@@ -6,20 +6,20 @@ Use this as the single source of truth for **where we are**, **what is next**, a
 
 ## Status Snapshot
 
-- **Current milestone:** `v0.2.39 — Stable-only main repo`
+- **Current milestone:** `v0.2.53 — Numeric release line`
 - **Last updated:** 2026-07-08
 - **Track:** Home Assistant Integration + Home Assistant Add-on (Ingress Web UI)
-- **Latest shipped improvements:** added danger-zone security hardening (private repos only, sensitive-path filtering, two-way sync warnings)
+- **Latest shipped improvements:** added scheduled dry-run override, recombined Clean Repo flow, and numeric sequential releases
 - **Current operator UX:** Device Login section first, existing/create repo flow, troubleshooting auth overrides hidden by default
 - **Version state:** Synced to the current release below.
-- **Release tracks:** stable, RC, and dev all use numeric versions in sequence; stable releases ship from `GithubConfigSync`, and prereleases ship from `GithubConfigSync-dev`.
+- **Release tracks:** X = stable, Y = RC, Z = dev; stable releases ship from `GithubConfigSync`, and prereleases ship from `GithubConfigSync-dev`.
 - **Versioning rule:** keep numeric versions only, and bump them in sequence for stable, RC, and dev releases.
 
 <!-- VERSION:START -->
-- Integration version: `0.2.39`
-- Add-on version: `0.2.39`
+- Integration version: `0.2.53`
+- Add-on version: `0.2.53`
 - Channel: numeric
-- Release tag: `v0.2.39`
+- Release tag: `v0.2.53`
 <!-- VERSION:END -->
 
 ---

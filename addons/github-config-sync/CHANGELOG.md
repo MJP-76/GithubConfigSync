@@ -4,8 +4,13 @@
 
 - Main repo is now stable-only; numeric sequential release wording now replaces the old stable/dev phrasing.
 
+## 0.2.54
+
+- Fixed Clean Repo so it always performs the live wipe-and-restore flow.
+
 ## 0.2.53
 
+- Clean Repo now ignores dry run and always performs the wipe+restore flow.
 - Recombined Clean Repo and skeleton restore into one flow.
 
 ## 0.2.52

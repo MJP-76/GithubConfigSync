@@ -250,7 +250,7 @@ class ServerApiTests(unittest.TestCase):
 
         self.assertEqual(status["auth"]["token_state"], "configured")
         self.assertEqual(status["repo_versions"]["stable"], "0.2.39")
-        self.assertEqual(status["repo_versions"]["dev"], "0.2.53")
+        self.assertEqual(status["repo_versions"]["dev"], "0.2.54")
         self.assertEqual(diagnostics["options"]["github_token"], "********")
 
     def test_create_repository_uses_default_name_when_blank(self) -> None:
@@ -468,8 +468,9 @@ class ServerApiTests(unittest.TestCase):
         body = response.get_json()
         self.assertEqual(response.status_code, 200)
         self.assertTrue(body["ok"])
-        self.assertEqual(body["result"], "Dry run completed. No remote changes were made.")
-        engine.clean_remote_tree.assert_not_called()
+        self.assertEqual(body["result"], "Clean repo completed. Remote repo skeleton restored.")
+        engine.clean_remote_tree.assert_called_once()
+        engine.restore_repo_skeleton.assert_called_once()
 
     def test_manual_sync_endpoint_uses_retention_days(self) -> None:
         (self._config_root / "one.txt").write_text("one", encoding="utf-8")

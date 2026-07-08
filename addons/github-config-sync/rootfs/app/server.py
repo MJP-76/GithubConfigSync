@@ -13,8 +13,9 @@ from sync.errors import SyncError
 from sync.github_client import GitHubClient
 from sync.hashing import IGNORE_PATTERNS
 
-APP_VERSION = "0.2.53"
+APP_VERSION = "0.2.54"
 STABLE_REPO_VERSION = "0.2.39"
+RC_REPO_VERSION = "0.2.52"
 DEV_REPO_VERSION = APP_VERSION
 APP_PORT = 8099
 DEFAULT_OAUTH_CLIENT_ID = "Ov23li2ycCraodta6WCU"
@@ -486,6 +487,7 @@ def get_status():
             "version": APP_VERSION,
             "repo_versions": {
                 "stable": STABLE_REPO_VERSION,
+                "rc": RC_REPO_VERSION,
                 "dev": DEV_REPO_VERSION,
                 "current": APP_VERSION,
             },
@@ -930,10 +932,6 @@ def trigger_clean_repo():
 
     if not sync_config.repository:
         return jsonify({"ok": False, "error": "github_repository is required"}), 400
-    if sync_config.dry_run:
-        started = dt.datetime.now(dt.timezone.utc).isoformat()
-        _save_state({"status": "ok", "last_run": started, "last_error": None})
-        return jsonify({"ok": True, "result": "Dry run completed. No remote changes were made.", "state": _load_state()})
 
     started = dt.datetime.now(dt.timezone.utc).isoformat()
     _save_state({"status": "running", "last_run": started, "last_error": None})

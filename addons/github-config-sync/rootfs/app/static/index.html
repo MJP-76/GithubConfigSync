@@ -256,11 +256,15 @@
         </div>
         <div class="version-grid">
           <div class="version-item">
-            <span class="progress-label">X track</span>
+            <span class="progress-label">X track (1)</span>
             <span id="stableRepoVersion" class="progress-value">Loading...</span>
           </div>
           <div class="version-item">
-            <span class="progress-label">Z track</span>
+            <span class="progress-label">Y track (2)</span>
+            <span id="rcRepoVersion" class="progress-value">Loading...</span>
+          </div>
+          <div class="version-item">
+            <span class="progress-label">Z track (3)</span>
             <span id="devRepoVersion" class="progress-value">Loading...</span>
           </div>
           <div class="version-item">
@@ -276,8 +280,7 @@
           <strong>Safety note:</strong> remote deletes only affect GitHub and never remove local files.
         </div>
         <div class="notice" style="margin-top: 12px">
-          <strong>Release tracks:</strong> `x` is stable, `y` is RC, and `z` is dev. Stable releases ship from `MJP-76/GithubConfigSync`, and prereleases ship from `MJP-76/GithubConfigSync-dev`.
-          Keep numeric versions, but label the tracks as `x`, `y`, and `z`.
+          <strong>Release tracks:</strong> X = stable, Y = RC, Z = dev. Stable releases ship from `MJP-76/GithubConfigSync`, and prereleases ship from `MJP-76/GithubConfigSync-dev`.
         </div>
         <div class="danger" style="margin-top: 12px">
           <strong style="color: var(--err)">Danger Zone:</strong> Home Assistant config can contain secrets, tokens, device data, and other sensitive files. Public repositories are blocked, sensitive paths are filtered, and any two-way sync or inbound write path can put your local config at risk.
@@ -493,6 +496,7 @@
         status: document.getElementById("status"),
         versionBadge: document.getElementById("versionBadge"),
         stableRepoVersion: document.getElementById("stableRepoVersion"),
+        rcRepoVersion: document.getElementById("rcRepoVersion"),
         devRepoVersion: document.getElementById("devRepoVersion"),
         currentRepoVersion: document.getElementById("currentRepoVersion"),
         repo: document.getElementById("repo"),
@@ -743,6 +747,7 @@
           (data.log_tail || "");
         el.versionBadge.textContent = `Version: ${data.version || "unknown"}`;
         el.stableRepoVersion.textContent = (data.repo_versions && data.repo_versions.stable) || "unknown";
+        el.rcRepoVersion.textContent = (data.repo_versions && data.repo_versions.rc) || "unknown";
         el.devRepoVersion.textContent = (data.repo_versions && data.repo_versions.dev) || "unknown";
         el.currentRepoVersion.textContent = (data.repo_versions && data.repo_versions.current) || data.version || "unknown";
         setStatus(`${(data.state && data.state.status) || "idle"}`, !(data.state && data.state.status === "error"));
