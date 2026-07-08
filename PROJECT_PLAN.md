@@ -9,8 +9,8 @@ Use this as the single source of truth for **where we are**, **what is next**, a
 - **Current milestone:** `v0.3.1 — Dev release`
 - **Last updated:** 2026-07-08
 - **Track:** Home Assistant Integration + Home Assistant Add-on (Ingress Web UI)
-- **Latest shipped improvements:** autosave in the UI, bundled starter files, fast git-tree Clean Repo, and dry-run feedback in manual sync
-- **Current operator UX:** Device Login section first, existing/create repo flow, troubleshooting auth overrides hidden by default
+- **Latest shipped improvements:** autosave in the UI, bundled starter files, safe delete-based Clean Repo, visible dry-run planning, and lock-file ignore handling
+- **Current operator UX:** Device Login section first, existing/create repo flow, troubleshooting auth overrides hidden by default, dry-run plan shown inline
 - **Version state:** stable and RC share the mainline version; dev is the forked prerelease repository.
 - **Release tracks:** stable and RC ship from the main repository, dev carries prerelease work in the fork.
 - **Versioning rule:** keep numeric versions only, and bump them in sequence for stable, RC, and dev releases.

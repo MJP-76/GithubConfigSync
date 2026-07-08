@@ -7,6 +7,7 @@ Use `E:\NextCloud\_Projects\GitHub\GithubConfigSync\SESSION_HANDOVER.md` as the 
 - Release line: `0.3.1` dev
 - Branch: `dev`
 - Central repo path: `E:\NextCloud\_Projects\GitHub\GithubConfigSync`
+- Latest fixes: clean-repo now uses recursive deletes, dry-run planning is always visible, and `.ha_run.lock` is ignored.
 
 ## Resume order
 
