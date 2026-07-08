@@ -4,6 +4,10 @@
 
 - Main repo is now stable-only; dev work continues in the `GithubConfigSync-dev` fork repo.
 
+## 0.2.47-dev
+
+- Removed remaining modern JavaScript syntax from the add-on UI so older Home Assistant webviews can initialize it.
+
 ## 0.2.46-dev
 
 - Switched the add-on UI to older-browser-compatible JavaScript so the page can initialize correctly in Home Assistant.
