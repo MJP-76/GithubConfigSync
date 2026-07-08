@@ -38,6 +38,7 @@ class HashingTests(unittest.TestCase):
             (root / ".cache" / "brands").mkdir(parents=True)
             (root / ".cache" / "brands" / "icon.png").write_bytes(b"png")
             (root / "home-assistant.log").write_text("log", encoding="utf-8")
+            (root / ".ha_run.lock").write_text("lock", encoding="utf-8")
 
             index = build_hash_index(root)
 
@@ -48,6 +49,7 @@ class HashingTests(unittest.TestCase):
             self.assertNotIn(".storage/core.config_entries", index)
             self.assertNotIn(".cache/brands/icon.png", index)
             self.assertNotIn("home-assistant.log", index)
+            self.assertNotIn(".ha_run.lock", index)
 
     def test_build_hash_index_ignores_sensitive_files(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

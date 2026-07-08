@@ -10,6 +10,7 @@ IGNORE_PATTERNS = (
     "home-assistant.log.*",
     "home-assistant_v2.db",
     "home-assistant_v2.db-*",
+    ".ha_run.lock",
     "*.db",
     "*.sqlite",
     "*.sqlite3",
