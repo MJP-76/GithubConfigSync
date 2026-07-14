@@ -190,6 +190,13 @@
         margin-top: 10px;
       }
 
+      .dry-run-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+        margin-top: 10px;
+      }
+
       .progress-item {
         background: var(--card-2);
         border: 1px solid var(--border);
@@ -207,6 +214,10 @@
       .progress-value {
         font-size: 1.05rem;
         font-weight: 700;
+      }
+
+      .dry-run-plan pre {
+        min-height: 140px;
       }
 
       .version-grid {
@@ -320,16 +331,16 @@
             <span id="removeTotal" class="progress-value">0</span>
           </div>
         </div>
-        <details style="margin-top: 12px">
+        <details class="dry-run-plan" style="margin-top: 12px">
           <summary class="section-title" style="cursor: pointer">Dry-run plan</summary>
-          <div class="grid" style="margin-top: 10px">
+          <div class="dry-run-grid" style="margin-top: 10px">
             <div class="field">
               <label>Could be uploaded</label>
-              <pre id="dryRunUpserts" style="min-height: 140px">No dry-run yet.</pre>
+              <pre id="dryRunUpserts">No dry-run yet.</pre>
             </div>
             <div class="field">
               <label>Could be deleted</label>
-              <pre id="dryRunDeletes" style="min-height: 140px">No dry-run yet.</pre>
+              <pre id="dryRunDeletes">No dry-run yet.</pre>
             </div>
           </div>
         </details>
@@ -662,8 +673,17 @@
       function renderDryRunPlan(summary) {
         const upserts = [].concat(summary?.added_files || [], summary?.changed_files || []);
         const deletes = summary?.removed_files || [];
+<<<<<<< HEAD
         el.dryRunUpserts.textContent = upserts.length ? upserts.join("\n") : "Nothing to upload.";
         el.dryRunDeletes.textContent = deletes.length ? deletes.join("\n") : "Nothing to delete.";
+=======
+        if (el.dryRunUpserts) {
+          el.dryRunUpserts.textContent = upserts.length ? upserts.join("\n") : "Nothing to upload.";
+        }
+        if (el.dryRunDeletes) {
+          el.dryRunDeletes.textContent = deletes.length ? deletes.join("\n") : "Nothing to delete.";
+        }
+>>>>>>> f417d34 (Restore dry-run plan dropdown)
       }
 
       async function fetchJson(url, options = {}) {
