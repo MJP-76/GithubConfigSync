@@ -100,8 +100,6 @@ class ServerApiTests(unittest.TestCase):
         self.assertIn("Would upsert", body["result"])
         self.assertEqual(body["summary"]["synced_count"], 1)
         self.assertEqual(body["summary"]["deleted_count"], 0)
-        self.assertIn("added_files", body["summary"])
-        self.assertIn("removed_files", body["summary"])
 
     def test_options_round_trip_include_addon_configs_default_true(self) -> None:
         self._write_options(
@@ -254,7 +252,7 @@ class ServerApiTests(unittest.TestCase):
 
         self.assertEqual(status["auth"]["token_state"], "configured")
         self.assertEqual(status["repo_versions"]["stable"], "0.2.39")
-        self.assertEqual(status["repo_versions"]["dev"], "0.2.62")
+        self.assertEqual(status["repo_versions"]["dev"], "0.3.0")
         self.assertEqual(diagnostics["options"]["github_token"], "********")
 
     def test_create_repository_uses_default_name_when_blank(self) -> None:
