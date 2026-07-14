@@ -673,17 +673,12 @@
       function renderDryRunPlan(summary) {
         const upserts = [].concat(summary?.added_files || [], summary?.changed_files || []);
         const deletes = summary?.removed_files || [];
-<<<<<<< HEAD
-        el.dryRunUpserts.textContent = upserts.length ? upserts.join("\n") : "Nothing to upload.";
-        el.dryRunDeletes.textContent = deletes.length ? deletes.join("\n") : "Nothing to delete.";
-=======
         if (el.dryRunUpserts) {
           el.dryRunUpserts.textContent = upserts.length ? upserts.join("\n") : "Nothing to upload.";
         }
         if (el.dryRunDeletes) {
           el.dryRunDeletes.textContent = deletes.length ? deletes.join("\n") : "Nothing to delete.";
         }
->>>>>>> f417d34 (Restore dry-run plan dropdown)
       }
 
       async function fetchJson(url, options = {}) {
@@ -1100,9 +1095,13 @@
 
       applyRepoMode();
       updateTokenBadge({ state: "checking" });
-      Promise.all([loadOptions(), loadStatus(), loadDeviceFlowStatus(), loadRepositories(false), loadIgnoreRecommendations()])
-        .then(() => setStatus("Ready"))
-        .catch((error) => setStatus(error.message, false));
+      Promise.all([
+        loadOptions().catch((error) => setStatus(error.message, false)),
+        loadStatus().catch((error) => setStatus(error.message, false)),
+        loadDeviceFlowStatus().catch((error) => setStatus(error.message, false)),
+        loadRepositories(false).catch((error) => setStatus(error.message, false)),
+        loadIgnoreRecommendations().catch((error) => setStatus(error.message, false)),
+      ]).then(() => setStatus("Ready"));
       startStatusPolling();
     </script>
   </body>
