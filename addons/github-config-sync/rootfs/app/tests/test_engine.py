@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 import sys
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, call, patch
 
 APP_ROOT = Path(__file__).resolve().parents[1]
 if str(APP_ROOT) not in sys.path:
@@ -287,7 +287,12 @@ class SyncEngineTests(unittest.TestCase):
             with patch.object(engine, "_delete_remote_tree") as delete_tree:
                 engine.prune_versions_older_than_days(7)
 
-        delete_tree.assert_called_once_with("versions/20260601T120000Z")
+        delete_tree.assert_has_calls(
+            [
+                call("versions/20260601T120000Z"),
+                call("versions/20260707T120000Z"),
+            ]
+        )
 
     def test_clean_remote_tree_wipes_root_tree(self) -> None:
         config = SyncConfig(

@@ -6,7 +6,7 @@ Use this as the single source of truth for **where we are**, **what is next**, a
 
 ## Status Snapshot
 
-- **Current milestone:** `v0.3.1 — RC release prep`
+- **Current milestone:** `v0.3.2 — RC release prep`
 - **Last updated:** 2026-07-08
 - **Track:** Home Assistant Integration + Home Assistant Add-on (Ingress Web UI)
 - **Latest shipped improvements:** autosave in the UI, bundled starter files, fast git-tree Clean Repo, and dry-run feedback in manual sync
@@ -16,10 +16,10 @@ Use this as the single source of truth for **where we are**, **what is next**, a
 - **Versioning rule:** keep numeric versions only, and bump them in sequence for stable, RC, and dev releases.
 
 <!-- VERSION:START -->
-- Integration version: `0.3.1`
-- Add-on version: `0.3.1`
+- Integration version: `0.3.2`
+- Add-on version: `0.3.2`
 - Channel: `rc`
-- Release tag: `v0.3.1`
+- Release tag: `v0.3.2`
 <!-- VERSION:END -->
 
 ---
