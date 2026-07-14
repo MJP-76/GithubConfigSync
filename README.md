@@ -23,10 +23,10 @@ If you find this project useful, and would like to help support its continued de
 ## Version Tracker
 
 <!-- VERSION:START -->
-- Integration version: `0.3.0`
-- Add-on version: `0.3.0`
+- Integration version: `0.3.1`
+- Add-on version: `0.3.1`
 - Channel: `rc`
-- Release tag: `v0.3.0`
+- Release tag: `v0.3.1`
 <!-- VERSION:END -->
 
 Stable and RC releases are cut from the same main repository and share the same numeric version line; RC is the pre-release track for that line.
@@ -34,7 +34,7 @@ Stable and RC releases are cut from the same main repository and share the same 
 To sync versions across integration/app/runtime/docs automatically:
 
 ```bash
-python3 scripts/sync_versions.py --integration 0.3.0 --addon 0.3.0 --channel rc
+python3 scripts/sync_versions.py --integration 0.3.1 --addon 0.3.1 --channel rc
 ```
 
 ## Home Assistant App (Web UI)

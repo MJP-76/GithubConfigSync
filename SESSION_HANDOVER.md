@@ -4,7 +4,7 @@ Use `E:\NextCloud\_Projects\GitHub\GithubConfigSync\SESSION_HANDOVER.md` as the 
 
 ## Current snapshot
 
-- Release line: `0.3.0` RC
+- Release line: `0.3.1` RC
 - Branch: `dev`
 - Central repo path: `E:\NextCloud\_Projects\GitHub\GithubConfigSync`
 
