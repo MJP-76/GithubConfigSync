@@ -1,0 +1,33 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "GitHub Config Sync",
+        "description": "Connect GitHub, choose sync timing, and configure ignore patterns."
+      },
+      "device_auth": {
+        "title": "GitHub Device Authorization",
+        "description": "Approve the device login in GitHub to continue."
+      },
+      "repo_choice": {
+        "title": "Repository Setup",
+        "description": "Choose whether to create a new repository or use an existing one."
+      },
+      "create_repo": {
+        "title": "Create Repository",
+        "description": "Create a new private repository for Home Assistant config sync."
+      },
+      "existing_repo": {
+        "title": "Use Existing Repository",
+        "description": "Enter the GitHub repository name in owner/repo format."
+      }
+    },
+    "error": {
+      "invalid_auth": "GitHub authentication failed.",
+      "cannot_create": "Could not create the repository.",
+      "invalid_repository": "Enter a repository name in owner/repo format.",
+      "invalid_time": "Enter a valid 24-hour time in HH:MM format.",
+      "required": "This field is required."
+    }
+  }
+}
