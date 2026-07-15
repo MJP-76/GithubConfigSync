@@ -3,6 +3,7 @@ from __future__ import annotations
 import tempfile
 import unittest
 import datetime as dt
+import types
 from pathlib import Path
 import sys
 from unittest.mock import MagicMock, patch
@@ -269,6 +270,12 @@ class SyncEngineTests(unittest.TestCase):
             self.assertNotIn("versions/20260707T204145Z/.cache/brands/icon.png", uploaded_paths)
 
     def test_prune_versions_older_than_days_deletes_stale_snapshots(self) -> None:
+        frozen_now = dt.datetime.strptime("20260715T120000Z", "%Y%m%dT%H%M%SZ").replace(tzinfo=dt.timezone.utc)
+        fake_datetime = types.SimpleNamespace(
+            now=lambda tz=None: frozen_now,
+            strptime=dt.datetime.strptime,
+        )
+        fake_dt = types.SimpleNamespace(datetime=fake_datetime, timezone=dt.timezone, timedelta=dt.timedelta)
         config = SyncConfig(
             repository="owner/repo",
             branch="main",
@@ -285,11 +292,7 @@ class SyncEngineTests(unittest.TestCase):
         ]
         with patch("sync.engine.GitHubClient", return_value=fake_client):
             engine = SyncEngine(config, previous_hash_index={})
-            with patch("sync.engine.dt.datetime") as datetime_cls:
-                datetime_cls.now.return_value = datetime_cls.strptime("20260715T120000Z", "%Y%m%dT%H%M%SZ")
-                datetime_cls.strptime.side_effect = dt.datetime.strptime
-                datetime_cls.timezone = dt.timezone
-                datetime_cls.timedelta = dt.timedelta
+            with patch("sync.engine.dt", fake_dt):
                 with patch.object(engine, "_delete_remote_tree") as delete_tree:
                     engine.prune_versions_older_than_days(7)
 
