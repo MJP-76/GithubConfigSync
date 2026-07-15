@@ -6,20 +6,20 @@ Use this as the single source of truth for **where we are**, **what is next**, a
 
 ## Status Snapshot
 
-- **Current milestone:** `v0.4.0 — RC release`
+- **Current milestone:** `v0.5.1 — dev release aligned`
 - **Last updated:** 2026-07-15
 - **Track:** Home Assistant Integration + Home Assistant Add-on (Ingress Web UI)
 - **Latest shipped improvements:** autosave in the UI, bundled starter files, fast git-tree Clean Repo, and dry-run feedback in manual sync
 - **Current operator UX:** Device Login section first, existing/create repo flow, troubleshooting auth overrides hidden by default
-- **Version state:** stable and RC share the mainline version; dev remains the prerelease/testing track.
-- **Release tracks:** stable and RC ship from the main repository, dev carries prerelease work.
-- **Versioning rule:** keep numeric versions only, and bump them in sequence for stable, RC, and dev releases.
+- **Version state:** stable is `0.5.0`; dev is `0.5.1`.
+- **Release tracks:** stable ships from the main repository, dev carries prerelease work.
+- **Versioning rule:** keep numeric versions only, and keep the track labels aligned to the shipped repo.
 
 <!-- VERSION:START -->
-- Integration version: `0.5.0`
-- Add-on version: `0.5.0`
-- Channel: `rc`
-- Release tag: `v0.5.0`
+- Integration version: `0.5.2`
+- Add-on version: `0.5.2`
+- Channel: `dev`
+- Release tag: `v0.5.2`
 <!-- VERSION:END -->
 
 ---
@@ -205,7 +205,7 @@ Use this as the single source of truth for **where we are**, **what is next**, a
 
 ## In Progress
 
-- [ ] Normalize the version tracker across the stable, RC, and dev release lines.
+- [x] Normalize the version tracker across the stable, RC, and dev release lines.
 - [ ] Close the remaining security hardening follow-ups in the tracker.
 - [ ] Keep the project-plan handoff aligned with the active release track.
 
@@ -213,7 +213,7 @@ Use this as the single source of truth for **where we are**, **what is next**, a
 
 ## Immediate execution plan (next working session)
 
-1. Normalize the mixed version lines in the docs/tracker so stable, RC, and dev are explicit and consistent.
+1. Keep the version blocks and release/tag refs aligned after each stable or dev publish.
 2. Review and trim the remaining security hardening checklist items into concrete implementation tasks.
 3. Keep the release tracker aligned with the active main/dev repos after any shipped change.
 

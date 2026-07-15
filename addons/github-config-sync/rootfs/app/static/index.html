@@ -773,7 +773,8 @@
           JSON.stringify({ state: data.state, auth: data.auth, token_health: data.token_health }, null, 2) +
           "\n\n" +
           (data.log_tail || "");
-        el.versionBadge.textContent = `Version: ${data.version || "unknown"}`;
+        const currentVersion = (data.repo_versions && data.repo_versions.current) || data.version || "unknown";
+        el.versionBadge.textContent = `Version: v${currentVersion}`;
         el.stableRepoVersion.textContent = (data.repo_versions && data.repo_versions.stable) || "unknown";
         el.rcRepoVersion.textContent = (data.repo_versions && data.repo_versions.rc) || "unknown";
         el.devRepoVersion.textContent = (data.repo_versions && data.repo_versions.dev) || "unknown";

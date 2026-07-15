@@ -14,7 +14,7 @@ from sync.errors import SyncError
 from sync.github_client import GitHubClient
 from sync.hashing import IGNORE_PATTERNS
 
-APP_VERSION = "0.5.0"
+APP_VERSION = "0.5.2"
 STABLE_REPO_VERSION = "0.4.0"
 RC_REPO_VERSION = "0.4.0"
 DEV_REPO_VERSION = APP_VERSION

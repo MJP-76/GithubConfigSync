@@ -23,10 +23,10 @@ If you find this project useful, and would like to help support its continued de
 ## Version Tracker
 
 <!-- VERSION:START -->
-- Integration version: `0.5.0`
-- Add-on version: `0.5.0`
-- Channel: `rc`
-- Release tag: `v0.5.0`
+- Integration version: `0.5.2`
+- Add-on version: `0.5.2`
+- Channel: `dev`
+- Release tag: `v0.5.2`
 <!-- VERSION:END -->
 
 Stable and RC releases are cut from the same main repository and share the same numeric version line; RC is the pre-release track for that line.
@@ -34,7 +34,7 @@ Stable and RC releases are cut from the same main repository and share the same 
 To sync versions across integration/app/runtime/docs automatically:
 
 ```bash
-python3 scripts/sync_versions.py --integration 0.4.1 --addon 0.4.1 --channel dev
+python3 scripts/sync_versions.py --integration 0.5.1 --addon 0.5.2 --channel dev
 ```
 
 ## Home Assistant App (Web UI)
@@ -53,6 +53,7 @@ Security hardening is part of the current release: private repos only, sensitive
 - Both values are configurable in the app UI.
 - Numeric releases stay in sequence across stable, RC, and dev.
 - Stable and RC live in the main repository; dev remains the prerelease/testing track.
+- Stable is currently `0.5.0`; dev is currently `0.5.1`.
 
 ## Architecture
 
