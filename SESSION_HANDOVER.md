@@ -4,10 +4,10 @@ Use `E:\NextCloud\_Projects\GitHub\GithubConfigSync\SESSION_HANDOVER.md` as the 
 
 ## Current snapshot
 
-- Release line: `0.3.1` dev
+- Release line: `0.3.2` dev
 - Branch: `dev`
 - Central repo path: `E:\NextCloud\_Projects\GitHub\GithubConfigSync`
-- Latest fixes: clean-repo now uses recursive deletes, dry-run planning is always visible, and `.ha_run.lock` is ignored.
+- Latest fixes: clean-repo now uses recursive deletes, dry-run planning is always visible, `.ha_run.lock` is ignored, and the repo is aligned to `0.3.2`.
 
 ## Resume order
 
