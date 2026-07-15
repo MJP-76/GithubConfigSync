@@ -28,12 +28,17 @@ def _assert_simple_version(value: str, flag_name: str) -> None:
         raise ValueError(f"{flag_name} must be in x.y.z format (no suffix): {value}")
 
 
+def _bump_patch(version: str) -> str:
+    major, minor, patch = (int(part) for part in version.split("."))
+    return f"{major}.{minor}.{patch + 1}"
+
+
 def _channelize(version: str, channel: str) -> str:
     if channel == "stable":
         return version
     if channel == "rc":
         return version
-    return f"{version}-dev"
+    return f"{_bump_patch(version)}-dev"
 
 
 def _read(path: Path) -> str:
@@ -101,7 +106,7 @@ def main() -> int:
         "--channel",
         choices=["stable", "rc", "dev"],
         required=True,
-        help="Release channel; rc uses the base version and dev appends -dev suffix to versions.",
+        help="Release channel; rc uses the base version and dev bumps the patch then appends -dev.",
     )
     parser.add_argument(
         "--check",
