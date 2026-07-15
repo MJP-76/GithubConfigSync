@@ -28,6 +28,7 @@ STATE_PATH = DATA_DIR / "state.json"
 LOG_PATH = DATA_DIR / "sync.log"
 HASH_INDEX_PATH = DATA_DIR / "hash_index.json"
 DEVICE_FLOW_PATH = DATA_DIR / "device_flow.json"
+VERSION_STATE_PATH = Path("/app/version_state.json")
 STATIC_DIR = Path("/app/static")
 CONFIG_ROOT = Path("/config")
 
@@ -92,6 +93,29 @@ def _load_state() -> dict[str, Any]:
     state = dict(DEFAULT_STATE)
     state.update(_load_json(STATE_PATH, {}))
     return state
+
+
+def _load_version_state() -> dict[str, str]:
+    fallback = {
+        "stable": STABLE_REPO_VERSION,
+        "rc": RC_REPO_VERSION,
+        "dev": DEV_REPO_VERSION,
+        "current": APP_VERSION,
+    }
+    if not VERSION_STATE_PATH.exists():
+        return fallback
+    try:
+        parsed = json.loads(VERSION_STATE_PATH.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return fallback
+    if not isinstance(parsed, dict):
+        return fallback
+    return {
+        "stable": str(parsed.get("stable", fallback["stable"])),
+        "rc": str(parsed.get("rc", fallback["rc"])),
+        "dev": str(parsed.get("dev", fallback["dev"])),
+        "current": str(parsed.get("current", fallback["current"])),
+    }
 
 
 def _set_cancel_requested(value: bool) -> dict[str, Any]:
@@ -508,12 +532,7 @@ def get_status():
             "state": state,
             "auth": _auth_diagnostics(options),
             "version": APP_VERSION,
-            "repo_versions": {
-                "stable": STABLE_REPO_VERSION,
-                "rc": RC_REPO_VERSION,
-                "dev": DEV_REPO_VERSION,
-                "current": APP_VERSION,
-            },
+            "repo_versions": _load_version_state(),
             "token_health": _token_health(options),
             "cancel_sync": _is_cancel_requested(),
             "log_tail": _sanitized_log_tail(),

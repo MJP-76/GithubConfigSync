@@ -11,6 +11,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 MANIFEST_PATH = REPO_ROOT / "custom_components/github_config_sync/manifest.json"
 ADDON_CONFIG_PATH = REPO_ROOT / "addons/github-config-sync/config.yaml"
 SERVER_PATH = REPO_ROOT / "addons/github-config-sync/rootfs/app/server.py"
+VERSION_STATE_PATH = REPO_ROOT / "addons/github-config-sync/rootfs/app/version_state.json"
 DOC_PATHS = [
     REPO_ROOT / "README.md",
     REPO_ROOT / "addons/github-config-sync/README.md",
@@ -41,6 +42,12 @@ def _channelize(version: str, channel: str) -> str:
 
 def _read(path: Path) -> str:
     return path.read_text(encoding="utf-8")
+
+
+def _read_optional(path: Path) -> str:
+    if not path.exists():
+        return ""
+    return _read(path)
 
 
 def _write(path: Path, content: str) -> None:
@@ -75,6 +82,34 @@ def _replace_server_version(content: str, addon_version: str) -> str:
     if count != 1:
         raise ValueError("Could not find APP_VERSION line in server.py")
     return updated
+
+
+def _version_state_payload(integration_version: str, addon_version: str, channel: str) -> dict[str, str]:
+    existing: dict[str, str] = {}
+    if VERSION_STATE_PATH.exists():
+        try:
+            parsed = json.loads(_read(VERSION_STATE_PATH))
+            if isinstance(parsed, dict):
+                existing = {k: str(v) for k, v in parsed.items() if isinstance(v, (str, int, float))}
+        except (json.JSONDecodeError, OSError):
+            existing = {}
+
+    current = addon_version
+    if channel in {"stable", "rc"}:
+        stable = integration_version
+        rc = integration_version
+        dev = existing.get("dev", current)
+    else:
+        stable = existing.get("stable", current)
+        rc = existing.get("rc", current)
+        dev = addon_version
+
+    return {
+        "stable": stable,
+        "rc": rc,
+        "dev": dev,
+        "current": current,
+    }
 
 
 def _replace_doc_block(content: str, integration_version: str, addon_version: str, channel: str) -> str:
@@ -124,6 +159,11 @@ def main() -> int:
     planned_updates[MANIFEST_PATH] = _replace_manifest_version(_read(MANIFEST_PATH), integration_version)
     planned_updates[ADDON_CONFIG_PATH] = _replace_yaml_version(_read(ADDON_CONFIG_PATH), addon_version)
     planned_updates[SERVER_PATH] = _replace_server_version(_read(SERVER_PATH), addon_version)
+    planned_updates[VERSION_STATE_PATH] = json.dumps(
+        _version_state_payload(integration_version, addon_version, args.channel),
+        indent=2,
+        sort_keys=True,
+    ) + "\n"
     for path in DOC_PATHS:
         planned_updates[path] = _replace_doc_block(
             _read(path),
@@ -132,7 +172,7 @@ def main() -> int:
             channel=args.channel,
         )
 
-    changed_paths = [path for path, new_content in planned_updates.items() if _read(path) != new_content]
+    changed_paths = [path for path, new_content in planned_updates.items() if _read_optional(path) != new_content]
 
     if args.check:
         if changed_paths:
