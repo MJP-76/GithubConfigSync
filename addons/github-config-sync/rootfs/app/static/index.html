@@ -197,7 +197,25 @@
         padding: 10px 12px;
       }
 
-      .stacked-card {
+      details.dropdown {
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        background: var(--card-2);
+        padding: 10px 12px;
+      }
+
+      details.dropdown > summary {
+        cursor: pointer;
+        font-weight: 700;
+        list-style: none;
+      }
+
+      details.dropdown > summary::-webkit-details-marker {
+        display: none;
+      }
+
+      .dropdown-body {
+        margin-top: 12px;
         display: grid;
         gap: 12px;
       }
@@ -320,21 +338,22 @@
             <span id="removeTotal" class="progress-value">0</span>
           </div>
         </div>
-      </div>
-
-      <div class="card">
-        <h2 class="section-title">Dry-run plan</h2>
-        <div id="dryRunStatus" class="subtle">No dry-run yet.</div>
-        <div class="progress-grid stacked-card" style="grid-template-columns: repeat(2, minmax(0, 1fr))">
-          <div class="progress-item">
-            <span class="progress-label">Could be uploaded</span>
-            <pre id="dryRunUpserts" class="panel-list">No dry-run yet.</pre>
+        <details class="dropdown" style="margin-top: 12px">
+          <summary>Dry-run plan</summary>
+          <div class="dropdown-body">
+            <div id="dryRunStatus" class="subtle">No dry-run yet.</div>
+            <div class="progress-grid" style="grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: 0">
+              <div class="progress-item">
+                <span class="progress-label">Could be uploaded</span>
+                <pre id="dryRunUpserts" class="panel-list">No dry-run yet.</pre>
+              </div>
+              <div class="progress-item">
+                <span class="progress-label">Could be deleted</span>
+                <pre id="dryRunDeletes" class="panel-list">No dry-run yet.</pre>
+              </div>
+            </div>
           </div>
-          <div class="progress-item">
-            <span class="progress-label">Could be deleted</span>
-            <pre id="dryRunDeletes" class="panel-list">No dry-run yet.</pre>
-          </div>
-        </div>
+        </details>
       </div>
 
       <div class="card">
