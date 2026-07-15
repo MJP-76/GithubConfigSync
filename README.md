@@ -23,10 +23,10 @@ If you find this project useful, and would like to help support its continued de
 ## Version Tracker
 
 <!-- VERSION:START -->
-- Integration version: `0.4.0`
-- Add-on version: `0.4.0`
-- Channel: `rc`
-- Release tag: `v0.4.0`
+- Integration version: `0.4.1-dev`
+- Add-on version: `0.4.1-dev`
+- Channel: `dev`
+- Release tag: `v0.4.1-dev`
 <!-- VERSION:END -->
 
 Stable and RC releases are cut from the same main repository and share the same numeric version line; RC is the pre-release track for that line.
