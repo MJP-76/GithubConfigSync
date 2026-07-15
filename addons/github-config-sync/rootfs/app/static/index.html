@@ -197,6 +197,16 @@
         padding: 10px 12px;
       }
 
+      .stacked-card {
+        display: grid;
+        gap: 12px;
+      }
+
+      .panel-list {
+        min-height: 140px;
+        margin: 8px 0 0;
+      }
+
       .progress-label {
         display: block;
         font-size: 0.82rem;
@@ -310,14 +320,19 @@
             <span id="removeTotal" class="progress-value">0</span>
           </div>
         </div>
-        <div class="progress-grid" style="margin-top: 12px">
+      </div>
+
+      <div class="card">
+        <h2 class="section-title">Dry-run plan</h2>
+        <div id="dryRunStatus" class="subtle">No dry-run yet.</div>
+        <div class="progress-grid stacked-card" style="grid-template-columns: repeat(2, minmax(0, 1fr))">
           <div class="progress-item">
             <span class="progress-label">Could be uploaded</span>
-            <pre id="dryRunUpserts" style="min-height: 140px; margin: 8px 0 0">No dry-run yet.</pre>
+            <pre id="dryRunUpserts" class="panel-list">No dry-run yet.</pre>
           </div>
           <div class="progress-item">
             <span class="progress-label">Could be deleted</span>
-            <pre id="dryRunDeletes" style="min-height: 140px; margin: 8px 0 0">No dry-run yet.</pre>
+            <pre id="dryRunDeletes" class="panel-list">No dry-run yet.</pre>
           </div>
         </div>
       </div>
@@ -512,6 +527,7 @@
         scheduledLiveSync: document.getElementById("scheduledLiveSync"),
         runtime: document.getElementById("runtime"),
         progressStatus: document.getElementById("progressStatus"),
+        dryRunStatus: document.getElementById("dryRunStatus"),
         upsertRemaining: document.getElementById("upsertRemaining"),
         removeRemaining: document.getElementById("removeRemaining"),
         upsertTotal: document.getElementById("upsertTotal"),
@@ -650,6 +666,9 @@
         const deletes = summary?.removed_files || [];
         el.dryRunUpserts.textContent = upserts.length ? upserts.join("\n") : "Nothing to upload.";
         el.dryRunDeletes.textContent = deletes.length ? deletes.join("\n") : "Nothing to delete.";
+        el.dryRunStatus.textContent = summary?.scanned_at
+          ? `Last dry-run scan at ${summary.scanned_at}`
+          : "No dry-run yet.";
       }
 
       async function fetchJson(url, options = {}) {
