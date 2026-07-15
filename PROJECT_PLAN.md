@@ -6,7 +6,7 @@ Use this as the single source of truth for **where we are**, **what is next**, a
 
 ## Status Snapshot
 
-- **Current milestone:** `v0.3.3 — Dev release`
+- **Current milestone:** `v0.3.3 — RC release`
 - **Last updated:** 2026-07-15
 - **Track:** Home Assistant Integration + Home Assistant Add-on (Ingress Web UI)
 - **Latest shipped improvements:** autosave in the UI, bundled starter files, safe delete-based Clean Repo, visible dry-run planning, and lock-file ignore handling
@@ -18,7 +18,7 @@ Use this as the single source of truth for **where we are**, **what is next**, a
 <!-- VERSION:START -->
 - Integration version: `0.3.3`
 - Add-on version: `0.3.3`
-- Channel: `dev`
+- Channel: `rc`
 - Release tag: `v0.3.3`
 <!-- VERSION:END -->
 

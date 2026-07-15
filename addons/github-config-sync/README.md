@@ -28,7 +28,7 @@ If you find this project useful, and would like to help support its continued de
 <!-- VERSION:START -->
 - Integration version: `0.3.3`
 - Add-on version: `0.3.3`
-- Channel: `dev`
+- Channel: `rc`
 - Release tag: `v0.3.3`
 <!-- VERSION:END -->
 
