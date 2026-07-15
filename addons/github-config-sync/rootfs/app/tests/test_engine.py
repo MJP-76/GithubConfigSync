@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import tempfile
 import unittest
+import datetime as dt
 from pathlib import Path
 import sys
 from unittest.mock import MagicMock, patch
@@ -284,10 +285,17 @@ class SyncEngineTests(unittest.TestCase):
         ]
         with patch("sync.engine.GitHubClient", return_value=fake_client):
             engine = SyncEngine(config, previous_hash_index={})
-            with patch.object(engine, "_delete_remote_tree") as delete_tree:
-                engine.prune_versions_older_than_days(7)
+            with patch("sync.engine.dt.datetime") as datetime_cls:
+                datetime_cls.now.return_value = datetime_cls.strptime("20260715T120000Z", "%Y%m%dT%H%M%SZ")
+                datetime_cls.strptime.side_effect = dt.datetime.strptime
+                datetime_cls.timezone = dt.timezone
+                datetime_cls.timedelta = dt.timedelta
+                with patch.object(engine, "_delete_remote_tree") as delete_tree:
+                    engine.prune_versions_older_than_days(7)
 
-        delete_tree.assert_called_once_with("versions/20260601T120000Z")
+        delete_tree.assert_has_calls(
+            [unittest.mock.call("versions/20260601T120000Z"), unittest.mock.call("versions/20260707T120000Z")]
+        )
 
     def test_clean_remote_tree_wipes_root_tree(self) -> None:
         config = SyncConfig(
