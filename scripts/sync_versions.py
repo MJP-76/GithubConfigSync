@@ -40,7 +40,8 @@ def _channelize(version: str, channel: str) -> str:
 
 
 def _release_tag(version: str, channel: str) -> str:
-    return f"v{version}-{channel}"
+    _ = channel
+    return f"v{version}"
 
 
 def _read(path: Path) -> str:
@@ -114,7 +115,7 @@ def main() -> int:
         "--channel",
         choices=["stable", "rc", "dev"],
         required=True,
-        help="Release channel; stable and rc use the base version and dev bumps the patch. Release tag gets -stable/-rc/-dev suffix.",
+        help="Release channel; stable and rc use the base version and dev bumps the patch.",
     )
     parser.add_argument(
         "--check",
