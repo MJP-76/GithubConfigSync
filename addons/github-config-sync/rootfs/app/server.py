@@ -21,6 +21,7 @@ APP_PORT = 8099
 DEFAULT_OAUTH_CLIENT_ID = "Ov23li2ycCraodta6WCU"
 DEFAULT_NEW_REPO_NAME = "ha-github-config-sync"
 ADDON_REPO_MARKER_PATH = ".github-config-sync-addon.json"
+SENSITIVE_WARNING_PATH = "SECURITY_UPLOAD_WARNINGS.md"
 
 DATA_DIR = Path("/data")
 SUPERVISOR_OPTIONS_PATH = DATA_DIR / "options.json"
@@ -73,6 +74,44 @@ def _ensure_repo_marker(engine: SyncEngine, repository: str) -> None:
     engine._github.write_repo_marker(  # pylint: disable=protected-access
         {"created_by": "github-config-sync-addon", "repository": repository}
     )
+
+
+def _format_sensitive_warning(sensitive_files: list[str]) -> str:
+    lines = [
+        "# Security upload warnings",
+        "",
+        "These files were not uploaded because they look like they may contain secrets, passwords, or personal details:",
+        "",
+    ]
+    lines.extend(f"- `{item}`" for item in sensitive_files)
+    lines.extend(
+        [
+            "",
+            "Review them locally before removing them from the ignore list.",
+        ]
+    )
+    return "\n".join(lines) + "\n"
+
+
+def _sync_sensitive_warning(engine: SyncEngine) -> list[str]:
+    sensitive_files = engine.sensitive_files()
+    remote = engine._github.get_content(SENSITIVE_WARNING_PATH)  # pylint: disable=protected-access
+    if sensitive_files:
+        warning = _format_sensitive_warning(sensitive_files)
+        sha = remote.get("sha") if isinstance(remote, dict) else None
+        engine._github.put_content(  # pylint: disable=protected-access
+            path=SENSITIVE_WARNING_PATH,
+            content=warning.encode("utf-8"),
+            message="sync: update security warnings",
+            sha=sha if isinstance(sha, str) else None,
+        )
+    elif remote and isinstance(remote.get("sha"), str):
+        engine._github.delete_content(  # pylint: disable=protected-access
+            path=SENSITIVE_WARNING_PATH,
+            sha=remote["sha"],
+            message="sync: remove security warnings",
+        )
+    return sensitive_files
 
 DEFAULT_STATE: dict[str, Any] = {
     "status": "idle",
@@ -837,6 +876,7 @@ def trigger_sync():
     _save_state({"status": "running", "last_run": started, "last_error": None})
     _set_cancel_requested(False)
     _append_log(f"Sync started for {sync_config.repository} (dry_run={sync_config.dry_run})")
+    sensitive_files: list[str] = []
     try:
         engine = SyncEngine(sync_config, previous_hash_index=_load_json(HASH_INDEX_PATH, {}))
         engine.set_cancel_checker(_is_cancel_requested)
@@ -875,6 +915,8 @@ def trigger_sync():
                 _append_log(f"Repository probe failed: {friendly_message}")
                 return jsonify({"ok": False, "error": friendly_message, "state": state}), 502
         result = engine.run(plan)
+        if not sync_config.dry_run:
+            sensitive_files = _sync_sensitive_warning(engine)
     except SyncError as err:
         state = _save_state(
             {
@@ -909,6 +951,7 @@ def trigger_sync():
                 "skipped_count": result.skipped_count,
                 "total_files": result.total_files,
             },
+            "warnings": sensitive_files,
             "state": state,
         }
     )
@@ -946,6 +989,7 @@ def trigger_clean_sync():
     _set_cancel_requested(False)
     _append_log(f"Clean upload started for {sync_config.repository} (forced live upload)")
     scan: dict[str, Any] | None = None
+    sensitive_files: list[str] = []
     try:
         previous_index = _load_json(HASH_INDEX_PATH, {})
         engine = SyncEngine(sync_config, previous_hash_index=previous_index)
@@ -999,6 +1043,7 @@ def trigger_clean_sync():
                 return jsonify({"ok": False, "error": friendly_message, "state": state}), 502
         result = engine.run(plan)
         _ensure_repo_marker(engine, sync_config.repository)
+        sensitive_files = _sync_sensitive_warning(engine)
         _save_json(HASH_INDEX_PATH, current_hash_index)
     except SyncError as err:
         state = _save_state(
@@ -1030,6 +1075,7 @@ def trigger_clean_sync():
                 "skipped_count": result.skipped_count,
                 "total_files": result.total_files,
             },
+            "warnings": sensitive_files,
             "state": state,
         }
     )

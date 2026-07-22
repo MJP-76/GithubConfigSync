@@ -54,6 +54,9 @@ Security hardening is part of the current release: private repos only, sensitive
 - Both values are configurable in the app UI.
 - Numeric releases stay in sequence across stable and dev.
 - Stable lives in the main repository; dev remains the prerelease/testing track.
+- Default ignores now include common HA editor/runtime artifacts such as `.venv`, `.vscode`, `.yaml_fix_backups`, `.ha_fix_yaml.py`, `.ruff_cache`, `.pytest_cache`, and OS temp files.
+- HA-sensitive defaults also exclude `secrets.yaml`, `ip_bans.yaml`, `known_devices.yaml`, runtime databases, and log files.
+- Live uploads also write a root `SECURITY_UPLOAD_WARNINGS.md` file when suspicious files are skipped.
 
 ## Architecture
 

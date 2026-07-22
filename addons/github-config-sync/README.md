@@ -56,6 +56,9 @@ If you find this project useful, and would like to help support its continued de
 - The stable local API contract is `/api/health`, `/api/status`, `/api/sync`, and `/api/diagnostics`.
 - Home Assistant shows the short repo-root changelog on the update page; the in-app UI reads the full changelog from the app folder.
 - Stable and dev now use separate numeric lanes in the UI: stable `1.0.0` and dev `1.0.1`.
+- Default ignores now include common HA editor/runtime artifacts such as `.venv`, `.vscode`, `.yaml_fix_backups`, `.ha_fix_yaml.py`, `.ruff_cache`, `.pytest_cache`, and OS temp files.
+- HA-sensitive defaults also exclude `secrets.yaml`, `ip_bans.yaml`, `known_devices.yaml`, runtime databases, and log files.
+- Live uploads also write a root `SECURITY_UPLOAD_WARNINGS.md` file when suspicious files are skipped.
 - The add-on writes an internal repo marker on newly created repositories so clean actions and the repo picker only target safe repos.
 
 ## Runbook

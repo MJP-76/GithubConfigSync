@@ -7,7 +7,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from .errors import SyncError
 from .github_client import GitHubClient
-from .hashing import build_hash_index, diff_hash_indexes, is_ignored
+from .hashing import build_hash_index, diff_hash_indexes, is_ignored, scan_sensitive_files
 from .models import SyncConfig, SyncPlan, SyncResult
 
 _MAX_PARALLEL_SNAPSHOT_UPLOADS = 8
@@ -39,6 +39,7 @@ class SyncEngine:
             branch=config.branch,
             token=config.token,
         )
+        self._sensitive_files: list[str] = []
         self._cancel_requested: Callable[[], bool] = lambda: False
         self._progress_callback: Callable[[dict[str, object]], None] = lambda _payload: None
 
@@ -101,6 +102,9 @@ class SyncEngine:
                     f"and delete {len(plan.removed)} files."
                 ),
             )
+
+    def sensitive_files(self) -> list[str]:
+            return list(self._sensitive_files)
 
         synced_count = 0
         deleted_count = 0
@@ -401,6 +405,7 @@ class SyncEngine:
                 self._put_with_retry(remote_path, local_path.read_bytes(), message=f"sync: restore {remote_path}")
 
     def _build_hash_index(self) -> dict[str, str]:
+        self._sensitive_files = scan_sensitive_files(self._config_root)
         index: dict[str, str] = {}
         for prefix, root in self._root_map:
             if not root.exists():
