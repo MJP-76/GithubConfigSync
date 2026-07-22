@@ -26,10 +26,10 @@ If you find this project useful, and would like to help support its continued de
 ## Version Tracker
 
 <!-- VERSION:START -->
-- Integration version: `0.5.9`
-- Add-on version: `0.5.9`
+- Integration version: `1.0.0`
+- Add-on version: `1.0.0`
 - Channel: `stable`
-- Release tag: `v0.5.9`
+- Release tag: `v1.0.0`
 <!-- VERSION:END -->
 
 ## What it provides
@@ -55,7 +55,7 @@ If you find this project useful, and would like to help support its continued de
 - Runtime state is persisted in `/data/state.json`, `/data/hash_index.json`, `/data/device_flow.json`, and `/data/sync.log`.
 - The stable local API contract is `/api/health`, `/api/status`, `/api/sync`, and `/api/diagnostics`.
 - Home Assistant shows the short repo-root changelog on the update page; the in-app UI reads the full changelog from the app folder.
-- Stable, RC, and dev now use separate numeric lanes in the UI: stable `0.5.9`, RC `0.5.10`, and dev `0.5.11`.
+- Stable and dev now use separate numeric lanes in the UI: stable `1.0.0` and dev `1.0.1`.
 - The add-on writes an internal repo marker on newly created repositories so clean actions and the repo picker only target safe repos.
 
 ## Runbook
@@ -116,8 +116,8 @@ If you find this project useful, and would like to help support its continued de
 - Version snapshots now skip ignored directories like `.cache`, even inside release snapshots.
 - New repository creation defaults blank name/description fields to a humanized repository name.
 - This release carries the repo-create default behavior and the sync fixes from the last two commits.
-- Release track split: `MJP-76/GithubConfigSync` publishes `x`, and `MJP-76/GithubConfigSync-dev` publishes `y`/`z` prereleases.
-- Versioning rule: keep numeric `x.y.z` versions, and use release tags `vX.Y.Z-stable`, `vX.Y.Z-rc`, and `vX.Y.Z-dev` by channel.
+- Release track split: `MJP-76/GithubConfigSync` publishes stable releases, and `MJP-76/GithubConfigSync-dev` publishes dev releases.
+- Versioning rule: keep numeric `x.y.z` versions and use stable releases in the main repo with dev releases in the dev fork.
 
 ## Verification notes
 

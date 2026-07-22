@@ -222,7 +222,7 @@
 
       .version-grid {
         display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
+        grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 10px;
         margin-top: 10px;
       }
@@ -274,10 +274,6 @@
           <div class="version-item">
             <span class="progress-label">Stable</span>
             <span id="stableRepoVersion" class="progress-value">Loading...</span>
-          </div>
-          <div class="version-item">
-            <span class="progress-label">RC</span>
-            <span id="rcRepoVersion" class="progress-value">Loading...</span>
           </div>
           <div class="version-item">
             <span class="progress-label">Dev</span>
@@ -522,7 +518,6 @@
         status: document.getElementById("status"),
         versionBadge: document.getElementById("versionBadge"),
         stableRepoVersion: document.getElementById("stableRepoVersion"),
-        rcRepoVersion: document.getElementById("rcRepoVersion"),
         devRepoVersion: document.getElementById("devRepoVersion"),
         repo: document.getElementById("repo"),
         authMethod: document.getElementById("authMethod"),
@@ -801,7 +796,6 @@
           (data.log_tail || "");
         el.versionBadge.textContent = `Version: ${data.version || "unknown"}`;
         el.stableRepoVersion.textContent = (data.repo_versions && data.repo_versions.stable) || "unknown";
-        el.rcRepoVersion.textContent = (data.repo_versions && data.repo_versions.rc) || "unknown";
         el.devRepoVersion.textContent = (data.repo_versions && data.repo_versions.dev) || "unknown";
         setStatus(`${(data.state && data.state.status) || "idle"}`, !(data.state && data.state.status === "error"));
       }

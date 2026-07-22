@@ -14,10 +14,9 @@ from sync.errors import SyncError
 from sync.github_client import GitHubClient
 from sync.hashing import IGNORE_PATTERNS
 
-APP_VERSION = "0.5.11"
-STABLE_REPO_VERSION = "0.5.9"
-RC_REPO_VERSION = "0.5.10"
-DEV_REPO_VERSION = "0.5.11"
+APP_VERSION = "1.0.0"
+STABLE_REPO_VERSION = "1.0.0"
+DEV_REPO_VERSION = "1.0.1"
 APP_PORT = 8099
 DEFAULT_OAUTH_CLIENT_ID = "Ov23li2ycCraodta6WCU"
 DEFAULT_NEW_REPO_NAME = "ha-github-config-sync"
@@ -556,7 +555,6 @@ def get_status():
             "version": APP_VERSION,
             "repo_versions": {
                 "stable": _display_repo_version(STABLE_REPO_VERSION, "n/a"),
-                "rc": _display_repo_version(RC_REPO_VERSION, "n/a"),
                 "dev": _display_repo_version(DEV_REPO_VERSION, APP_VERSION),
                 "current": APP_VERSION,
             },

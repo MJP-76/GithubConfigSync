@@ -23,13 +23,13 @@ If you find this project useful, and would like to help support its continued de
 ## Version Tracker
 
 <!-- VERSION:START -->
-- Integration version: `0.5.9`
-- Add-on version: `0.5.9`
+- Integration version: `1.0.0`
+- Add-on version: `1.0.0`
 - Channel: `stable`
-- Release tag: `v0.5.9`
+- Release tag: `v1.0.0`
 <!-- VERSION:END -->
 
-Stable, RC, and dev now follow separate numeric lanes in the UI: stable `0.5.9`, RC `0.5.10`, and dev `0.5.11`.
+Stable and dev now follow separate numeric lanes in the UI: stable `1.0.0` and dev `1.0.1`.
 Repos created by the add-on are marked internally so destructive clean actions and the repo picker can ignore unsafe existing repositories.
 
 To sync versions across integration/app/runtime/docs automatically:
@@ -52,8 +52,8 @@ Security hardening is part of the current release: private repos only, sensitive
 - Runs once a day by default.
 - Keeps 7 GitHub version snapshots by default.
 - Both values are configurable in the app UI.
-- Numeric releases stay in sequence across stable, RC, and dev.
-- Stable and RC live in the main repository; dev remains the prerelease/testing track.
+- Numeric releases stay in sequence across stable and dev.
+- Stable lives in the main repository; dev remains the prerelease/testing track.
 
 ## Architecture
 
