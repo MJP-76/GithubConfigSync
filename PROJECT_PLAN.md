@@ -16,10 +16,10 @@ Use this as the single source of truth for **where we are**, **what is next**, a
 - **Versioning rule:** keep numeric `x.y.z` versions for integration/add-on, and publish channel tags as `vX.Y.Z-stable`, `vX.Y.Z-rc`, and `vX.Y.Z-dev`.
 
 <!-- VERSION:START -->
-- Integration version: `0.5.3`
-- Add-on version: `0.5.3`
+- Integration version: `0.5.4`
+- Add-on version: `0.5.4`
 - Channel: `stable`
-- Release tag: `v0.5.3-stable`
+- Release tag: `v0.5.4-stable`
 <!-- VERSION:END -->
 
 ---

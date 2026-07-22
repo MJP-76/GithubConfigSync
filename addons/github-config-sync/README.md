@@ -26,10 +26,10 @@ If you find this project useful, and would like to help support its continued de
 ## Version Tracker
 
 <!-- VERSION:START -->
-- Integration version: `0.5.3`
-- Add-on version: `0.5.3`
+- Integration version: `0.5.4`
+- Add-on version: `0.5.4`
 - Channel: `stable`
-- Release tag: `v0.5.3-stable`
+- Release tag: `v0.5.4-stable`
 <!-- VERSION:END -->
 
 ## What it provides
