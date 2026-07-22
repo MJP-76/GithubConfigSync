@@ -251,8 +251,8 @@ class ServerApiTests(unittest.TestCase):
         diagnostics = self.client.get("/api/diagnostics").get_json()
 
         self.assertEqual(status["auth"]["token_state"], "configured")
-        self.assertEqual(status["repo_versions"]["stable"], "0.2.39")
-        self.assertEqual(status["repo_versions"]["rc"], "0.3.2")
+        self.assertEqual(status["repo_versions"]["stable"], server.STABLE_REPO_VERSION)
+        self.assertEqual(status["repo_versions"]["rc"], server.RC_REPO_VERSION)
         self.assertEqual(status["repo_versions"]["dev"], server.APP_VERSION)
         self.assertEqual(diagnostics["options"]["github_token"], "********")
 
