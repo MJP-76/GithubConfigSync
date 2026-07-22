@@ -13,13 +13,13 @@ Use this as the single source of truth for **where we are**, **what is next**, a
 - **Current operator UX:** Device Login section first, existing/create repo flow, troubleshooting auth overrides hidden by default
 - **Version state:** stable and RC share the mainline version; dev carries the prerelease/testing track.
 - **Release tracks:** stable and RC ship from the main repository, dev carries prerelease work.
-- **Versioning rule:** keep numeric versions only, and bump them in sequence for stable, RC, and dev releases.
+- **Versioning rule:** keep numeric `x.y.z` versions for integration/add-on, and publish channel tags as `vX.Y.Z-stable`, `vX.Y.Z-rc`, and `vX.Y.Z-dev`.
 
 <!-- VERSION:START -->
-- Integration version: `0.3.3`
-- Add-on version: `0.3.3`
-- Channel: `dev`
-- Release tag: `v0.3.3`
+- Integration version: `0.5.0`
+- Add-on version: `0.5.0`
+- Channel: `rc`
+- Release tag: `v0.5.0-rc`
 <!-- VERSION:END -->
 
 ---

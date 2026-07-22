@@ -26,10 +26,10 @@ If you find this project useful, and would like to help support its continued de
 ## Version Tracker
 
 <!-- VERSION:START -->
-- Integration version: `0.3.3`
-- Add-on version: `0.3.3`
-- Channel: `dev`
-- Release tag: `v0.3.3`
+- Integration version: `0.5.0`
+- Add-on version: `0.5.0`
+- Channel: `rc`
+- Release tag: `v0.5.0-rc`
 <!-- VERSION:END -->
 
 ## What it provides
@@ -115,7 +115,7 @@ Stable and RC releases share the same main repository version line; RC is the pr
 - New repository creation defaults blank name/description fields to a humanized repository name.
 - This release carries the repo-create default behavior and the sync fixes from the last two commits.
 - Release track split: `MJP-76/GithubConfigSync` publishes `x`, and `MJP-76/GithubConfigSync-dev` publishes `y`/`z` prereleases.
-- Versioning rule: keep numeric versions, but label the tracks as `x` (stable), `y` (RC), and `z` (dev).
+- Versioning rule: keep numeric `x.y.z` versions, and use release tags `vX.Y.Z-stable`, `vX.Y.Z-rc`, and `vX.Y.Z-dev` by channel.
 
 ## Verification notes
 
