@@ -251,9 +251,12 @@ class ServerApiTests(unittest.TestCase):
         diagnostics = self.client.get("/api/diagnostics").get_json()
 
         self.assertEqual(status["auth"]["token_state"], "configured")
+        self.assertEqual(status["version"], server.APP_RELEASE_TAG)
         self.assertEqual(status["repo_versions"]["stable"], server.STABLE_REPO_VERSION)
         self.assertEqual(status["repo_versions"]["rc"], server.RC_REPO_VERSION)
-        self.assertEqual(status["repo_versions"]["dev"], server.APP_VERSION)
+        self.assertEqual(status["repo_versions"]["dev"], server.DEV_REPO_VERSION)
+        self.assertEqual(status["repo_versions"]["current"], server.APP_RELEASE_TAG)
+        self.assertEqual(diagnostics["version"], server.APP_RELEASE_TAG)
         self.assertEqual(diagnostics["options"]["github_token"], "********")
 
     def test_create_repository_uses_default_name_when_blank(self) -> None:

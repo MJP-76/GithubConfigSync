@@ -15,9 +15,10 @@ from sync.github_client import GitHubClient
 from sync.hashing import IGNORE_PATTERNS
 
 APP_VERSION = "0.5.3"
-STABLE_REPO_VERSION = "0.5.3"
-RC_REPO_VERSION = "0.5.3"
-DEV_REPO_VERSION = APP_VERSION
+APP_RELEASE_TAG = "v0.5.3-stable"
+STABLE_REPO_VERSION = "v0.5.3-stable"
+RC_REPO_VERSION = "v0.5.3-rc"
+DEV_REPO_VERSION = "v0.5.4-dev"
 APP_PORT = 8099
 DEFAULT_OAUTH_CLIENT_ID = "Ov23li2ycCraodta6WCU"
 DEFAULT_NEW_REPO_NAME = "ha-github-config-sync"
@@ -227,7 +228,7 @@ def _diagnostics_bundle() -> dict[str, Any]:
     state = _load_state()
     return {
         "ok": True,
-        "version": APP_VERSION,
+        "version": APP_RELEASE_TAG,
         "auth": _auth_diagnostics(options),
         "token_health": _token_health(options),
         "options": _mask_token(options),
@@ -359,7 +360,7 @@ def index():
 
 @app.get("/api/health")
 def health():
-    return jsonify({"ok": True, "version": APP_VERSION})
+    return jsonify({"ok": True, "version": APP_RELEASE_TAG})
 
 
 @app.post("/api/sync/manual")
@@ -508,12 +509,12 @@ def get_status():
             "ok": True,
             "state": state,
             "auth": _auth_diagnostics(options),
-            "version": APP_VERSION,
+            "version": APP_RELEASE_TAG,
             "repo_versions": {
                 "stable": STABLE_REPO_VERSION,
                 "rc": RC_REPO_VERSION,
                 "dev": DEV_REPO_VERSION,
-                "current": APP_VERSION,
+                "current": APP_RELEASE_TAG,
             },
             "token_health": _token_health(options),
             "cancel_sync": _is_cancel_requested(),
