@@ -29,7 +29,7 @@ If you find this project useful, and would like to help support its continued de
 - Release tag: `v0.5.9`
 <!-- VERSION:END -->
 
-Stable, RC, and dev now follow separate numeric lanes in the UI: stable `0.5.0`, RC `0.5.9`, and dev `0.5.10`.
+Stable, RC, and dev now follow separate numeric lanes in the UI: stable `0.5.0`, RC `0.5.9`, and dev `0.5.11`.
 Repos created by the add-on are marked internally so destructive clean actions and the repo picker can ignore unsafe existing repositories.
 
 To sync versions across integration/app/runtime/docs automatically:

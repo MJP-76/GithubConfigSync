@@ -6,7 +6,7 @@ Use this as the single source of truth for **where we are**, **what is next**, a
 
 ## Status Snapshot
 
-- **Current milestone:** `v0.5.10 — version lane alignment`
+- **Current milestone:** `v0.5.11 — version lane alignment`
 - **Last updated:** 2026-07-14
 - **Track:** Home Assistant Integration + Home Assistant Add-on (Ingress Web UI)
 - **Latest shipped improvements:** autosave in the UI, bundled starter files, fast git-tree Clean Repo, and dry-run feedback in manual sync
