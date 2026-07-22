@@ -13,6 +13,7 @@ from .errors import SyncError
 
 API_BASE = "https://api.github.com"
 OAUTH_BASE = "https://github.com"
+ADDON_REPO_MARKER_PATH = ".github-config-sync-addon.json"
 
 
 @dataclass(frozen=True)
@@ -106,6 +107,14 @@ class GitHubClient:
         if not created.get("full_name"):
             raise SyncError("GitHub create repository returned incomplete payload")
         return created
+
+    def write_repo_marker(self, payload: dict[str, Any] | None = None) -> dict[str, Any]:
+        marker_payload = payload or {"created_by": "github-config-sync-addon"}
+        return self.put_content(
+            path=ADDON_REPO_MARKER_PATH,
+            content=json.dumps(marker_payload, indent=2, sort_keys=True).encode("utf-8"),
+            message="sync: add repo marker",
+        )
 
     def probe_repository(self) -> tuple[bool, str]:
         try:

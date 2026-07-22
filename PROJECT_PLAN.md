@@ -6,14 +6,14 @@ Use this as the single source of truth for **where we are**, **what is next**, a
 
 ## Status Snapshot
 
-- **Current milestone:** `v0.3.3 — dev release prep`
+- **Current milestone:** `v0.5.6 — version lane alignment`
 - **Last updated:** 2026-07-14
 - **Track:** Home Assistant Integration + Home Assistant Add-on (Ingress Web UI)
 - **Latest shipped improvements:** autosave in the UI, bundled starter files, fast git-tree Clean Repo, and dry-run feedback in manual sync
 - **Current operator UX:** Device Login section first, existing/create repo flow, troubleshooting auth overrides hidden by default
-- **Version state:** stable and RC share the mainline version; dev carries the prerelease/testing track.
-- **Release tracks:** stable and RC ship from the main repository, dev carries prerelease work.
-- **Versioning rule:** keep numeric `x.y.z` versions for integration/add-on, and publish channel tags as `vX.Y.Z-stable`, `vX.Y.Z-rc`, and `vX.Y.Z-dev`.
+- **Version state:** stable, RC, and dev use separate numeric lanes.
+- **Release tracks:** stable ships from the main repository, RC is the pre-release line, dev carries prerelease work.
+- **Versioning rule:** keep numeric `x.y.z` versions for integration/add-on and surface the track in the status UI.
 
 <!-- VERSION:START -->
 - Integration version: `0.5.6`

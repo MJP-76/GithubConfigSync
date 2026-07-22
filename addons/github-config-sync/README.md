@@ -54,7 +54,8 @@ If you find this project useful, and would like to help support its continued de
 - Live runs also write versioned snapshots under `versions/<timestamp>/...` (parallelized uploads) and keep the most recent 7 by default.
 - Runtime state is persisted in `/data/state.json`, `/data/hash_index.json`, `/data/device_flow.json`, and `/data/sync.log`.
 - The stable local API contract is `/api/health`, `/api/status`, `/api/sync`, and `/api/diagnostics`.
-Stable and RC releases share the same main repository version line; RC is the pre-release track for that line.
+Stable, RC, and dev now use separate numeric lanes in the UI: stable `0.5.0`, RC `0.5.5`, and dev `0.5.6`.
+The add-on writes an internal repo marker on newly created repositories so clean actions and the repo picker only target safe repos.
 
 ## Runbook
 

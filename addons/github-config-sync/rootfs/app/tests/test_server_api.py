@@ -199,7 +199,8 @@ class ServerApiTests(unittest.TestCase):
                 {"name": "repo-a", "full_name": "owner/repo-a", "private": True},
                 {"name": "repo-b", "full_name": "owner/repo-b", "private": False},
             ]
-            response = self.client.get("/api/repos")
+            with patch("sync.github_client.GitHubClient.list_directory_contents", return_value=[]):
+                response = self.client.get("/api/repos")
 
         body = response.get_json()
         self.assertEqual(response.status_code, 200)
@@ -207,28 +208,48 @@ class ServerApiTests(unittest.TestCase):
         self.assertEqual(len(body["repos"]), 2)
         self.assertEqual(body["repos"][0]["full_name"], "owner/repo-a")
 
+    def test_list_repositories_filters_out_unsafe_existing_repos(self) -> None:
+        self._write_options({"github_repository": "owner/repo", "github_branch": "main", "github_token": "gho_x"})
+        with patch("sync.github_client.GitHubClient.list_user_repositories") as list_repos:
+            list_repos.return_value = [
+                {"name": "repo-a", "full_name": "owner/repo-a", "private": True, "default_branch": "main"},
+                {"name": "repo-b", "full_name": "owner/repo-b", "private": False, "default_branch": "main"},
+            ]
+            with patch("sync.github_client.GitHubClient.list_directory_contents") as list_contents:
+                list_contents.side_effect = [[{"path": server.ADDON_REPO_MARKER_PATH}], [{"path": "README.md"}]]
+                response = self.client.get("/api/repos")
+
+        body = response.get_json()
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(body["ok"])
+        self.assertEqual(len(body["repos"]), 1)
+        self.assertEqual(body["repos"][0]["full_name"], "owner/repo-a")
+
     def test_create_repository_updates_selected_repository(self) -> None:
         self._write_options({"auth_method": "device_flow", "github_branch": "main", "github_token": "gho_x"})
         with patch("sync.github_client.GitHubClient.create_repository") as create_repo:
             create_repo.return_value = {"full_name": "owner/new-config-repo"}
-            response = self.client.post(
-                "/api/repos/create",
-                json={"name": "new-config-repo", "private": True, "description": "desc"},
-            )
+            with patch("sync.github_client.GitHubClient.write_repo_marker") as write_marker:
+                response = self.client.post(
+                    "/api/repos/create",
+                    json={"name": "new-config-repo", "private": True, "description": "desc"},
+                )
 
         body = response.get_json()
         self.assertEqual(response.status_code, 200)
         self.assertTrue(body["ok"])
         self.assertEqual(body["repository"], "owner/new-config-repo")
+        write_marker.assert_called_once()
 
     def test_create_repository_respects_visibility_choice(self) -> None:
         self._write_options({"auth_method": "device_flow", "github_branch": "main", "github_token": "gho_x"})
         with patch("sync.github_client.GitHubClient.create_repository") as create_repo:
             create_repo.return_value = {"full_name": "owner/new-config-repo"}
-            response = self.client.post(
-                "/api/repos/create",
-                json={"name": "new-config-repo", "private": False, "description": "desc"},
-            )
+            with patch("sync.github_client.GitHubClient.write_repo_marker"):
+                response = self.client.post(
+                    "/api/repos/create",
+                    json={"name": "new-config-repo", "private": False, "description": "desc"},
+                )
 
         body = response.get_json()
         self.assertEqual(response.status_code, 200)
@@ -253,17 +274,18 @@ class ServerApiTests(unittest.TestCase):
         self.assertEqual(status["auth"]["token_state"], "configured")
         self.assertEqual(status["repo_versions"]["stable"], server.STABLE_REPO_VERSION)
         self.assertEqual(status["repo_versions"]["rc"], server.RC_REPO_VERSION)
-        self.assertEqual(status["repo_versions"]["dev"], server.APP_VERSION)
+        self.assertEqual(status["repo_versions"]["dev"], server.DEV_REPO_VERSION)
         self.assertEqual(diagnostics["options"]["github_token"], "********")
 
     def test_create_repository_uses_default_name_when_blank(self) -> None:
         self._write_options({"github_branch": "main", "github_token": "gho_x"})
         with patch("sync.github_client.GitHubClient.create_repository") as create_repo:
             create_repo.return_value = {"full_name": "owner/ha-github-config-sync"}
-            response = self.client.post(
-                "/api/repos/create",
-                json={"name": "", "private": True, "description": ""},
-            )
+            with patch("sync.github_client.GitHubClient.write_repo_marker"):
+                response = self.client.post(
+                    "/api/repos/create",
+                    json={"name": "", "private": True, "description": ""},
+                )
 
         body = response.get_json()
         self.assertEqual(response.status_code, 200)
@@ -275,10 +297,11 @@ class ServerApiTests(unittest.TestCase):
         self._write_options({"auth_method": "device_flow", "github_branch": "main", "github_token": "gho_x"})
         with patch("sync.github_client.GitHubClient.create_repository") as create_repo:
             create_repo.return_value = {"full_name": "owner/ha-github-config-sync"}
-            response = self.client.post(
-                "/api/repos/create",
-                json={"name": "ha-github-config-sync", "description": "desc"},
-            )
+            with patch("sync.github_client.GitHubClient.write_repo_marker"):
+                response = self.client.post(
+                    "/api/repos/create",
+                    json={"name": "ha-github-config-sync", "description": "desc"},
+                )
 
         body = response.get_json()
         self.assertEqual(response.status_code, 200)
@@ -501,6 +524,64 @@ class ServerApiTests(unittest.TestCase):
         self.assertEqual(body["result"], "Clean repo completed. Remote repo skeleton restored.")
         engine.clean_remote_tree.assert_called_once()
         engine.restore_repo_skeleton.assert_called_once()
+
+    def test_clean_repo_rejects_non_addon_repository_with_files(self) -> None:
+        self._write_options(
+            {
+                "github_repository": "owner/repo",
+                "github_branch": "main",
+                "github_token": "gho_test",
+                "sync_interval_minutes": 60,
+                "dry_run": True,
+            }
+        )
+
+        with patch("server.SyncEngine") as engine_cls:
+            engine = engine_cls.return_value
+            engine._github.list_directory_contents.return_value = [{"path": "README.md"}]
+            response = self.client.post("/api/sync/clean-repo")
+
+        body = response.get_json()
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(body["ok"])
+        self.assertIn("not created by this add-on", body["error"])
+        engine.clean_remote_tree.assert_not_called()
+        engine.restore_repo_skeleton.assert_not_called()
+
+    def test_clean_upload_allows_empty_existing_repository(self) -> None:
+        self._write_options(
+            {
+                "github_repository": "owner/repo",
+                "github_branch": "main",
+                "github_token": "gho_test",
+                "sync_interval_minutes": 60,
+                "dry_run": True,
+            }
+        )
+        (self._config_root / "one.txt").write_text("one", encoding="utf-8")
+
+        with patch("server.SyncEngine") as engine_cls:
+            engine = engine_cls.return_value
+            engine._github.list_directory_contents.return_value = []
+            engine._github.probe_repository.return_value = (True, "Repository probe succeeded")
+            engine.clean_plan.return_value = (
+                unittest.mock.MagicMock(
+                    added=["one.txt"],
+                    changed=[],
+                    removed=[],
+                    total_files=1,
+                ),
+                {"one.txt": "abc"},
+            )
+            engine.run.return_value = unittest.mock.MagicMock(
+                synced_count=1, deleted_count=0, skipped_count=0, total_files=1, message="Sync completed."
+            )
+            response = self.client.post("/api/sync/clean")
+
+        body = response.get_json()
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(body["ok"])
+        engine.clean_remote_tree.assert_called_once()
 
     def test_manual_sync_endpoint_uses_retention_days(self) -> None:
         (self._config_root / "one.txt").write_text("one", encoding="utf-8")

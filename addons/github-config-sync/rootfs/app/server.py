@@ -15,12 +15,13 @@ from sync.github_client import GitHubClient
 from sync.hashing import IGNORE_PATTERNS
 
 APP_VERSION = "0.5.6"
-STABLE_REPO_VERSION = "0.5.6"
-RC_REPO_VERSION = "0.5.6"
+STABLE_REPO_VERSION = "0.5.0"
+RC_REPO_VERSION = "0.5.5"
 DEV_REPO_VERSION = "0.5.6"
 APP_PORT = 8099
 DEFAULT_OAUTH_CLIENT_ID = "Ov23li2ycCraodta6WCU"
 DEFAULT_NEW_REPO_NAME = "ha-github-config-sync"
+ADDON_REPO_MARKER_PATH = ".github-config-sync-addon.json"
 
 DATA_DIR = Path("/data")
 SUPERVISOR_OPTIONS_PATH = DATA_DIR / "options.json"
@@ -52,6 +53,20 @@ DEFAULT_OPTIONS: dict[str, Any] = {
     "include_backups": False,
     "include_www": True,
 }
+
+
+def _repo_safety_state(engine: SyncEngine) -> tuple[bool, str]:
+    contents = engine._github.list_directory_contents()  # pylint: disable=protected-access
+    if not isinstance(contents, list):
+        contents = []
+    marker_present = any(
+        isinstance(item.get("path"), str) and item["path"] == ADDON_REPO_MARKER_PATH for item in contents
+    )
+    if marker_present:
+        return True, "Repository marker found"
+    if not contents:
+        return True, "Repository is empty"
+    return False, "Repository was not created by this add-on and is not empty"
 
 DEFAULT_STATE: dict[str, Any] = {
     "status": "idle",
@@ -681,6 +696,25 @@ def list_repos():
     except SyncError as err:
         return jsonify({"ok": False, "error": str(err)}), 400
 
+    filtered_repos: list[dict[str, Any]] = []
+    for repo in repos:
+        full_name = str(repo.get("full_name", "")).strip()
+        if not full_name:
+            continue
+        safety_client = GitHubClient(
+            repository=full_name,
+            branch=str(repo.get("default_branch", "main")).strip() or "main",
+            token=str(options.get("github_token", "")).strip(),
+        )
+        contents = safety_client.list_directory_contents()
+        if not isinstance(contents, list):
+            contents = []
+        marker_present = any(
+            isinstance(item.get("path"), str) and item["path"] == ADDON_REPO_MARKER_PATH for item in contents
+        )
+        if marker_present or not contents:
+            filtered_repos.append(repo)
+
     return jsonify(
         {
             "ok": True,
@@ -690,7 +724,7 @@ def list_repos():
                     "full_name": str(repo.get("full_name", "")),
                     "private": bool(repo.get("private", False)),
                 }
-                for repo in repos
+                for repo in filtered_repos
             ],
         }
     )
@@ -719,6 +753,7 @@ def create_repo():
         return jsonify({"ok": False, "error": str(err)}), 400
     try:
         repo = client.create_repository(name=name, private=private, description=description)
+        client.write_repo_marker({"created_by": "github-config-sync-addon", "repository": repo.get("full_name")})
     except SyncError as err:
         return jsonify({"ok": False, "error": str(err)}), 502
 
@@ -881,6 +916,18 @@ def trigger_clean_sync():
     try:
         previous_index = _load_json(HASH_INDEX_PATH, {})
         engine = SyncEngine(sync_config, previous_hash_index=previous_index)
+        safe, reason = _repo_safety_state(engine)
+        if not safe:
+            state = _save_state(
+                {
+                    "status": "error",
+                    "last_error": reason,
+                    "last_result": None,
+                    "last_scan": None,
+                }
+            )
+            _append_log(f"Clean upload blocked: {reason}")
+            return jsonify({"ok": False, "error": reason, "state": state}), 400
         engine.set_cancel_checker(_is_cancel_requested)
         engine.set_progress_callback(lambda payload: _save_state(_sync_progress_payload(payload)))
         engine.clean_remote_tree()
@@ -969,6 +1016,9 @@ def trigger_clean_repo():
 
     try:
         engine = SyncEngine(sync_config, previous_hash_index=_load_json(HASH_INDEX_PATH, {}))
+        safe, reason = _repo_safety_state(engine)
+        if not safe:
+            return jsonify({"ok": False, "error": reason}), 400
         engine.clean_remote_tree()
         engine.restore_repo_skeleton()
     except SyncError as err:
