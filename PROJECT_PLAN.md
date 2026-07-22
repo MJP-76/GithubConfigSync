@@ -6,14 +6,15 @@ Use this as the single source of truth for **where we are**, **what is next**, a
 
 ## Status Snapshot
 
-- **Current milestone:** `v0.5.11 — version lane alignment`
-- **Last updated:** 2026-07-14
+- **Current milestone:** `v0.5.9 — stable release`
+- **Last updated:** 2026-07-22
 - **Track:** Home Assistant Integration + Home Assistant Add-on (Ingress Web UI)
-- **Latest shipped improvements:** autosave in the UI, bundled starter files, fast git-tree Clean Repo, and dry-run feedback in manual sync
+- **Latest shipped improvements:** autosave in the UI, bundled starter files, fast git-tree Clean Repo, dry-run feedback in manual sync, split changelog surfaces, and stable release promotion
 - **Current operator UX:** Device Login section first, existing/create repo flow, troubleshooting auth overrides hidden by default
-- **Version state:** stable, RC, and dev use separate numeric lanes.
+- **Version state:** stable, RC, and dev use separate numeric lanes (`0.5.9` / `0.5.10` / `0.5.11`).
 - **Release tracks:** stable ships from the main repository, RC is the pre-release line, dev carries prerelease work.
 - **Versioning rule:** keep numeric `x.y.z` versions for integration/add-on and surface the track in the status UI.
+- **Changelog rule:** the HA update page uses the short repo-root changelog; the in-app UI uses the full app changelog.
 
 <!-- VERSION:START -->
 - Integration version: `0.5.9`

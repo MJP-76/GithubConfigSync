@@ -25,11 +25,11 @@ If you find this project useful, and would like to help support its continued de
 <!-- VERSION:START -->
 - Integration version: `0.5.9`
 - Add-on version: `0.5.9`
-- Channel: `rc`
+- Channel: `stable`
 - Release tag: `v0.5.9`
 <!-- VERSION:END -->
 
-Stable, RC, and dev now follow separate numeric lanes in the UI: stable `0.5.0`, RC `0.5.9`, and dev `0.5.11`.
+Stable, RC, and dev now follow separate numeric lanes in the UI: stable `0.5.9`, RC `0.5.10`, and dev `0.5.11`.
 Repos created by the add-on are marked internally so destructive clean actions and the repo picker can ignore unsafe existing repositories.
 
 To sync versions across integration/app/runtime/docs automatically:
@@ -67,6 +67,7 @@ Security hardening is part of the current release: private repos only, sensitive
 - Live runs also write versioned snapshots under `versions/<timestamp>/...` (parallelized uploads) and keep the most recent 7 by default.
 - State, logs, device-flow data, and the last hash index live in `/data`.
 - The app exposes a stable local API contract via `/api/health`, `/api/status`, `/api/sync`, and `/api/diagnostics`.
+- The Home Assistant update page uses the short repo-root changelog; the in-app UI uses the full app changelog.
 - Single-repo release flow: releases are numeric and sequential, and the same repository can be used for stable or prerelease testing.
 - The generated `.gitignore` includes the common Home Assistant guidance entries such as `secrets.yaml`, `ip_bans.yaml`, `known_devices.yaml`, `.storage/`, and `.cloud/`, while still honoring any local user additions.
 - After a release, Home Assistant may need a rebuild/reinstall to pick up UI changes from the app image.
