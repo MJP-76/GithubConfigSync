@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 import sys
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, call, patch
 
 APP_ROOT = Path(__file__).resolve().parents[1]
 if str(APP_ROOT) not in sys.path:
@@ -287,7 +287,12 @@ class SyncEngineTests(unittest.TestCase):
             with patch.object(engine, "_delete_remote_tree") as delete_tree:
                 engine.prune_versions_older_than_days(7)
 
-        delete_tree.assert_called_once_with("versions/20260601T120000Z")
+        delete_tree.assert_has_calls(
+            [
+                call("versions/20260601T120000Z"),
+                call("versions/20260707T120000Z"),
+            ]
+        )
 
     def test_clean_remote_tree_wipes_root_tree(self) -> None:
         config = SyncConfig(
@@ -300,9 +305,6 @@ class SyncEngineTests(unittest.TestCase):
             version_retention_count=7,
         )
         fake_client = MagicMock()
-        fake_client.get_branch_head_sha.return_value = "headsha"
-        fake_client.create_git_tree.return_value = {"sha": "treesha"}
-        fake_client.create_git_commit.return_value = {"sha": "commitsha"}
         fake_client.list_directory_contents.side_effect = [
             [
                 {"type": "dir", "name": "config", "path": "config"},
@@ -317,11 +319,17 @@ class SyncEngineTests(unittest.TestCase):
             engine = SyncEngine(config, previous_hash_index={})
             engine.clean_remote_tree()
 
-        fake_client.get_branch_head_sha.assert_called_once()
-        fake_client.create_git_tree.assert_called_once_with(tree=[])
-        fake_client.create_git_commit.assert_called_once()
-        fake_client.update_branch_ref.assert_called_once()
-        fake_client.delete_content.assert_not_called()
+        fake_client.list_directory_contents.assert_any_call("")
+        fake_client.delete_content.assert_any_call(
+            path="config/nested.yaml",
+            sha="nestedsha",
+            message="sync: delete config/nested.yaml",
+        )
+        fake_client.delete_content.assert_any_call(
+            path="root.yaml",
+            sha="rootsha",
+            message="sync: delete root.yaml",
+        )
 
     def test_clean_remote_tree_only_wipes_root_tree(self) -> None:
         config = SyncConfig(
@@ -356,11 +364,17 @@ class SyncEngineTests(unittest.TestCase):
             engine = SyncEngine(config, previous_hash_index={})
             engine.clean_remote_tree()
 
-        fake_client.get_branch_head_sha.assert_called_once()
-        fake_client.create_git_tree.assert_called_once_with(tree=[])
-        fake_client.create_git_commit.assert_called_once()
-        fake_client.update_branch_ref.assert_called_once()
-        fake_client.put_content.assert_not_called()
+        fake_client.list_directory_contents.assert_any_call("")
+        fake_client.delete_content.assert_any_call(
+            path="README.md",
+            sha="readmesha",
+            message="sync: delete README.md",
+        )
+        fake_client.delete_content.assert_any_call(
+            path="custom_components/nested.yaml",
+            sha="nestedsha",
+            message="sync: delete custom_components/nested.yaml",
+        )
 
     def test_restore_repo_skeleton_uses_app_root_assets(self) -> None:
         config = SyncConfig(

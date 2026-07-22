@@ -28,12 +28,25 @@ def _assert_simple_version(value: str, flag_name: str) -> None:
         raise ValueError(f"{flag_name} must be in x.y.z format (no suffix): {value}")
 
 
+def _bump_patch(version: str) -> str:
+    major, minor, patch = (int(part) for part in version.split("."))
+    return f"{major}.{minor}.{patch + 1}"
+
+
 def _channelize(version: str, channel: str) -> str:
-    return version if channel == "stable" else f"{version}-dev"
+    if channel == "dev":
+        return _bump_patch(version)
+    return version
 
 
 def _read(path: Path) -> str:
     return path.read_text(encoding="utf-8")
+
+
+def _read_optional(path: Path) -> str:
+    if not path.exists():
+        return ""
+    return _read(path)
 
 
 def _write(path: Path, content: str) -> None:
@@ -95,9 +108,9 @@ def main() -> int:
     parser.add_argument("--addon", help="Base add-on version in x.y.z format (defaults to --integration)")
     parser.add_argument(
         "--channel",
-        choices=["stable", "dev"],
+        choices=["stable", "rc", "dev"],
         required=True,
-        help="Release channel; dev appends -dev suffix to versions.",
+        help="Release channel; stable and rc use the base version and dev bumps the patch.",
     )
     parser.add_argument(
         "--check",
@@ -125,7 +138,7 @@ def main() -> int:
             channel=args.channel,
         )
 
-    changed_paths = [path for path, new_content in planned_updates.items() if _read(path) != new_content]
+    changed_paths = [path for path, new_content in planned_updates.items() if _read_optional(path) != new_content]
 
     if args.check:
         if changed_paths:

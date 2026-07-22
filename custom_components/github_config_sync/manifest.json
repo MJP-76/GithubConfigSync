@@ -1,7 +1,7 @@
 {
   "domain": "github_config_sync",
   "name": "Github Config Sync",
-  "version": "0.2.39-dev",
+  "version": "0.3.3",
   "config_flow": true,
   "dependencies": [
     "http"
@@ -12,6 +12,5 @@
   "documentation": "https://github.com/MJP-76/GithubConfigSync#readme",
   "issue_tracker": "https://github.com/MJP-76/GithubConfigSync/issues",
   "iot_class": "cloud_push",
-  "requirements": [],
-  "version": "0.2.41-dev"
+  "requirements": []
 }

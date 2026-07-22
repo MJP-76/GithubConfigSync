@@ -8,7 +8,7 @@
 [![Manifest](https://img.shields.io/badge/Manifest-validated-success.svg)](https://developers.home-assistant.io/docs/creating_integration_manifest/)
 [![Release](https://img.shields.io/github/v/tag/MJP-76/GithubConfigSync?label=release)](https://github.com/MJP-76/GithubConfigSync/releases)
 
-Home Assistant custom integration for syncing the Home Assistant config folder to GitHub. This is a config sync tool, not a backup tool. <strong style="color:#ef4444">Danger Zone:</strong> <strong>Use a private GitHub repository only.</strong> Use caution with any two-way sync or other tools that can also write to the Home Assistant config tree, because they can cause local config loss or unexpected deletions.
+Home Assistant custom integration for syncing the Home Assistant config folder to GitHub. This is a config sync tool, not a backup tool. <strong style="color:#ef4444">Danger Zone:</strong> <strong>Private repositories are strongly recommended.</strong> Use caution with public repositories and with any two-way sync or other tools that can also write to the Home Assistant config tree, because they can cause local config loss or unexpected deletions.
 
 This documentation and code were drafted with AI assistance and then reviewed/edited by the maintainer.
 
@@ -23,16 +23,18 @@ If you find this project useful, and would like to help support its continued de
 ## Version Tracker
 
 <!-- VERSION:START -->
-- Integration version: `0.2.62`
-- App version: `0.2.62`
-- Channel: numeric
-- Release tag: `v0.2.62`
+- Integration version: `0.3.3`
+- Add-on version: `0.3.3`
+- Channel: `dev`
+- Release tag: `v0.3.3`
 <!-- VERSION:END -->
+
+Stable and RC releases are cut from the same main repository and share the same numeric version line; RC is the pre-release track for that line.
 
 To sync versions across integration/app/runtime/docs automatically:
 
 ```bash
-python3 scripts/sync_versions.py --integration 0.0.20 --addon 0.1.3 --channel numeric
+python3 scripts/sync_versions.py --integration 0.3.3 --addon 0.3.3 --channel dev
 ```
 
 ## Home Assistant App (Web UI)
@@ -49,9 +51,8 @@ Security hardening is part of the current release: private repos only, sensitive
 - Runs once a day by default.
 - Keeps 7 GitHub version snapshots by default.
 - Both values are configurable in the app UI.
-- Numeric releases stay in sequence across stable, RC, and dev; the main repo stays on stable releases and `GithubConfigSync-dev` carries prereleases.
-- Release track split: `MJP-76/GithubConfigSync` publishes `x`, and `MJP-76/GithubConfigSync-dev` publishes `y`/`z` prereleases.
-- Versioning rule: keep numeric versions, but label the tracks as `x` (stable), `y` (RC), and `z` (dev).
+- Numeric releases stay in sequence across stable, RC, and dev.
+- Stable and RC live in the main repository; dev remains the prerelease/testing track.
 
 ## Architecture
 
@@ -61,8 +62,8 @@ Security hardening is part of the current release: private repos only, sensitive
 - AppDaemon configs and apps under `/addon_configs/` are included in the normal sync scan.
 - The mount-point checklist lets you include or exclude standard Home Assistant folders, and the recommended .gitignore keeps the ignore list aligned.
 - Dry runs do not touch GitHub; live runs probe the repository first, then upsert and delete files through the GitHub Contents API. Remote deletes never remove local files.
-- Public repositories are blocked by design; repository creation is forced private.
-- Live runs also write versioned snapshots under `versions/<timestamp>/...` and keep the most recent 7 by default.
+- Repository creation defaults to `ha-github-config-sync` and private visibility, with an optional public visibility choice.
+- Live runs also write versioned snapshots under `versions/<timestamp>/...` (parallelized uploads) and keep the most recent 7 by default.
 - State, logs, device-flow data, and the last hash index live in `/data`.
 - The app exposes a stable local API contract via `/api/health`, `/api/status`, `/api/sync`, and `/api/diagnostics`.
 - Single-repo release flow: releases are numeric and sequential, and the same repository can be used for stable or prerelease testing.

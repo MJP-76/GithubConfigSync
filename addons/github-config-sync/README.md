@@ -6,12 +6,12 @@
 [![HASSfest](https://img.shields.io/badge/HASSfest-validated-success.svg)](https://developers.home-assistant.io/docs/add-ons/)
 [![Release](https://img.shields.io/github/v/tag/MJP-76/GithubConfigSync?label=release)](https://github.com/MJP-76/GithubConfigSync/releases)
 
-Containerized Home Assistant app with an ingress web UI for GitHub config sync operations. Release v0.2.56. This is a sync tool, not a backup tool.
+Containerized Home Assistant app with an ingress web UI for GitHub config sync operations. Release v0.3.3. This is a sync tool, not a backup tool.
 
 Authentication supports GitHub Device Flow or a fine-grained PAT scoped to the single target repository.
 
 
-<strong style="color:#ef4444">Danger Zone:</strong> <strong>use a private GitHub repository only.</strong> Use caution with any two-way sync or other tools that can also write to the Home Assistant config tree, because they can cause local config loss or unexpected deletions. The developer and maintainer are not responsible for data loss.
+<strong style="color:#ef4444">Danger Zone:</strong> <strong>private GitHub repositories are strongly recommended.</strong> Use caution with public repositories and with any two-way sync or other tools that can also write to the Home Assistant config tree, because they can cause local config loss or unexpected deletions. The developer and maintainer are not responsible for data loss.
 
 This documentation and code were drafted with AI assistance and then reviewed/edited by the maintainer.
 
@@ -26,10 +26,10 @@ If you find this project useful, and would like to help support its continued de
 ## Version Tracker
 
 <!-- VERSION:START -->
-- Integration version: `0.2.62`
-- App version: `0.2.62`
-- Channel: numeric
-- Release tag: `v0.2.62`
+- Integration version: `0.3.3`
+- Add-on version: `0.3.3`
+- Channel: `dev`
+- Release tag: `v0.3.3`
 <!-- VERSION:END -->
 
 ## What it provides
@@ -50,11 +50,11 @@ If you find this project useful, and would like to help support its continued de
 - `dry_run=true` stops after planning and returns the counts that would be applied for manual actions. A separate scheduled-sync checkbox can override dry run for automated runs.
 - `dry_run=false` probes the GitHub repository first, then performs upserts and deletes with the GitHub Contents API. Remote deletes never remove local files.
 - **Clean Repo** always runs live, empties the remote repo, and restores the starter files in the same step.
-- Public repositories are blocked by design; repository creation is forced private.
-- Live runs also write versioned snapshots under `versions/<timestamp>/...` and keep the most recent 7 by default.
+- Repository creation defaults to `ha-github-config-sync` and private visibility, with an optional public visibility choice.
+- Live runs also write versioned snapshots under `versions/<timestamp>/...` (parallelized uploads) and keep the most recent 7 by default.
 - Runtime state is persisted in `/data/state.json`, `/data/hash_index.json`, `/data/device_flow.json`, and `/data/sync.log`.
 - The stable local API contract is `/api/health`, `/api/status`, `/api/sync`, and `/api/diagnostics`.
-- After a release, Home Assistant may need a rebuild/reinstall to pick up UI changes from the app image.
+Stable and RC releases share the same main repository version line; RC is the pre-release track for that line.
 
 ## Runbook
 
@@ -108,7 +108,7 @@ If you find this project useful, and would like to help support its continued de
 
 - `dry_run` is enabled by default to avoid accidental pushes.
 - This app is designed as a polished operator UI layer and can be wired to deeper sync logic incrementally.
-- Security-focused safeguards are in place: private repositories only, sensitive-path filtering, and two-way sync warnings. Follow-up work includes local API auth checks, path ancestry validation, and stronger diagnostics redaction.
+- Security-focused safeguards are in place: private repositories are strongly recommended, sensitive-path filtering is active, and two-way sync warnings are visible. Follow-up work includes local API auth checks, path ancestry validation, and stronger diagnostics redaction.
 - The latest release includes the danger-zone security updates in the changelog.
 - The add-on repository metadata is minimal and valid for Home Assistant add-on store ingestion.
 - Version snapshots now skip ignored directories like `.cache`, even inside release snapshots.

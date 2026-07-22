@@ -3,10 +3,13 @@ from __future__ import annotations
 from pathlib import Path
 import datetime as dt
 from typing import Callable
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from .github_client import GitHubClient
 from .hashing import build_hash_index, diff_hash_indexes, is_ignored
 from .models import SyncConfig, SyncPlan, SyncResult
+
+_MAX_PARALLEL_SNAPSHOT_UPLOADS = 8
 
 
 class SyncEngine:
@@ -101,55 +104,13 @@ class SyncEngine:
         synced_count = 0
         deleted_count = 0
         skipped_count = 0
-        for index, relative in enumerate(upsert_paths):
-            if self._cancel_requested():
-                return self._cancelled_result(plan, synced_count, deleted_count, skipped_count)
-            self._progress_callback(
-                {
-                    "status": "running",
-                    "current_action": "upserting",
-                    "current_path": relative,
-                    "upsert_total": len(upsert_paths),
-                    "remove_total": len(removed_paths),
-                    "upsert_remaining": len(upsert_paths) - index,
-                    "remove_remaining": len(removed_paths),
-                    "upsert_paths": upsert_paths[index:index + 50],
-                    "remove_paths": removed_paths[:50],
-                }
-            )
-            local_path = self._local_path_for(relative)
-            if not local_path.exists():
-                skipped_count += 1
-                continue
-            self._put_with_retry(relative, local_path.read_bytes())
-            synced_count += 1
-
-        for index, relative in enumerate(removed_paths):
-            if self._cancel_requested():
-                return self._cancelled_result(plan, synced_count, deleted_count, skipped_count)
-            self._progress_callback(
-                {
-                    "status": "running",
-                    "current_action": "deleting",
-                    "current_path": relative,
-                    "upsert_total": len(upsert_paths),
-                    "remove_total": len(removed_paths),
-                    "upsert_remaining": 0,
-                    "remove_remaining": len(removed_paths) - index,
-                    "upsert_paths": [],
-                    "remove_paths": removed_paths[index:index + 50],
-                }
-            )
-            remote = self._github.get_content(relative)
-            if not remote or "sha" not in remote:
-                skipped_count += 1
-                continue
-            self._github.delete_content(
-                path=relative,
-                sha=remote["sha"],
-                message=f"sync: delete {relative}",
-            )
-            deleted_count += 1
+        synced_count, skipped_upserts, cancelled = self._apply_upserts(upsert_paths, removed_paths)
+        if cancelled:
+            return self._cancelled_result(plan, synced_count, deleted_count, skipped_count + skipped_upserts)
+        deleted_count, skipped_deletes, cancelled = self._apply_deletes(upsert_paths, removed_paths)
+        if cancelled:
+            return self._cancelled_result(plan, synced_count, deleted_count, skipped_count + skipped_upserts + skipped_deletes)
+        skipped_count = skipped_upserts + skipped_deletes
 
         if self._config.version_retention_count > 0:
             self._sync_version_snapshot()
@@ -167,13 +128,7 @@ class SyncEngine:
         )
 
     def clean_remote_tree(self) -> None:
-        head_sha = self._github.get_branch_head_sha()
-        empty_tree = self._github.create_git_tree(tree=[])["sha"]
-        commit = self._github.create_git_commit("sync: clean repo", empty_tree, head_sha)
-        commit_sha = commit.get("sha")
-        if not isinstance(commit_sha, str) or not commit_sha:
-            raise RuntimeError("GitHub create commit returned incomplete payload")
-        self._github.update_branch_ref(commit_sha)
+        self._delete_remote_tree("")
 
     def restore_repo_skeleton(self) -> None:
         self._restore_repo_skeleton()
@@ -181,17 +136,30 @@ class SyncEngine:
     def _sync_version_snapshot(self) -> None:
         timestamp = dt.datetime.now(dt.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
         version_root = f"versions/{timestamp}"
+        snapshot_entries: list[tuple[str, bytes]] = []
         for prefix, root in self._root_map:
             if not root.exists():
                 continue
             for path in sorted(root.rglob("*")):
+                if self._cancel_requested():
+                    return
                 if not path.is_file():
                     continue
                 relative = path.relative_to(root).as_posix()
                 if is_ignored(relative):
                     continue
                 target = f"{version_root}/{prefix}/{relative}" if prefix else f"{version_root}/{relative}"
-                self._put_with_retry(target, path.read_bytes(), message=f"sync: snapshot {target}")
+                snapshot_entries.append((target, path.read_bytes()))
+        if not snapshot_entries:
+            return
+        max_workers = min(_MAX_PARALLEL_SNAPSHOT_UPLOADS, len(snapshot_entries))
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = [
+                executor.submit(self._put_with_retry, target, content, f"sync: snapshot {target}")
+                for target, content in snapshot_entries
+            ]
+            for future in as_completed(futures):
+                future.result()
 
     def _rotate_version_snapshots(self) -> None:
         keep = max(1, self._config.version_retention_count)
@@ -299,6 +267,90 @@ class SyncEngine:
                 sha=sha,
                 message=f"sync: delete {item_path}",
             )
+
+    def _apply_upserts(self, upsert_paths: list[str], removed_paths: list[str]) -> tuple[int, int, bool]:
+        if not upsert_paths:
+            return 0, 0, False
+        synced_count = 0
+        skipped_count = 0
+        cancelled = False
+        with ThreadPoolExecutor(max_workers=min(4, len(upsert_paths))) as executor:
+            futures = {}
+            for relative in upsert_paths:
+                if self._cancel_requested():
+                    cancelled = True
+                    break
+                self._progress_callback(
+                    {
+                        "status": "running",
+                        "current_action": "upserting",
+                        "current_path": relative,
+                        "upsert_total": len(upsert_paths),
+                        "remove_total": len(removed_paths),
+                        "upsert_remaining": len(upsert_paths),
+                        "remove_remaining": len(removed_paths),
+                        "upsert_paths": upsert_paths[:50],
+                        "remove_paths": removed_paths[:50],
+                    }
+                )
+                local_path = self._local_path_for(relative)
+                if not local_path.exists():
+                    skipped_count += 1
+                    continue
+                futures[executor.submit(self._put_with_retry, relative, local_path.read_bytes())] = relative
+            for future in as_completed(futures):
+                future.result()
+                synced_count += 1
+        if self._cancel_requested():
+            cancelled = True
+        return synced_count, skipped_count, cancelled
+
+    def _apply_deletes(self, upsert_paths: list[str], removed_paths: list[str]) -> tuple[int, int, bool]:
+        if not removed_paths:
+            return 0, 0, False
+        deleted_count = 0
+        skipped_count = 0
+        cancelled = False
+        with ThreadPoolExecutor(max_workers=min(4, len(removed_paths))) as executor:
+            futures = {}
+            for relative in removed_paths:
+                if self._cancel_requested():
+                    cancelled = True
+                    break
+                self._progress_callback(
+                    {
+                        "status": "running",
+                        "current_action": "deleting",
+                        "current_path": relative,
+                        "upsert_total": len(upsert_paths),
+                        "remove_total": len(removed_paths),
+                        "upsert_remaining": 0,
+                        "remove_remaining": len(removed_paths),
+                        "upsert_paths": [],
+                        "remove_paths": removed_paths[:50],
+                    }
+                )
+                futures[executor.submit(self._delete_one, relative)] = relative
+            for future in as_completed(futures):
+                did_delete = future.result()
+                if did_delete:
+                    deleted_count += 1
+                else:
+                    skipped_count += 1
+        if self._cancel_requested():
+            cancelled = True
+        return deleted_count, skipped_count, cancelled
+
+    def _delete_one(self, relative: str) -> bool:
+        remote = self._github.get_content(relative)
+        if not remote or "sha" not in remote:
+            return False
+        self._github.delete_content(
+            path=relative,
+            sha=remote["sha"],
+            message=f"sync: delete {relative}",
+        )
+        return True
 
     def _restore_repo_skeleton(self) -> None:
         repo_root = Path(__file__).resolve().parents[1]

@@ -6,20 +6,20 @@ Use this as the single source of truth for **where we are**, **what is next**, a
 
 ## Status Snapshot
 
-- **Current milestone:** `v0.2.62 — Manual dry-run feedback release`
-- **Last updated:** 2026-07-08
+- **Current milestone:** `v0.3.3 — dev release prep`
+- **Last updated:** 2026-07-14
 - **Track:** Home Assistant Integration + Home Assistant Add-on (Ingress Web UI)
 - **Latest shipped improvements:** autosave in the UI, bundled starter files, fast git-tree Clean Repo, and dry-run feedback in manual sync
 - **Current operator UX:** Device Login section first, existing/create repo flow, troubleshooting auth overrides hidden by default
-- **Version state:** Synced to the current release below.
-- **Release tracks:** X = stable, Y = RC, Z = dev; stable releases ship from `GithubConfigSync`, and prereleases ship from `GithubConfigSync-dev`.
+- **Version state:** stable and RC share the mainline version; dev carries the prerelease/testing track.
+- **Release tracks:** stable and RC ship from the main repository, dev carries prerelease work.
 - **Versioning rule:** keep numeric versions only, and bump them in sequence for stable, RC, and dev releases.
 
 <!-- VERSION:START -->
-- Integration version: `0.2.62`
-- Add-on version: `0.2.62`
-- Channel: numeric
-- Release tag: `v0.2.62`
+- Integration version: `0.3.3`
+- Add-on version: `0.3.3`
+- Channel: `dev`
+- Release tag: `v0.3.3`
 <!-- VERSION:END -->
 
 ---
@@ -27,9 +27,9 @@ Use this as the single source of truth for **where we are**, **what is next**, a
 ## Cross-device handoff (use this first on another machine)
 
 1. Open this file (`PROJECT_PLAN.md`) and read **Status Snapshot** + **Active Sprint Tracker**.
-2. Verify the latest tag/release in GitHub and keep this tracker aligned with the shipped version.
+2. Verify the latest tag/release in GitHub and keep this tracker aligned with the shipped version lines.
 3. Update this file after each shipped change so the tracker stays in sync.
-4. Ship stable releases from the main repo; keep dev work in `GithubConfigSync-dev`.
+4. Ship stable and RC releases from the main repo; keep dev work in `GithubConfigSync-dev` until promoted.
 
 **Current repo context**
 
@@ -98,6 +98,7 @@ Use this as the single source of truth for **where we are**, **what is next**, a
 - Token/client ID should not be front-and-center for normal users.
 - Repository selection should be guided (picker/create) instead of manual-only typing.
 - Keep both Hassfest and HACS validation in place while integration distribution continues.
+- Keep stable / RC / dev version lines explicit so the repo can ship the right track from the right repository.
 
 ---
 
@@ -202,12 +203,19 @@ Use this as the single source of truth for **where we are**, **what is next**, a
 - [x] Clean upload preserves version snapshots and only clears the live tree
 - [x] Clean upload preserves app README and required app folders
 
+## In Progress
+
+- [ ] Normalize the version tracker across the stable, RC, and dev release lines.
+- [ ] Close the remaining security hardening follow-ups in the tracker.
+- [ ] Keep the project-plan handoff aligned with the active release track.
+
 ---
 
 ## Immediate execution plan (next working session)
 
-1. Version bump and release if needed.
-2. Keep the tracker aligned with any future shipped changes.
+1. Normalize the mixed version lines in the docs/tracker so stable, RC, and dev are explicit and consistent.
+2. Review and trim the remaining security hardening checklist items into concrete implementation tasks.
+3. Keep the release tracker aligned with the active main/dev repos after any shipped change.
 
 ---
 

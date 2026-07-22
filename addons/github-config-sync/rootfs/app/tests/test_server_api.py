@@ -221,7 +221,7 @@ class ServerApiTests(unittest.TestCase):
         self.assertTrue(body["ok"])
         self.assertEqual(body["repository"], "owner/new-config-repo")
 
-    def test_create_repository_forces_private_repo(self) -> None:
+    def test_create_repository_respects_visibility_choice(self) -> None:
         self._write_options({"auth_method": "device_flow", "github_branch": "main", "github_token": "gho_x"})
         with patch("sync.github_client.GitHubClient.create_repository") as create_repo:
             create_repo.return_value = {"full_name": "owner/new-config-repo"}
@@ -234,7 +234,7 @@ class ServerApiTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertTrue(body["ok"])
         create_repo.assert_called_once()
-        self.assertTrue(create_repo.call_args.kwargs["private"])
+        self.assertFalse(create_repo.call_args.kwargs["private"])
 
     def test_status_and_diagnostics_do_not_expose_token(self) -> None:
         self._write_options(
@@ -252,13 +252,14 @@ class ServerApiTests(unittest.TestCase):
 
         self.assertEqual(status["auth"]["token_state"], "configured")
         self.assertEqual(status["repo_versions"]["stable"], "0.2.39")
-        self.assertEqual(status["repo_versions"]["dev"], "0.2.62")
+        self.assertEqual(status["repo_versions"]["rc"], "0.3.2")
+        self.assertEqual(status["repo_versions"]["dev"], "0.3.3")
         self.assertEqual(diagnostics["options"]["github_token"], "********")
 
     def test_create_repository_uses_default_name_when_blank(self) -> None:
         self._write_options({"github_branch": "main", "github_token": "gho_x"})
         with patch("sync.github_client.GitHubClient.create_repository") as create_repo:
-            create_repo.return_value = {"full_name": "owner/home-assistant-config"}
+            create_repo.return_value = {"full_name": "owner/ha-github-config-sync"}
             response = self.client.post(
                 "/api/repos/create",
                 json={"name": "", "private": True, "description": ""},
@@ -267,7 +268,34 @@ class ServerApiTests(unittest.TestCase):
         body = response.get_json()
         self.assertEqual(response.status_code, 200)
         self.assertTrue(body["ok"])
-        self.assertEqual(body["repository"], "owner/home-assistant-config")
+        self.assertEqual(body["repository"], "owner/ha-github-config-sync")
+        self.assertEqual(create_repo.call_args.kwargs["name"], "ha-github-config-sync")
+
+    def test_create_repository_defaults_visibility_to_private(self) -> None:
+        self._write_options({"auth_method": "device_flow", "github_branch": "main", "github_token": "gho_x"})
+        with patch("sync.github_client.GitHubClient.create_repository") as create_repo:
+            create_repo.return_value = {"full_name": "owner/ha-github-config-sync"}
+            response = self.client.post(
+                "/api/repos/create",
+                json={"name": "ha-github-config-sync", "description": "desc"},
+            )
+
+        body = response.get_json()
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(body["ok"])
+        self.assertTrue(create_repo.call_args.kwargs["private"])
+
+    def test_create_repository_rejects_non_boolean_private_flag(self) -> None:
+        self._write_options({"auth_method": "device_flow", "github_branch": "main", "github_token": "gho_x"})
+        response = self.client.post(
+            "/api/repos/create",
+            json={"name": "ha-github-config-sync", "private": "no", "description": "desc"},
+        )
+
+        body = response.get_json()
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(body["ok"])
+        self.assertIn("private must be true or false", body["error"])
 
     def test_status_includes_auth_diagnostics(self) -> None:
         self._write_options(

@@ -267,34 +267,23 @@
         </div>
         <div class="version-grid">
           <div class="version-item">
-            <span class="progress-label">X track (1)</span>
+            <span class="progress-label">Stable</span>
             <span id="stableRepoVersion" class="progress-value">Loading...</span>
           </div>
           <div class="version-item">
-            <span class="progress-label">Y track (2)</span>
+            <span class="progress-label">RC</span>
             <span id="rcRepoVersion" class="progress-value">Loading...</span>
           </div>
           <div class="version-item">
-            <span class="progress-label">Z track (3)</span>
+            <span class="progress-label">Dev</span>
             <span id="devRepoVersion" class="progress-value">Loading...</span>
           </div>
-          <div class="version-item">
-            <span class="progress-label">Current add-on</span>
-            <span id="currentRepoVersion" class="progress-value">Loading...</span>
-          </div>
-        </div>
-        <div class="notice" style="margin-top: 14px">
-          <strong>Rebuild note:</strong> after a new release, Home Assistant may still use a cached add-on image.
-          If the UI does not change, rebuild/reinstall the add-on and restart it.
         </div>
         <div class="notice" style="margin-top: 12px">
           <strong>Safety note:</strong> remote deletes only affect GitHub and never remove local files.
         </div>
-        <div class="notice" style="margin-top: 12px">
-          <strong>Release tracks:</strong> X = stable, Y = RC, Z = dev. Stable releases ship from `MJP-76/GithubConfigSync`, and prereleases ship from `MJP-76/GithubConfigSync-dev`.
-        </div>
         <div class="danger" style="margin-top: 12px">
-          <strong style="color: var(--err)">Danger Zone:</strong> Home Assistant config can contain secrets, tokens, device data, and other sensitive files. Public repositories are blocked, sensitive paths are filtered, and any two-way sync or inbound write path can put your local config at risk.
+          <strong style="color: var(--err)">Danger Zone:</strong> Home Assistant config can contain secrets, tokens, device data, and other sensitive files. Public repositories are strongly discouraged, sensitive paths are filtered, and any two-way sync or inbound write path can put your local config at risk.
         </div>
       </div>
 
@@ -304,7 +293,7 @@
           1. Connect GitHub with Device Login.
         </p>
         <p class="subtle" style="margin-bottom: 10px">
-          2. Pick an existing repository or create a new private one.
+          2. Pick an existing repository, or create `ha-github-config-sync` (private by default, public optional).
         </p>
         <p class="subtle" style="margin-bottom: 10px">
           3. Check the folder structure inclusions/exclusions and the .gitignore files.
@@ -335,22 +324,19 @@
             <span id="removeTotal" class="progress-value">0</span>
           </div>
         </div>
-
-        <div class="card">
-          <details class="dry-run-plan" style="margin-top: 12px">
-            <summary class="section-title" style="cursor: pointer">Dry-run plan</summary>
-            <div class="dry-run-grid" style="margin-top: 10px">
-              <div class="field">
-                <label>Could be uploaded</label>
-                <pre id="dryRunUpserts">No dry-run yet.</pre>
-              </div>
-              <div class="field">
-                <label>Could be deleted</label>
-                <pre id="dryRunDeletes">No dry-run yet.</pre>
-              </div>
+        <details class="dry-run-plan" style="margin-top: 12px">
+          <summary class="section-title" style="cursor: pointer">Dry-run plan</summary>
+          <div class="dry-run-grid" style="margin-top: 10px">
+            <div class="field">
+              <label>Could be uploaded</label>
+              <pre id="dryRunUpserts">No dry-run yet.</pre>
             </div>
-          </details>
-        </div>
+            <div class="field">
+              <label>Could be deleted</label>
+              <pre id="dryRunDeletes">No dry-run yet.</pre>
+            </div>
+          </div>
+        </details>
       </div>
 
       <div class="card">
@@ -390,7 +376,7 @@
             <button id="loadReposBtn" class="secondary">Load Repositories</button>
           </div>
           <div class="field" style="margin-top: 12px">
-            <label for="repoPicker">Repository picker</label>
+            <label for="repoPicker">Repository picker (advanced)</label>
             <select id="repoPicker">
               <option value="">Select a repository...</option>
             </select>
@@ -399,8 +385,8 @@
         <div id="createRepoSection" style="margin-top: 12px; display: none">
           <div class="grid">
             <div class="field">
-              <label for="newRepoName">New repository name</label>
-              <input id="newRepoName" placeholder="home-assistant-config" />
+              <label for="newRepoName">New repository name (default: ha-github-config-sync)</label>
+              <input id="newRepoName" placeholder="ha-github-config-sync" value="ha-github-config-sync" />
             </div>
             <div class="field">
               <label for="newRepoDescription">Description (defaults to the repo name with spaces)</label>
@@ -482,7 +468,7 @@
           Destructive actions live here. Clean Upload rebuilds the remote repo from the current local config, and Clean Repo empties the remote repo before restoring the starter files.
         </p>
         <p class="subtle" style="margin-bottom: 10px; color: var(--err)">
-          <strong style="color: var(--err)">Danger:</strong> use a private repository only, and avoid any two-way sync tools that can write back into your Home Assistant config tree.
+          <strong style="color: var(--err)">Danger:</strong> private repositories are recommended, and avoid any two-way sync tools that can write back into your Home Assistant config tree.
         </p>
         <div class="row">
           <button id="cleanSyncBtn">Clean Upload</button>
@@ -525,7 +511,6 @@
         stableRepoVersion: document.getElementById("stableRepoVersion"),
         rcRepoVersion: document.getElementById("rcRepoVersion"),
         devRepoVersion: document.getElementById("devRepoVersion"),
-        currentRepoVersion: document.getElementById("currentRepoVersion"),
         repo: document.getElementById("repo"),
         authMethod: document.getElementById("authMethod"),
         authMethodHelp: document.getElementById("authMethodHelp"),
@@ -792,7 +777,6 @@
         el.stableRepoVersion.textContent = (data.repo_versions && data.repo_versions.stable) || "unknown";
         el.rcRepoVersion.textContent = (data.repo_versions && data.repo_versions.rc) || "unknown";
         el.devRepoVersion.textContent = (data.repo_versions && data.repo_versions.dev) || "unknown";
-        el.currentRepoVersion.textContent = (data.repo_versions && data.repo_versions.current) || data.version || "unknown";
         setStatus(`${(data.state && data.state.status) || "idle"}`, !(data.state && data.state.status === "error"));
       }
 
@@ -923,7 +907,7 @@
         setButtonBusy(el.createRepoBtn, true, "Creating...");
         try {
           const typedName = el.newRepoName.value.trim();
-          const name = typedName || "home-assistant-config";
+          const name = typedName || "ha-github-config-sync";
           const description = el.newRepoDescription.value.trim() || "Home Assistant Config Sync";
           const payload = {
             name,
@@ -1102,9 +1086,13 @@
 
       applyRepoMode();
       updateTokenBadge({ state: "checking" });
-      Promise.all([loadOptions(), loadStatus(), loadDeviceFlowStatus(), loadRepositories(false), loadIgnoreRecommendations()])
-        .then(() => setStatus("Ready"))
-        .catch((error) => setStatus(error.message, false));
+      Promise.all([
+        loadOptions().catch((error) => setStatus(error.message, false)),
+        loadStatus().catch((error) => setStatus(error.message, false)),
+        loadDeviceFlowStatus().catch((error) => setStatus(error.message, false)),
+        loadRepositories(false).catch((error) => setStatus(error.message, false)),
+        loadIgnoreRecommendations().catch((error) => setStatus(error.message, false)),
+      ]).then(() => setStatus("Ready"));
       startStatusPolling();
     </script>
   </body>

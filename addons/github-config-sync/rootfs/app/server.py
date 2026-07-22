@@ -14,12 +14,13 @@ from sync.errors import SyncError
 from sync.github_client import GitHubClient
 from sync.hashing import IGNORE_PATTERNS
 
-APP_VERSION = "0.2.62"
+APP_VERSION = "0.3.3"
 STABLE_REPO_VERSION = "0.2.39"
-RC_REPO_VERSION = "0.2.52"
+RC_REPO_VERSION = "0.3.2"
 DEV_REPO_VERSION = APP_VERSION
 APP_PORT = 8099
 DEFAULT_OAUTH_CLIENT_ID = "Ov23li2ycCraodta6WCU"
+DEFAULT_NEW_REPO_NAME = "ha-github-config-sync"
 
 DATA_DIR = Path("/data")
 SUPERVISOR_OPTIONS_PATH = DATA_DIR / "options.json"
@@ -703,9 +704,12 @@ def create_repo():
 
     name = str(payload.get("name", "")).strip()
     if not name:
-        name = "home-assistant-config"
+        name = DEFAULT_NEW_REPO_NAME
 
-    private = True
+    private_value = payload.get("private", True)
+    if not isinstance(private_value, bool):
+        return jsonify({"ok": False, "error": "private must be true or false"}), 400
+    private = private_value
     description = str(payload.get("description", "")).strip()
 
     options = _merge_options()
@@ -714,7 +718,7 @@ def create_repo():
     except SyncError as err:
         return jsonify({"ok": False, "error": str(err)}), 400
     try:
-        repo = client.create_repository(name=name, private=True, description=description)
+        repo = client.create_repository(name=name, private=private, description=description)
     except SyncError as err:
         return jsonify({"ok": False, "error": str(err)}), 502
 

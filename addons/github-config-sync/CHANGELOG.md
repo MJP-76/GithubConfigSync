@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+- RC release 0.3.2: bump the mainline release after the dry-run dropdown layout change.
+
+## 0.3.2
+
+- RC release 0.3.2: bump the mainline release after the dry-run dropdown layout change.
+
+- RC release 0.3.1: bump the mainline release after the dry-run dropdown layout change.
+
+## 0.3.1
+
+- RC release 0.3.1: bump the mainline release after the dry-run dropdown layout change.
+
 - Manual sync dry run now shows the would-upsert/would-delete summary in the UI.
 
 ## 0.2.62
