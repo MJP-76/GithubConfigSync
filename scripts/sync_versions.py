@@ -39,6 +39,10 @@ def _channelize(version: str, channel: str) -> str:
     return version
 
 
+def _release_tag(version: str, channel: str) -> str:
+    return f"v{version}-{channel}"
+
+
 def _read(path: Path) -> str:
     return path.read_text(encoding="utf-8")
 
@@ -90,7 +94,7 @@ def _replace_doc_block(content: str, integration_version: str, addon_version: st
             f"- Integration version: `{integration_version}`",
             f"- Add-on version: `{addon_version}`",
             f"- Channel: `{channel}`",
-            f"- Release tag: `v{integration_version}`",
+            f"- Release tag: `{_release_tag(integration_version, channel)}`",
             "<!-- VERSION:END -->",
         ]
     )
@@ -110,7 +114,7 @@ def main() -> int:
         "--channel",
         choices=["stable", "rc", "dev"],
         required=True,
-        help="Release channel; stable and rc use the base version and dev bumps the patch.",
+        help="Release channel; stable and rc use the base version and dev bumps the patch. Release tag gets -stable/-rc/-dev suffix.",
     )
     parser.add_argument(
         "--check",
