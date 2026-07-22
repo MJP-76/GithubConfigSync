@@ -32,7 +32,7 @@ HASH_INDEX_PATH = DATA_DIR / "hash_index.json"
 DEVICE_FLOW_PATH = DATA_DIR / "device_flow.json"
 STATIC_DIR = Path("/app/static")
 CONFIG_ROOT = Path("/config")
-CHANGELOG_PATH = Path(__file__).resolve().parents[2] / "CHANGELOG.md"
+CHANGELOG_PATH = Path(__file__).resolve().parent / "CHANGELOG.md"
 
 logging.getLogger("werkzeug").setLevel(logging.ERROR)
 
