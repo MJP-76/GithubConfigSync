@@ -6,7 +6,7 @@ Use this as the single source of truth for **where we are**, **what is next**, a
 
 ## Status Snapshot
 
-- **Current milestone:** `v0.5.8 — version lane alignment`
+- **Current milestone:** `v0.5.9 — version lane alignment`
 - **Last updated:** 2026-07-14
 - **Track:** Home Assistant Integration + Home Assistant Add-on (Ingress Web UI)
 - **Latest shipped improvements:** autosave in the UI, bundled starter files, fast git-tree Clean Repo, and dry-run feedback in manual sync
@@ -16,10 +16,10 @@ Use this as the single source of truth for **where we are**, **what is next**, a
 - **Versioning rule:** keep numeric `x.y.z` versions for integration/add-on and surface the track in the status UI.
 
 <!-- VERSION:START -->
-- Integration version: `0.5.8`
-- Add-on version: `0.5.8`
+- Integration version: `0.5.9`
+- Add-on version: `0.5.9`
 - Channel: `stable`
-- Release tag: `v0.5.8`
+- Release tag: `v0.5.9`
 <!-- VERSION:END -->
 
 ---
