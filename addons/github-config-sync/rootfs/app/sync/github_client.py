@@ -14,6 +14,7 @@ from .errors import SyncError
 API_BASE = "https://api.github.com"
 OAUTH_BASE = "https://github.com"
 ADDON_REPO_MARKER_PATH = ".github-config-sync-addon.json"
+SAFE_REPO_NAME_PREFIX = "ha-github-config-sync"
 
 
 @dataclass(frozen=True)
@@ -84,6 +85,12 @@ class GitHubClient:
             repo
             for repo in payload
             if isinstance(repo, dict) and isinstance(repo.get("full_name"), str)
+        ]
+        repos = [
+            repo
+            for repo in repos
+            if str(repo.get("name", "")).strip().lower() == SAFE_REPO_NAME_PREFIX
+            or str(repo.get("name", "")).strip().lower().startswith(f"{SAFE_REPO_NAME_PREFIX}-")
         ]
         needle = query.strip().lower()
         if needle:

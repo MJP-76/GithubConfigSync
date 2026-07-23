@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.12
+
+- Restored a safe repo picker filter that only shows add-on-style repositories without probing repo contents.
+
 ## 1.0.11
 
 - Bumped the dev lane again so Home Assistant gets a fresh add-on index entry.
