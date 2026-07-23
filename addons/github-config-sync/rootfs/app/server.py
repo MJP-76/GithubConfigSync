@@ -14,9 +14,9 @@ from sync.errors import SyncError
 from sync.github_client import GitHubClient
 from sync.hashing import IGNORE_PATTERNS
 
-APP_VERSION = "1.0.7"
+APP_VERSION = "1.0.8"
 STABLE_REPO_VERSION = "1.0.0"
-DEV_REPO_VERSION = "1.0.7"
+DEV_REPO_VERSION = "1.0.8"
 APP_PORT = 8099
 DEFAULT_OAUTH_CLIENT_ID = "Ov23li2ycCraodta6WCU"
 DEFAULT_NEW_REPO_NAME = "ha-github-config-sync"
@@ -159,6 +159,22 @@ def _load_state() -> dict[str, Any]:
     state = dict(DEFAULT_STATE)
     state.update(_load_json(STATE_PATH, {}))
     return state
+
+
+def _reset_stale_runtime_state() -> None:
+    state = _load_state()
+    if state.get("status") != "running" and not state.get("cancel_sync", False):
+        return
+    state.update(
+        {
+            "status": "idle",
+            "cancel_sync": False,
+            "last_result": None,
+            "last_scan": None,
+            "sync_progress": None,
+        }
+    )
+    _save_json(STATE_PATH, state)
 
 
 def _set_cancel_requested(value: bool) -> dict[str, Any]:
@@ -433,6 +449,7 @@ def _run_sync(sync_config: SyncConfig, clean_upload: bool = False) -> tuple[int,
 
 
 app = Flask(__name__, static_folder=str(STATIC_DIR), static_url_path="/static")
+_reset_stale_runtime_state()
 
 
 @app.get("/")
