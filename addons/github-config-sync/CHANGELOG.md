@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.23
+
+- Added a Select All checkbox for the ignore recommendations list.
+
 ## 1.0.22
 
 - Grouped the ignore suggestions into labeled sections for easier scanning.

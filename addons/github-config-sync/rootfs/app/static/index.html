@@ -527,6 +527,12 @@
             These are safe defaults for Home Assistant. They are read from your local .gitignore and can be added with one click.
           </p>
           <div id="ignoreMeta" class="muted" style="margin-bottom: 10px"></div>
+          <div class="row" style="margin-bottom: 10px">
+            <label class="row" style="gap: 8px">
+              <input id="selectAllIgnore" type="checkbox" />
+              <span>Select All</span>
+            </label>
+          </div>
           <div id="ignoreList" class="ignore-list"></div>
           <div class="row" style="margin-top: 12px">
             <button id="addIgnoreDefaultsBtn" class="secondary">Add .gitignore Defaults</button>
@@ -603,6 +609,7 @@
         confirmCancelBtn: document.getElementById("confirmCancelBtn"),
         ignoreList: document.getElementById("ignoreList"),
         ignoreMeta: document.getElementById("ignoreMeta"),
+        selectAllIgnore: document.getElementById("selectAllIgnore"),
         saveIgnoreBtn: document.getElementById("saveIgnoreBtn"),
         addIgnoreDefaultsBtn: document.getElementById("addIgnoreDefaultsBtn"),
         refreshIgnoreBtn: document.getElementById("refreshIgnoreBtn"),
@@ -900,6 +907,10 @@
           });
           el.ignoreList.appendChild(group);
         }
+        const checkboxes = Array.from(el.ignoreList.querySelectorAll("input[type='checkbox']"));
+        const checkedCount = checkboxes.filter((item) => item.checked).length;
+        el.selectAllIgnore.checked = checkboxes.length > 0 && checkedCount === checkboxes.length;
+        el.selectAllIgnore.indeterminate = checkedCount > 0 && checkedCount < checkboxes.length;
       }
 
       async function saveIgnoreRecommendations() {
@@ -912,6 +923,14 @@
         });
         setStatus("Updated local .gitignore");
         await loadIgnoreRecommendations();
+      }
+
+      function toggleAllIgnoreEntries(checked) {
+        el.ignoreList.querySelectorAll("input[type='checkbox']").forEach((item) => {
+          item.checked = checked;
+        });
+        el.selectAllIgnore.indeterminate = false;
+        scheduleAutoSave();
       }
 
       async function addIgnoreDefaults() {
@@ -1188,6 +1207,13 @@
             .finally(() => setButtonBusy(el.addIgnoreDefaultsBtn, false));
         }
       );
+      el.selectAllIgnore.addEventListener("change", () => toggleAllIgnoreEntries(el.selectAllIgnore.checked));
+      el.ignoreList.addEventListener("change", () => {
+        const checkboxes = Array.from(el.ignoreList.querySelectorAll("input[type='checkbox']"));
+        const checkedCount = checkboxes.filter((item) => item.checked).length;
+        el.selectAllIgnore.checked = checkboxes.length > 0 && checkedCount === checkboxes.length;
+        el.selectAllIgnore.indeterminate = checkedCount > 0 && checkedCount < checkboxes.length;
+      });
 
       applyRepoMode();
       updateTokenBadge({ state: "checking" });
