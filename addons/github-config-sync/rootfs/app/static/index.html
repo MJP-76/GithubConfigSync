@@ -367,13 +367,12 @@
           <p class="subtle" style="margin-bottom: 10px; color: var(--err)">
             <strong style="color: var(--err)">Danger Zone:</strong> never use a public repo here, and do not combine this with any other tool that writes back into your Home Assistant config tree.
           </p>
-          <div class="row">
-            <input id="repoSearch" placeholder="Filter repositories (including private repos)..." style="flex: 1" />
-            <button id="loadReposBtn" class="secondary">Load Repositories</button>
-          </div>
           <div class="field" style="margin-top: 12px">
-            <label for="repoPicker">Repository picker (advanced)</label>
-            <select id="repoPicker">
+            <div class="row" style="justify-content: space-between; align-items: center">
+              <label for="repoPicker">Repository picker (advanced)</label>
+              <button id="loadReposBtn" class="secondary">Load Repositories</button>
+            </div>
+            <select id="repoPicker" style="margin-top: 6px">
               <option value="">Select a repository...</option>
             </select>
           </div>
@@ -535,7 +534,6 @@
         repoMode: document.querySelectorAll("input[name='repoMode']"),
         existingRepoSection: document.getElementById("existingRepoSection"),
         createRepoSection: document.getElementById("createRepoSection"),
-        repoSearch: document.getElementById("repoSearch"),
         loadReposBtn: document.getElementById("loadReposBtn"),
         repoPicker: document.getElementById("repoPicker"),
         newRepoName: document.getElementById("newRepoName"),
@@ -713,9 +711,7 @@
 
       async function loadRepositories(strict = false) {
         try {
-          const q = el.repoSearch.value.trim();
-          const suffix = q ? `?q=${encodeURIComponent(q)}` : "";
-          const data = await fetchJson(apiUrl(`/api/repos${suffix}`));
+          const data = await fetchJson(apiUrl("/api/repos"));
           cachedRepos = data.repos || [];
           renderRepoPicker(cachedRepos);
           if (el.repo.value) {

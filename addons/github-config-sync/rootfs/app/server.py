@@ -14,9 +14,9 @@ from sync.errors import SyncError
 from sync.github_client import GitHubClient
 from sync.hashing import IGNORE_PATTERNS
 
-APP_VERSION = "1.0.1"
+APP_VERSION = "1.0.2"
 STABLE_REPO_VERSION = "1.0.0"
-DEV_REPO_VERSION = "1.0.1"
+DEV_REPO_VERSION = "1.0.2"
 APP_PORT = 8099
 DEFAULT_OAUTH_CLIENT_ID = "Ov23li2ycCraodta6WCU"
 DEFAULT_NEW_REPO_NAME = "ha-github-config-sync"
@@ -476,7 +476,15 @@ def trigger_manual_sync():
         )
 
     started = dt.datetime.now(dt.timezone.utc).isoformat()
-    _save_state({"status": "running", "last_run": started, "last_error": None})
+    _save_state(
+        {
+            "status": "running",
+            "last_run": started,
+            "last_error": None,
+            "last_result": None,
+            "last_scan": None,
+        }
+    )
     _set_cancel_requested(False)
     _append_log(f"Manual sync started for {sync_config.repository}")
 
@@ -873,7 +881,15 @@ def trigger_sync():
         return jsonify({"ok": False, "error": "github_repository is required", "state": state}), 400
 
     started = dt.datetime.now(dt.timezone.utc).isoformat()
-    _save_state({"status": "running", "last_run": started, "last_error": None})
+    _save_state(
+        {
+            "status": "running",
+            "last_run": started,
+            "last_error": None,
+            "last_result": None,
+            "last_scan": None,
+        }
+    )
     _set_cancel_requested(False)
     _append_log(f"Sync started for {sync_config.repository} (dry_run={sync_config.dry_run})")
     sensitive_files: list[str] = []

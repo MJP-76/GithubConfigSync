@@ -318,18 +318,20 @@ class SyncEngine:
         cancelled = False
         with ThreadPoolExecutor(max_workers=min(4, len(upsert_paths))) as executor:
             futures = {}
-            for relative in upsert_paths:
+            total = len(upsert_paths)
+            for index, relative in enumerate(upsert_paths):
                 if self._cancel_requested():
                     cancelled = True
                     break
+                remaining = total - index
                 self._progress_callback(
                     {
                         "status": "running",
                         "current_action": "upserting",
                         "current_path": relative,
-                        "upsert_total": len(upsert_paths),
+                        "upsert_total": total,
                         "remove_total": len(removed_paths),
-                        "upsert_remaining": len(upsert_paths),
+                        "upsert_remaining": remaining,
                         "remove_remaining": len(removed_paths),
                         "upsert_paths": upsert_paths[:50],
                         "remove_paths": removed_paths[:50],
@@ -355,19 +357,21 @@ class SyncEngine:
         cancelled = False
         with ThreadPoolExecutor(max_workers=min(4, len(removed_paths))) as executor:
             futures = {}
-            for relative in removed_paths:
+            total = len(removed_paths)
+            for index, relative in enumerate(removed_paths):
                 if self._cancel_requested():
                     cancelled = True
                     break
+                remaining = total - index
                 self._progress_callback(
                     {
                         "status": "running",
                         "current_action": "deleting",
                         "current_path": relative,
                         "upsert_total": len(upsert_paths),
-                        "remove_total": len(removed_paths),
+                        "remove_total": total,
                         "upsert_remaining": 0,
-                        "remove_remaining": len(removed_paths),
+                        "remove_remaining": remaining,
                         "upsert_paths": [],
                         "remove_paths": removed_paths[:50],
                     }
