@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.9
+
+- Moved the live activity status into a single panel for both upload and delete work.
+- Added clean repo status details to the same activity panel.
+
 ## 1.0.8
 
 - Cleared stale startup sync state on app boot.
