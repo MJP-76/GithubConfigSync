@@ -14,9 +14,9 @@ from sync.errors import SyncError
 from sync.github_client import GitHubClient
 from sync.hashing import IGNORE_PATTERNS
 
-APP_VERSION = "1.0.4"
+APP_VERSION = "1.0.5"
 STABLE_REPO_VERSION = "1.0.0"
-DEV_REPO_VERSION = "1.0.4"
+DEV_REPO_VERSION = "1.0.5"
 APP_PORT = 8099
 DEFAULT_OAUTH_CLIENT_ID = "Ov23li2ycCraodta6WCU"
 DEFAULT_NEW_REPO_NAME = "ha-github-config-sync"
@@ -786,7 +786,11 @@ def list_repos():
             branch=str(repo.get("default_branch", "main")).strip() or "main",
             token=str(options.get("github_token", "")).strip(),
         )
-        contents = safety_client.list_directory_contents()
+        try:
+            contents = safety_client.list_directory_contents()
+        except SyncError as err:
+            _append_log(f"Skipping repository {full_name}: {err}")
+            continue
         if not isinstance(contents, list):
             contents = []
         marker_present = any(
