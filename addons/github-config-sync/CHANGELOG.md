@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.19
+
+- Made repository selection auto-save with the rest of the settings and removed the separate Save Settings button.
+
 ## 1.0.18
 
 - Clean Repo now emits live delete counts in the activity panel while it wipes the remote tree.

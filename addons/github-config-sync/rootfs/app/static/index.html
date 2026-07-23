@@ -478,7 +478,6 @@
           <label for="scheduledLiveSync">Scheduled sync ignores dry run</label>
         </div>
         <div class="row" style="margin-top: 14px">
-          <button id="saveBtn">Save Settings</button>
           <button id="syncBtn" class="secondary">Run Sync Now</button>
           <button id="cancelSyncBtn" class="secondary">Cancel Current Upload</button>
           <button id="refreshBtn" class="secondary">Refresh Status</button>
@@ -558,7 +557,6 @@
         removeTotal: document.getElementById("removeTotal"),
         dryRunUpserts: document.getElementById("dryRunUpserts"),
         dryRunDeletes: document.getElementById("dryRunDeletes"),
-        saveBtn: document.getElementById("saveBtn"),
         startDeviceBtn: document.getElementById("startDeviceBtn"),
         repoMode: document.querySelectorAll("input[name='repoMode']"),
         existingRepoSection: document.getElementById("existingRepoSection"),
@@ -873,7 +871,6 @@
 
       async function saveOptions() {
         autoSaveInFlight = true;
-        setButtonBusy(el.saveBtn, true, "Saving...");
         try {
           const payload = {
             github_repository: el.repo.value.trim(),
@@ -896,7 +893,6 @@
           setStatus("Settings saved");
           await Promise.all([loadStatus(), loadDeviceFlowStatus()]);
         } finally {
-          setButtonBusy(el.saveBtn, false);
           autoSaveInFlight = false;
           if (autoSaveQueued) {
             autoSaveQueued = false;
@@ -1020,9 +1016,6 @@
         }
       }
 
-      el.saveBtn.addEventListener("click", () =>
-        saveOptions().catch((error) => setStatus(error.message, false))
-      );
       el.syncBtn.addEventListener("click", () =>
         runSync().catch((error) => setStatus(error.message, false))
       );
@@ -1057,6 +1050,7 @@
       el.repoPicker.addEventListener("change", () => {
         if (el.repoPicker.value) {
           el.repo.value = el.repoPicker.value;
+          scheduleAutoSave();
         }
       });
       el.createRepoBtn.addEventListener("click", () =>
