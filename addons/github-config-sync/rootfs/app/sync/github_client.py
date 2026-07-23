@@ -168,11 +168,18 @@ class GitHubClient:
     def delete_content(self, path: str, sha: str, message: str) -> dict[str, Any]:
         encoded = urllib.parse.quote(path, safe="")
         payload = {"message": message, "sha": sha, "branch": self.branch}
-        return self._request_json(
-            "DELETE",
-            f"{self._base}/contents/{encoded}",
-            payload=payload,
-        )
+        url = f"{self._base}/contents/{encoded}"
+        try:
+            return self._request_json("DELETE", url, payload=payload)
+        except SyncError as err:
+            if not _is_sha_conflict(err):
+                raise
+            remote = self.get_content(path)
+            refreshed_sha = remote.get("sha") if remote else None
+            if not refreshed_sha:
+                raise
+            payload["sha"] = refreshed_sha
+            return self._request_json("DELETE", url, payload=payload)
 
     def get_branch_head_sha(self) -> str:
         payload = self._request_json("GET", f"{self._base}/git/ref/heads/{urllib.parse.quote(self.branch, safe='')}")
