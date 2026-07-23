@@ -276,7 +276,6 @@ class ServerApiTests(unittest.TestCase):
 
         self.assertEqual(status["auth"]["token_state"], "configured")
         self.assertEqual(status["repo_versions"]["stable"], server.STABLE_REPO_VERSION)
-        self.assertEqual(status["repo_versions"]["rc"], server.RC_REPO_VERSION)
         self.assertEqual(status["repo_versions"]["dev"], server.DEV_REPO_VERSION)
         self.assertEqual(diagnostics["options"]["github_token"], "********")
 

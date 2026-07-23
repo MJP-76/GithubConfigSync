@@ -16,7 +16,6 @@ from sync.hashing import IGNORE_PATTERNS
 
 APP_VERSION = "1.0.26"
 STABLE_REPO_VERSION = "1.0.26"
-RC_REPO_VERSION = "1.0.26"
 DEV_REPO_VERSION = "1.0.26"
 APP_PORT = 8099
 DEFAULT_OAUTH_CLIENT_ID = "Ov23li2ycCraodta6WCU"
@@ -656,7 +655,6 @@ def get_status():
             "version": APP_VERSION,
             "repo_versions": {
                 "stable": _display_repo_version(STABLE_REPO_VERSION, "n/a"),
-                "rc": _display_repo_version(RC_REPO_VERSION, APP_VERSION),
                 "dev": _display_repo_version(DEV_REPO_VERSION, APP_VERSION),
                 "current": APP_VERSION,
             },
