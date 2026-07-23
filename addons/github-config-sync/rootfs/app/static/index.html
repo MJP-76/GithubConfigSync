@@ -398,7 +398,6 @@
               <label for="repoPicker">Repository picker (advanced)</label>
               <div class="row" style="justify-content: flex-end">
                 <button id="loadManagedReposBtn" class="secondary">Load Repositories</button>
-                <button id="loadReposBtn" class="secondary">Refresh All Repositories</button>
               </div>
             </div>
             <select id="repoPicker" style="margin-top: 6px">
@@ -564,7 +563,6 @@
         repoMode: document.querySelectorAll("input[name='repoMode']"),
         existingRepoSection: document.getElementById("existingRepoSection"),
         createRepoSection: document.getElementById("createRepoSection"),
-        loadReposBtn: document.getElementById("loadReposBtn"),
         loadManagedReposBtn: document.getElementById("loadManagedReposBtn"),
         repoPicker: document.getElementById("repoPicker"),
         newRepoName: document.getElementById("newRepoName"),
@@ -740,29 +738,11 @@
         updateAuthMethodHelp();
       }
 
-      async function loadRepositories(strict = false) {
-        try {
-          const data = await fetchJson(apiUrl("/api/repos"));
-          cachedRepos = data.repos || [];
-          renderRepoPicker(cachedRepos);
-          if (el.repo.value) {
-            el.repoPicker.value = el.repo.value;
-          }
-          if (strict) {
-            setStatus(`Loaded ${cachedRepos.length} repositories`);
-          }
-        } catch (error) {
-          cachedRepos = [];
-          renderRepoPicker(cachedRepos);
-          if (strict) {
-            throw error;
-          }
-        }
-      }
-
       async function loadManagedRepositories(strict = false) {
         try {
-          const data = await fetchJson(apiUrl("/api/repos/cached"));
+          const data = strict
+            ? await fetchJson(apiUrl("/api/repos/managed"))
+            : await fetchJson(apiUrl("/api/repos/cached"));
           cachedRepos = data.repos || [];
           renderRepoPicker(cachedRepos);
           if (el.repo.value) {
@@ -1063,14 +1043,6 @@
         startDeviceLogin().catch((error) => setStatus(error.message, false))
       );
       el.repoMode.forEach((item) => item.addEventListener("change", applyRepoMode));
-      el.loadReposBtn.addEventListener("click", () =>
-        {
-          setButtonBusy(el.loadReposBtn, true, "Loading...");
-          loadRepositories(true)
-            .catch((error) => setStatus(error.message, false))
-            .finally(() => setButtonBusy(el.loadReposBtn, false));
-        }
-      );
       el.loadManagedReposBtn.addEventListener("click", () =>
         {
           setButtonBusy(el.loadManagedReposBtn, true, "Loading...");

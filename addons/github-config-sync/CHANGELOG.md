@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.16
+
+- Removed the all-repos button and fixed the supported-repo picker refresh path.
+
 ## 1.0.15
 
 - Startup now loads cached supported repos, and the manual button refreshes the supported repo list.
