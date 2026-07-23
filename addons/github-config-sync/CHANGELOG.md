@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.18
+
+- Clean Repo now emits live delete counts in the activity panel while it wipes the remote tree.
+
 ## 1.0.17
 
 - Startup now falls back to a supported-repo refresh if the cache is empty.

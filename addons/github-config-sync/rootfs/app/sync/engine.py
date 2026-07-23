@@ -242,6 +242,19 @@ class SyncEngine:
         head_sha = self._github.get_branch_head_sha()
         base_tree_sha = self._github.get_commit_tree_sha(head_sha)
         deletions = self._collect_remote_deletions("")
+        self._progress_callback(
+            {
+                "status": "running",
+                "current_action": "cleaning",
+                "current_path": "",
+                "upsert_total": 0,
+                "remove_total": len(deletions),
+                "upsert_remaining": 0,
+                "remove_remaining": len(deletions),
+                "upsert_paths": [],
+                "remove_paths": [str(item.get("path", "")) for item in deletions[:50]],
+            }
+        )
         if not deletions:
             deletions = [{"path": ".keep", "mode": "100644", "type": "blob", "sha": None}]
         empty_tree = self._github.create_git_tree(base_tree=base_tree_sha, tree=deletions)
@@ -257,6 +270,19 @@ class SyncEngine:
         if not isinstance(commit_sha, str) or not commit_sha:
             raise SyncError("GitHub commit response was incomplete")
         self._github.update_branch_ref(commit_sha)
+        self._progress_callback(
+            {
+                "status": "running",
+                "current_action": "cleaning",
+                "current_path": "",
+                "upsert_total": 0,
+                "remove_total": len(deletions),
+                "upsert_remaining": 0,
+                "remove_remaining": 0,
+                "upsert_paths": [],
+                "remove_paths": [str(item.get("path", "")) for item in deletions[:50]],
+            }
+        )
 
     def _delete_remote_tree(self, root: str) -> None:
         for item in self._github.list_directory_contents(root):
