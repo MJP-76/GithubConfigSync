@@ -230,26 +230,29 @@ class ServerApiTests(unittest.TestCase):
         with patch("sync.github_client.GitHubClient.create_repository") as create_repo:
             create_repo.return_value = {"full_name": "owner/new-config-repo"}
             with patch("sync.github_client.GitHubClient.write_repo_marker") as write_marker:
-                response = self.client.post(
-                    "/api/repos/create",
-                    json={"name": "new-config-repo", "private": True, "description": "desc"},
-                )
+                with patch("sync.engine.SyncEngine.restore_repo_skeleton") as restore_skeleton:
+                    response = self.client.post(
+                        "/api/repos/create",
+                        json={"name": "new-config-repo", "private": True, "description": "desc"},
+                    )
 
         body = response.get_json()
         self.assertEqual(response.status_code, 200)
         self.assertTrue(body["ok"])
         self.assertEqual(body["repository"], "owner/new-config-repo")
         write_marker.assert_called_once()
+        restore_skeleton.assert_called_once()
 
     def test_create_repository_respects_visibility_choice(self) -> None:
         self._write_options({"auth_method": "device_flow", "github_branch": "main", "github_token": "gho_x"})
         with patch("sync.github_client.GitHubClient.create_repository") as create_repo:
             create_repo.return_value = {"full_name": "owner/new-config-repo"}
             with patch("sync.github_client.GitHubClient.write_repo_marker"):
-                response = self.client.post(
-                    "/api/repos/create",
-                    json={"name": "new-config-repo", "private": False, "description": "desc"},
-                )
+                with patch("sync.engine.SyncEngine.restore_repo_skeleton"):
+                    response = self.client.post(
+                        "/api/repos/create",
+                        json={"name": "new-config-repo", "private": False, "description": "desc"},
+                    )
 
         body = response.get_json()
         self.assertEqual(response.status_code, 200)
@@ -313,10 +316,11 @@ class ServerApiTests(unittest.TestCase):
         with patch("sync.github_client.GitHubClient.create_repository") as create_repo:
             create_repo.return_value = {"full_name": "owner/ha-github-config-sync"}
             with patch("sync.github_client.GitHubClient.write_repo_marker"):
-                response = self.client.post(
-                    "/api/repos/create",
-                    json={"name": "", "private": True, "description": ""},
-                )
+                with patch("sync.engine.SyncEngine.restore_repo_skeleton"):
+                    response = self.client.post(
+                        "/api/repos/create",
+                        json={"name": "", "private": True, "description": ""},
+                    )
 
         body = response.get_json()
         self.assertEqual(response.status_code, 200)
@@ -329,10 +333,11 @@ class ServerApiTests(unittest.TestCase):
         with patch("sync.github_client.GitHubClient.create_repository") as create_repo:
             create_repo.return_value = {"full_name": "owner/ha-github-config-sync"}
             with patch("sync.github_client.GitHubClient.write_repo_marker"):
-                response = self.client.post(
-                    "/api/repos/create",
-                    json={"name": "ha-github-config-sync", "description": "desc"},
-                )
+                with patch("sync.engine.SyncEngine.restore_repo_skeleton"):
+                    response = self.client.post(
+                        "/api/repos/create",
+                        json={"name": "ha-github-config-sync", "description": "desc"},
+                    )
 
         body = response.get_json()
         self.assertEqual(response.status_code, 200)

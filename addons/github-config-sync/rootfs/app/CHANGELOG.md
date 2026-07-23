@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.26
+
+- Release 1.0.26: stable and dev repo labels now match the current app release.
+
 ## Unreleased
 
 - Added repo marker support so clean actions can verify add-on-managed repositories.

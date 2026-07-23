@@ -15,7 +15,8 @@ from sync.github_client import GitHubClient
 from sync.hashing import IGNORE_PATTERNS
 
 APP_VERSION = "1.0.26"
-STABLE_REPO_VERSION = "1.0.0"
+STABLE_REPO_VERSION = "1.0.26"
+RC_REPO_VERSION = "1.0.26"
 DEV_REPO_VERSION = "1.0.26"
 APP_PORT = 8099
 DEFAULT_OAUTH_CLIENT_ID = "Ov23li2ycCraodta6WCU"
@@ -427,8 +428,18 @@ def _plan_summary(plan) -> dict[str, Any]:
 
 
 def _sync_progress_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    current_path = str(payload.get("current_path", "")).strip()
+    previous = _load_state()
+    previous_path = str(previous.get("sync_progress", {}).get("current_path", "")).strip() if isinstance(previous.get("sync_progress"), dict) else ""
+    current_path_started_at = previous.get("sync_progress", {}).get("current_path_started_at") if isinstance(previous.get("sync_progress"), dict) else None
+    if current_path and current_path != previous_path:
+        current_path_started_at = dt.datetime.now(dt.timezone.utc).isoformat()
+    if not current_path:
+        current_path_started_at = None
     return {
         "sync_progress": payload,
+        "sync_progress_last_seen_at": dt.datetime.now(dt.timezone.utc).isoformat(),
+        "sync_progress_current_path_started_at": current_path_started_at,
         "status": payload.get("status", "running"),
     }
 
@@ -645,6 +656,7 @@ def get_status():
             "version": APP_VERSION,
             "repo_versions": {
                 "stable": _display_repo_version(STABLE_REPO_VERSION, "n/a"),
+                "rc": _display_repo_version(RC_REPO_VERSION, APP_VERSION),
                 "dev": _display_repo_version(DEV_REPO_VERSION, APP_VERSION),
                 "current": APP_VERSION,
             },
@@ -909,6 +921,24 @@ def create_repo():
     try:
         repo = client.create_repository(name=name, private=private, description=description)
         client.write_repo_marker({"created_by": "github-config-sync-addon", "repository": repo.get("full_name")})
+        engine = SyncEngine(
+            SyncConfig(
+                repository=str(repo.get("full_name", "")).strip(),
+                branch=str(options.get("github_branch", "main")).strip() or "main",
+                token=str(options.get("github_token", "")).strip(),
+                config_root=str(CONFIG_ROOT),
+                dry_run=True,
+                addon_config_root="/addon_configs" if bool(options.get("include_addon_configs", True)) else "",
+                include_media=bool(options.get("include_media", False)),
+                include_share=bool(options.get("include_share", False)),
+                include_ssl=bool(options.get("include_ssl", True)),
+                include_backups=bool(options.get("include_backups", False)),
+                include_www=bool(options.get("include_www", True)),
+                version_retention_count=int(options.get("version_retention_count", 7)),
+            ),
+            previous_hash_index={},
+        )
+        engine.restore_repo_skeleton()
     except SyncError as err:
         return jsonify({"ok": False, "error": str(err)}), 502
 

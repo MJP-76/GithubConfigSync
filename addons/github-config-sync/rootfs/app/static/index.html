@@ -345,6 +345,7 @@
         <h2 class="section-title">Live sync activity</h2>
         <div id="progressStatus" class="subtle">No upload in progress.</div>
         <div id="activityDetail" class="subtle" style="margin-top: 4px"></div>
+        <div id="activityAge" class="subtle" style="margin-top: 4px"></div>
         <div class="progress-grid">
           <div class="progress-group">
             <div class="progress-item">
@@ -579,6 +580,7 @@
         runtime: document.getElementById("runtime"),
         progressStatus: document.getElementById("progressStatus"),
         activityDetail: document.getElementById("activityDetail"),
+        activityAge: document.getElementById("activityAge"),
         upsertRemaining: document.getElementById("upsertRemaining"),
         removeRemaining: document.getElementById("removeRemaining"),
         upsertTotal: document.getElementById("upsertTotal"),
@@ -742,6 +744,26 @@
         }
       }
 
+      function formatDuration(startedAt) {
+        if (!startedAt) {
+          return "";
+        }
+        const start = new Date(startedAt);
+        if (Number.isNaN(start.getTime())) {
+          return "";
+        }
+        const seconds = Math.max(0, Math.floor((Date.now() - start.getTime()) / 1000));
+        const minutes = Math.floor(seconds / 60);
+        const hours = Math.floor(minutes / 60);
+        if (hours > 0) {
+          return `${hours}h ${minutes % 60}m`;
+        }
+        if (minutes > 0) {
+          return `${minutes}m ${seconds % 60}s`;
+        }
+        return `${seconds}s`;
+      }
+
       async function fetchJson(url, options = {}) {
         const response = await fetch(url, {
           headers: { "Content-Type": "application/json" },
@@ -832,6 +854,8 @@
         const state = data.state || {};
         if (progress) {
           el.progressStatus.textContent = `${progress.current_action || "running"} (${progress.status || "running"})`;
+          el.activityDetail.textContent = `Active file: ${progress.current_path || progress.current_action || "running"}`;
+          el.activityAge.textContent = `Active for: ${formatDuration(state.sync_progress_current_path_started_at)}`;
           el.upsertRemaining.textContent = String(progress.upsert_remaining || 0);
           el.removeRemaining.textContent = String(progress.remove_remaining || 0);
           el.upsertTotal.textContent = String(progress.upsert_total || 0);
@@ -839,6 +863,8 @@
         } else {
           el.progressStatus.textContent =
             state.status === "running" ? "Sync in progress." : "No upload in progress.";
+          el.activityDetail.textContent = "";
+          el.activityAge.textContent = "";
           el.upsertRemaining.textContent = "0";
           el.removeRemaining.textContent = "0";
           el.upsertTotal.textContent = "0";
@@ -846,12 +872,10 @@
         }
         if (state.last_error) {
           el.activityDetail.textContent = `Last error: ${state.last_error}`;
+          el.activityAge.textContent = "";
         } else if (state.last_result) {
           el.activityDetail.textContent = `Last result: ${state.last_result}`;
-        } else if (progress) {
-          el.activityDetail.textContent = `Current action: ${progress.current_action || "running"}`;
-        } else {
-          el.activityDetail.textContent = "";
+          el.activityAge.textContent = "";
         }
         el.runtime.textContent =
           JSON.stringify({ state: data.state, auth: data.auth, token_health: data.token_health }, null, 2) +
