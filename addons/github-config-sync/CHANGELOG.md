@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.11
+
+- Bumped the dev lane again so Home Assistant gets a fresh add-on index entry.
+
 ## 1.0.10
 
 - Synced the embedded app version with the published add-on version so HA stops showing the old build number.
