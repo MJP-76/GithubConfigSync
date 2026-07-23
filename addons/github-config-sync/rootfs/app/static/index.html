@@ -94,22 +94,19 @@
         flex-wrap: wrap;
       }
 
-      .repo-picker-row {
-        flex-wrap: nowrap;
+      .repo-picker-header {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 10px;
+        align-items: center;
       }
 
-      .repo-picker-row label {
-        flex: 1 1 auto;
+      .repo-picker-header label {
         min-width: 0;
       }
 
-      .repo-picker-row button {
-        flex: 0 0 auto;
-      }
-
-      .repo-picker-row select {
-        flex: 1 1 auto;
-        min-width: 0;
+      .repo-picker-header button {
+        white-space: nowrap;
       }
 
       button {
@@ -386,7 +383,7 @@
             <strong style="color: var(--err)">Danger Zone:</strong> never use a public repo here, and do not combine this with any other tool that writes back into your Home Assistant config tree.
           </p>
           <div class="field" style="margin-top: 12px">
-            <div class="row repo-picker-row" style="justify-content: space-between; align-items: center">
+            <div class="repo-picker-header">
               <label for="repoPicker">Repository picker (advanced)</label>
               <button id="loadReposBtn" class="secondary">Load Repositories</button>
             </div>
