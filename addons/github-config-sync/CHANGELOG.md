@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.10
+
+- Synced the embedded app version with the published add-on version so HA stops showing the old build number.
+
 ## 1.0.9
 
 - Moved the live activity status into a single panel for both upload and delete work.
