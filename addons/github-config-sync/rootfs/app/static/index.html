@@ -200,9 +200,15 @@
 
       .progress-grid {
         display: grid;
-        grid-template-columns: repeat(4, minmax(0, 1fr));
+        grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 10px;
         margin-top: 10px;
+      }
+
+      .progress-group {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
       }
 
       .dry-run-grid {
@@ -315,24 +321,29 @@
       </div>
 
       <div class="card">
-        <h2 class="section-title">Live upload progress</h2>
+        <h2 class="section-title">Live sync activity</h2>
         <div id="progressStatus" class="subtle">No upload in progress.</div>
+        <div id="activityDetail" class="subtle" style="margin-top: 4px"></div>
         <div class="progress-grid">
-          <div class="progress-item">
-            <span class="progress-label">Upload remaining</span>
-            <span id="upsertRemaining" class="progress-value">0</span>
+          <div class="progress-group">
+            <div class="progress-item">
+              <span class="progress-label">Upload remaining</span>
+              <span id="upsertRemaining" class="progress-value">0</span>
+            </div>
+            <div class="progress-item">
+              <span class="progress-label">Files to upload</span>
+              <span id="upsertTotal" class="progress-value">0</span>
+            </div>
           </div>
-          <div class="progress-item">
-            <span class="progress-label">Delete remaining</span>
-            <span id="removeRemaining" class="progress-value">0</span>
-          </div>
-          <div class="progress-item">
-            <span class="progress-label">Files to upload</span>
-            <span id="upsertTotal" class="progress-value">0</span>
-          </div>
-          <div class="progress-item">
-            <span class="progress-label">Files to delete</span>
-            <span id="removeTotal" class="progress-value">0</span>
+          <div class="progress-group">
+            <div class="progress-item">
+              <span class="progress-label">Delete remaining</span>
+              <span id="removeRemaining" class="progress-value">0</span>
+            </div>
+            <div class="progress-item">
+              <span class="progress-label">Files to delete</span>
+              <span id="removeTotal" class="progress-value">0</span>
+            </div>
           </div>
         </div>
         <details class="dry-run-plan" style="margin-top: 12px">
@@ -538,6 +549,7 @@
         scheduledLiveSync: document.getElementById("scheduledLiveSync"),
         runtime: document.getElementById("runtime"),
         progressStatus: document.getElementById("progressStatus"),
+        activityDetail: document.getElementById("activityDetail"),
         upsertRemaining: document.getElementById("upsertRemaining"),
         removeRemaining: document.getElementById("removeRemaining"),
         upsertTotal: document.getElementById("upsertTotal"),
@@ -763,6 +775,7 @@
         const data = await fetchJson(apiUrl("/api/status"));
         updateTokenBadge(data.token_health);
         const progress = data.state && data.state.sync_progress;
+        const state = data.state || {};
         if (progress) {
           el.progressStatus.textContent = `${progress.current_action || "running"} (${progress.status || "running"})`;
           el.upsertRemaining.textContent = String(progress.upsert_remaining || 0);
@@ -770,11 +783,21 @@
           el.upsertTotal.textContent = String(progress.upsert_total || 0);
           el.removeTotal.textContent = String(progress.remove_total || 0);
         } else {
-          el.progressStatus.textContent = "No upload in progress.";
+          el.progressStatus.textContent =
+            state.status === "running" ? "Sync in progress." : "No upload in progress.";
           el.upsertRemaining.textContent = "0";
           el.removeRemaining.textContent = "0";
           el.upsertTotal.textContent = "0";
           el.removeTotal.textContent = "0";
+        }
+        if (state.last_error) {
+          el.activityDetail.textContent = `Last error: ${state.last_error}`;
+        } else if (state.last_result) {
+          el.activityDetail.textContent = `Last result: ${state.last_result}`;
+        } else if (progress) {
+          el.activityDetail.textContent = `Current action: ${progress.current_action || "running"}`;
+        } else {
+          el.activityDetail.textContent = "";
         }
         el.runtime.textContent =
           JSON.stringify({ state: data.state, auth: data.auth, token_health: data.token_health }, null, 2) +

@@ -1,5 +1,28 @@
 # Changelog
 
+## 1.0.11
+
+- Bumped the dev lane again so Home Assistant gets a fresh add-on index entry.
+
+## 1.0.10
+
+- Synced the embedded app version with the published add-on version so HA stops showing the old build number.
+
+## 1.0.9
+
+- Moved the live activity status into a single panel for both upload and delete work.
+- Added clean repo status details to the same activity panel.
+
+## 1.0.8
+
+- Cleared stale startup sync state on app boot.
+- Removed the repo list contents probe so the picker no longer burns GitHub rate limit on load.
+
+## 1.0.7
+
+- Fixed the stale running upload state so rebuilds clear canceled runs.
+- Added a retry for DELETE content requests when GitHub returns a stale SHA conflict.
+
 ## 1.0.6
 
 - Fixed startup flicker by only showing Ready after startup loads finish successfully.
