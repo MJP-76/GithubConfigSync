@@ -508,6 +508,7 @@
           <div id="ignoreMeta" class="muted" style="margin-bottom: 10px"></div>
           <div id="ignoreList" class="ignore-list"></div>
           <div class="row" style="margin-top: 12px">
+            <button id="addIgnoreDefaultsBtn" class="secondary">Add .gitignore Defaults</button>
             <button id="saveIgnoreBtn" class="secondary">Write Selected Entries to .gitignore</button>
             <button id="refreshIgnoreBtn" class="secondary">Refresh Ignore Suggestions</button>
           </div>
@@ -582,6 +583,7 @@
         ignoreList: document.getElementById("ignoreList"),
         ignoreMeta: document.getElementById("ignoreMeta"),
         saveIgnoreBtn: document.getElementById("saveIgnoreBtn"),
+        addIgnoreDefaultsBtn: document.getElementById("addIgnoreDefaultsBtn"),
         refreshIgnoreBtn: document.getElementById("refreshIgnoreBtn"),
         deviceFlowInfo: document.getElementById("deviceFlowInfo"),
         tokenBadge: document.getElementById("tokenBadge"),
@@ -857,6 +859,16 @@
         await loadIgnoreRecommendations();
       }
 
+      async function addIgnoreDefaults() {
+        const selected = cachedIgnorePatterns.map((item) => item.pattern);
+        await fetchJson(apiUrl("/api/ignore/recommendations"), {
+          method: "POST",
+          body: JSON.stringify({ patterns: selected }),
+        });
+        setStatus("Added default .gitignore entries");
+        await loadIgnoreRecommendations();
+      }
+
       async function downloadDiagnostics() {
         const data = await fetchJson(apiUrl("/api/diagnostics"));
         const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
@@ -1111,6 +1123,14 @@
           loadIgnoreRecommendations()
             .catch((error) => setStatus(error.message, false))
             .finally(() => setButtonBusy(el.refreshIgnoreBtn, false));
+        }
+      );
+      el.addIgnoreDefaultsBtn.addEventListener("click", () =>
+        {
+          setButtonBusy(el.addIgnoreDefaultsBtn, true, "Writing...");
+          addIgnoreDefaults()
+            .catch((error) => setStatus(error.message, false))
+            .finally(() => setButtonBusy(el.addIgnoreDefaultsBtn, false));
         }
       );
 

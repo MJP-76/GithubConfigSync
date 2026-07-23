@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.21
+
+- Added a one-click button to write the built-in `.gitignore` defaults.
+
 ## 1.0.20
 
 - Added `.ruff.toml` to the built-in ignore defaults.
