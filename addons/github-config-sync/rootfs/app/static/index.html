@@ -234,11 +234,6 @@
         padding: 10px 12px;
       }
 
-      .changelog-list {
-        margin: 0;
-        padding-left: 20px;
-      }
-
       pre {
         background: var(--card-2);
         border: 1px solid var(--border);
@@ -294,7 +289,7 @@
           1. Connect GitHub with Device Login.
         </p>
         <p class="subtle" style="margin-bottom: 10px">
-          2. Pick an existing repository, or create `ha-github-config-sync` (private by default, public optional).
+          2. Use an add-on-created repository or create `ha-github-config-sync` through the flow (private by default, public optional).
         </p>
         <p class="subtle" style="margin-bottom: 10px">
           3. Check the folder structure inclusions/exclusions and the .gitignore files.
@@ -338,14 +333,6 @@
             </div>
           </div>
         </details>
-      </div>
-
-      <div class="card">
-        <h2 class="section-title">Latest changes</h2>
-        <p class="subtle">Showing the latest 5 entries from the add-on changelog.</p>
-        <ul id="changelogList" class="changelog-list">
-          <li>Loading...</li>
-        </ul>
       </div>
 
       <div class="card">
@@ -537,7 +524,6 @@
         scheduledLiveSync: document.getElementById("scheduledLiveSync"),
         runtime: document.getElementById("runtime"),
         progressStatus: document.getElementById("progressStatus"),
-        changelogList: document.getElementById("changelogList"),
         upsertRemaining: document.getElementById("upsertRemaining"),
         removeRemaining: document.getElementById("removeRemaining"),
         upsertTotal: document.getElementById("upsertTotal"),
@@ -755,17 +741,6 @@
             return;
           }
 
-          async function loadChangelog() {
-            try {
-              const data = await fetchJson(apiUrl("/api/changelog"));
-              const entries = Array.isArray(data.entries) ? data.entries.slice(0, 5) : [];
-              el.changelogList.innerHTML = entries.length
-                ? entries.map((entry) => `<li>${entry}</li>`).join("")
-                : "<li>No changelog entries available.</li>";
-            } catch (_error) {
-              el.changelogList.innerHTML = "<li>Changelog unavailable until the add-on is updated/restarted.</li>";
-            }
-          }
           el.deviceFlowInfo.innerHTML = `Authorize with code <strong>${data.user_code}</strong> at <a href="${data.verification_uri_complete}" target="_blank" rel="noopener noreferrer">GitHub device login</a>`;
         } catch (_error) {
           el.deviceFlowInfo.textContent =
@@ -1073,7 +1048,7 @@
       el.refreshBtn.addEventListener("click", () =>
         {
           setButtonBusy(el.refreshBtn, true, "Refreshing...");
-          Promise.all([loadStatus(), loadDeviceFlowStatus(), loadRepositories(false), loadChangelog()])
+          Promise.all([loadStatus(), loadDeviceFlowStatus(), loadRepositories(false)])
             .then(() => setStatus("Status refreshed"))
             .catch((error) => setStatus(error.message, false))
             .finally(() => setButtonBusy(el.refreshBtn, false));
@@ -1111,7 +1086,6 @@
         loadStatus().catch((error) => setStatus(error.message, false)),
         loadDeviceFlowStatus().catch((error) => setStatus(error.message, false)),
         loadRepositories(false).catch((error) => setStatus(error.message, false)),
-        loadChangelog().catch((error) => setStatus(error.message, false)),
         loadIgnoreRecommendations().catch((error) => setStatus(error.message, false)),
       ]).then(() => setStatus("Ready"));
       startStatusPolling();

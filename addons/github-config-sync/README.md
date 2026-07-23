@@ -50,7 +50,7 @@ If you find this project useful, and would like to help support its continued de
 - `dry_run=true` stops after planning and returns the counts that would be applied for manual actions. A separate scheduled-sync checkbox can override dry run for automated runs.
 - `dry_run=false` probes the GitHub repository first, then performs upserts and deletes with the GitHub Contents API. Remote deletes never remove local files.
 - **Clean Repo** always runs live, empties the remote repo with a fast git-tree reset, and restores the starter files in the same step.
-- Repository creation defaults to `ha-github-config-sync` and private visibility, with an optional public visibility choice.
+- Repository creation uses the add-on flow and defaults to `ha-github-config-sync` with private visibility, with an optional public visibility choice.
 - Live runs also write versioned snapshots under `versions/<timestamp>/...` (parallelized uploads) and keep the most recent 7 by default.
 - Runtime state is persisted in `/data/state.json`, `/data/hash_index.json`, `/data/device_flow.json`, and `/data/sync.log`.
 - The stable local API contract is `/api/health`, `/api/status`, `/api/sync`, and `/api/diagnostics`.

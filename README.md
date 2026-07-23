@@ -66,7 +66,7 @@ Security hardening is part of the current release: private repos only, sensitive
 - AppDaemon configs and apps under `/addon_configs/` are included in the normal sync scan.
 - The mount-point checklist lets you include or exclude standard Home Assistant folders, and the recommended .gitignore keeps the ignore list aligned.
 - Dry runs do not touch GitHub; live runs probe the repository first, then upsert and delete files through the GitHub Contents API. Remote deletes never remove local files.
-- Repository creation defaults to `ha-github-config-sync` and private visibility, with an optional public visibility choice.
+- Repository creation uses the add-on flow and defaults to `ha-github-config-sync` with private visibility, with an optional public visibility choice.
 - Live runs also write versioned snapshots under `versions/<timestamp>/...` (parallelized uploads) and keep the most recent 7 by default.
 - State, logs, device-flow data, and the last hash index live in `/data`.
 - The app exposes a stable local API contract via `/api/health`, `/api/status`, `/api/sync`, and `/api/diagnostics`.
