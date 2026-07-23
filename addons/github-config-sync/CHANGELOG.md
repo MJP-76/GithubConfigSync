@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.26
+
+- Renamed the defaults button and made it preserve user-selected ignore entries.
+
 ## 1.0.25
 
 - Added a Select All toggle to the grouped ignore suggestions UI.

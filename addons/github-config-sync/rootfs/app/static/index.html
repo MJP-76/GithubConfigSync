@@ -535,7 +535,7 @@
           </div>
           <div id="ignoreList" class="ignore-list"></div>
           <div class="row" style="margin-top: 12px">
-            <button id="addIgnoreDefaultsBtn" class="secondary">Add .gitignore Defaults</button>
+            <button id="addIgnoreDefaultsBtn" class="secondary">Update local .gitignore Defaults</button>
             <button id="saveIgnoreBtn" class="secondary">Write Selected Entries to .gitignore</button>
             <button id="refreshIgnoreBtn" class="secondary">Refresh Ignore Suggestions</button>
           </div>
@@ -934,12 +934,14 @@
       }
 
       async function addIgnoreDefaults() {
-        const selected = cachedIgnorePatterns.map((item) => item.pattern);
+        const selected = Array.from(el.ignoreList.querySelectorAll("input[type='checkbox']"))
+          .filter((item) => item.checked)
+          .map((item) => item.dataset.pattern);
         await fetchJson(apiUrl("/api/ignore/recommendations"), {
           method: "POST",
           body: JSON.stringify({ patterns: selected }),
         });
-        setStatus("Added default .gitignore entries");
+        setStatus("Updated local .gitignore defaults");
         await loadIgnoreRecommendations();
       }
 
