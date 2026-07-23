@@ -396,7 +396,10 @@
           <div class="field" style="margin-top: 12px">
             <div class="repo-picker-header">
               <label for="repoPicker">Repository picker (advanced)</label>
-              <button id="loadReposBtn" class="secondary">Load Repositories</button>
+              <div class="row" style="justify-content: flex-end">
+                <button id="loadReposBtn" class="secondary">Load Repositories</button>
+                <button id="loadManagedReposBtn" class="secondary">Show Add-on Repos</button>
+              </div>
             </div>
             <select id="repoPicker" style="margin-top: 6px">
               <option value="">Select a repository...</option>
@@ -562,6 +565,7 @@
         existingRepoSection: document.getElementById("existingRepoSection"),
         createRepoSection: document.getElementById("createRepoSection"),
         loadReposBtn: document.getElementById("loadReposBtn"),
+        loadManagedReposBtn: document.getElementById("loadManagedReposBtn"),
         repoPicker: document.getElementById("repoPicker"),
         newRepoName: document.getElementById("newRepoName"),
         newRepoDescription: document.getElementById("newRepoDescription"),
@@ -752,6 +756,26 @@
           renderRepoPicker(cachedRepos);
           if (strict) {
             throw error;
+          }
+        }
+
+        async function loadManagedRepositories(strict = false) {
+          try {
+            const data = await fetchJson(apiUrl("/api/repos/managed"));
+            cachedRepos = data.repos || [];
+            renderRepoPicker(cachedRepos);
+            if (el.repo.value) {
+              el.repoPicker.value = el.repo.value;
+            }
+            if (strict) {
+              setStatus(`Loaded ${cachedRepos.length} add-on repositories`);
+            }
+          } catch (error) {
+            cachedRepos = [];
+            renderRepoPicker(cachedRepos);
+            if (strict) {
+              throw error;
+            }
           }
         }
       }
@@ -1045,6 +1069,14 @@
           loadRepositories(true)
             .catch((error) => setStatus(error.message, false))
             .finally(() => setButtonBusy(el.loadReposBtn, false));
+        }
+      );
+      el.loadManagedReposBtn.addEventListener("click", () =>
+        {
+          setButtonBusy(el.loadManagedReposBtn, true, "Filtering...");
+          loadManagedRepositories(true)
+            .catch((error) => setStatus(error.message, false))
+            .finally(() => setButtonBusy(el.loadManagedReposBtn, false));
         }
       );
       el.repoPicker.addEventListener("change", () => {

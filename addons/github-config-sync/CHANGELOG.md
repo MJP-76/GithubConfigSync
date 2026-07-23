@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.14
+
+- Added a startup repo list plus an on-demand add-on repo filter to avoid probing on load.
+
 ## 1.0.13
 
 - Published a fresh dev release for the repo picker fix.

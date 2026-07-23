@@ -14,9 +14,9 @@ from sync.errors import SyncError
 from sync.github_client import GitHubClient
 from sync.hashing import IGNORE_PATTERNS
 
-APP_VERSION = "1.0.13"
+APP_VERSION = "1.0.14"
 STABLE_REPO_VERSION = "1.0.0"
-DEV_REPO_VERSION = "1.0.13"
+DEV_REPO_VERSION = "1.0.14"
 APP_PORT = 8099
 DEFAULT_OAUTH_CLIENT_ID = "Ov23li2ycCraodta6WCU"
 DEFAULT_NEW_REPO_NAME = "ha-github-config-sync"
@@ -807,6 +807,49 @@ def list_repos():
             ],
         }
     )
+
+
+@app.get("/api/repos/managed")
+def list_managed_repos():
+    options = _merge_options()
+    query = request.args.get("q", "", type=str)
+    try:
+        client = _token_client(options)
+        repos = client.list_user_repositories(query=query, limit=100)
+    except SyncError as err:
+        return jsonify({"ok": False, "error": str(err)}), 400
+
+    managed: list[dict[str, Any]] = []
+    for repo in repos:
+        full_name = str(repo.get("full_name", "")).strip()
+        if not full_name:
+            continue
+        repo_config = SyncConfig(
+            repository=full_name,
+            branch=str(options.get("github_branch", "main")).strip() or "main",
+            token=str(options.get("github_token", "")).strip(),
+            config_root=str(CONFIG_ROOT),
+            dry_run=bool(options.get("dry_run", True)),
+            addon_config_root="/addon_configs" if bool(options.get("include_addon_configs", True)) else "",
+            include_media=bool(options.get("include_media", False)),
+            include_share=bool(options.get("include_share", False)),
+            include_ssl=bool(options.get("include_ssl", True)),
+            include_backups=bool(options.get("include_backups", False)),
+            include_www=bool(options.get("include_www", True)),
+            version_retention_count=int(options.get("version_retention_count", 7)),
+        )
+        engine = SyncEngine(repo_config, previous_hash_index={})
+        safe, _reason = _repo_safety_state(engine)
+        if safe:
+            managed.append(
+                {
+                    "name": str(repo.get("name", "")),
+                    "full_name": full_name,
+                    "private": bool(repo.get("private", False)),
+                }
+            )
+
+    return jsonify({"ok": True, "repos": managed})
 
 
 @app.post("/api/repos/create")
