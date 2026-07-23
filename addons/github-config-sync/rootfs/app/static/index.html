@@ -1092,13 +1092,20 @@
 
       applyRepoMode();
       updateTokenBadge({ state: "checking" });
-      Promise.all([
-        loadOptions().catch((error) => setStatus(error.message, false)),
-        loadStatus().catch((error) => setStatus(error.message, false)),
-        loadDeviceFlowStatus().catch((error) => setStatus(error.message, false)),
-        loadRepositories(false).catch((error) => setStatus(error.message, false)),
-        loadIgnoreRecommendations().catch((error) => setStatus(error.message, false)),
-      ]).then(() => setStatus("Ready"));
+      Promise.allSettled([
+        loadOptions(),
+        loadStatus(),
+        loadDeviceFlowStatus(),
+        loadRepositories(false),
+        loadIgnoreRecommendations(),
+      ]).then((results) => {
+        const failed = results.find((result) => result.status === "rejected");
+        if (failed && failed.reason) {
+          setStatus(failed.reason.message || String(failed.reason), false);
+          return;
+        }
+        setStatus("Ready");
+      });
       startStatusPolling();
     </script>
   </body>

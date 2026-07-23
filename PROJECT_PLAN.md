@@ -15,6 +15,7 @@ Use this as the single source of truth for **where we are**, **what is next**, a
 - **Release tracks:** stable ships from the main repository, dev carries prerelease work.
 - **Versioning rule:** keep numeric `x.y.z` versions for integration/add-on and surface the track in the status UI.
 - **Changelog rule:** the HA update page uses the short repo-root changelog; the in-app UI uses the full app changelog.
+- **Changelog rule:** update the repo-root changelog on every pushed build/version so the HA update page stays current.
 
 <!-- VERSION:START -->
 - Integration version: `1.0.0`

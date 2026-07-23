@@ -60,6 +60,7 @@ If you find this project useful, and would like to help support its continued de
 - HA-sensitive defaults also exclude `secrets.yaml`, `ip_bans.yaml`, `known_devices.yaml`, runtime databases, and log files.
 - Live uploads also write a root `SECURITY_UPLOAD_WARNINGS.md` file when suspicious files are skipped.
 - The add-on writes an internal repo marker on newly created repositories so clean actions and the repo picker only target safe repos.
+- The repo-root changelog is updated on every pushed build/version so the HA update page stays current.
 
 ## Runbook
 
