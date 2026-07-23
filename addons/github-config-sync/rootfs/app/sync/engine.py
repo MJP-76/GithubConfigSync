@@ -103,9 +103,6 @@ class SyncEngine:
                 ),
             )
 
-    def sensitive_files(self) -> list[str]:
-            return list(self._sensitive_files)
-
         synced_count = 0
         deleted_count = 0
         skipped_count = 0
@@ -131,6 +128,9 @@ class SyncEngine:
                 f"Upserted {synced_count}, deleted {deleted_count}, skipped {skipped_count}."
             ),
         )
+
+    def sensitive_files(self) -> list[str]:
+        return list(self._sensitive_files)
 
     def clean_remote_tree(self) -> None:
         try:
