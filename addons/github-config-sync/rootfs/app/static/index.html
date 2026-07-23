@@ -164,6 +164,27 @@
 
       .ignore-list {
         display: grid;
+        gap: 12px;
+      }
+
+      .ignore-group {
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        background: var(--card-2);
+        padding: 10px 12px;
+      }
+
+      .ignore-group h3 {
+        margin: 0 0 8px;
+        font-size: 0.95rem;
+      }
+
+      .ignore-group .subtle {
+        margin-bottom: 8px;
+      }
+
+      .ignore-items {
+        display: grid;
         gap: 8px;
       }
 
@@ -684,6 +705,25 @@
         });
       }
 
+      function ignoreGroupFor(pattern) {
+        if (pattern.includes(".storage") || pattern.includes(".cloud")) {
+          return "Home Assistant runtime";
+        }
+        if (pattern.includes("home-assistant") || pattern.includes("secrets.yaml") || pattern.includes("ip_bans.yaml") || pattern.includes("known_devices.yaml")) {
+          return "Core Home Assistant files";
+        }
+        if (pattern.includes(".ruff") || pattern.includes(".mypy") || pattern.includes(".pytest") || pattern.includes(".venv") || pattern.includes(".vscode") || pattern.includes(".idea")) {
+          return "Editor and Python tooling";
+        }
+        if (pattern.includes(".git") || pattern.includes("__pycache__") || pattern.includes(".pyc") || pattern.includes(".log") || pattern.includes(".db") || pattern.includes(".sqlite") || pattern.includes(".tmp") || pattern.includes(".swp")) {
+          return "Caches, logs, and databases";
+        }
+        if (pattern.includes(".yaml_fix_backups") || pattern.includes(".ha_fix_yaml.py") || pattern.includes(".smbdelete")) {
+          return "Backup and repair files";
+        }
+        return "Other defaults";
+      }
+
       function renderDryRunPlan(summary) {
         const upserts = [].concat(summary?.added_files || [], summary?.changed_files || []);
         const deletes = summary?.removed_files || [];
@@ -832,19 +872,34 @@
           ? "Local .gitignore found."
           : "No local .gitignore found yet — selected entries will create one.";
         el.ignoreList.innerHTML = "";
+        const groups = new Map();
         cachedIgnorePatterns.forEach((item) => {
-          const label = document.createElement("label");
-          label.className = "row";
-          label.style.justifyContent = "space-between";
-          label.style.gap = "12px";
-          label.innerHTML = `<span>${item.pattern}</span>`;
-          const input = document.createElement("input");
-          input.type = "checkbox";
-          input.checked = Boolean(item.selected);
-          input.dataset.pattern = item.pattern;
-          label.prepend(input);
-          el.ignoreList.appendChild(label);
+          const group = ignoreGroupFor(item.pattern);
+          if (!groups.has(group)) {
+            groups.set(group, []);
+          }
+          groups.get(group).push(item);
         });
+        for (const [groupName, items] of groups.entries()) {
+          const group = document.createElement("div");
+          group.className = "ignore-group";
+          group.innerHTML = `<h3>${groupName}</h3><div class="ignore-items"></div>`;
+          const list = group.querySelector(".ignore-items");
+          items.forEach((item) => {
+            const label = document.createElement("label");
+            label.className = "row";
+            label.style.justifyContent = "space-between";
+            label.style.gap = "12px";
+            label.innerHTML = `<span>${item.pattern}</span>`;
+            const input = document.createElement("input");
+            input.type = "checkbox";
+            input.checked = Boolean(item.selected);
+            input.dataset.pattern = item.pattern;
+            label.prepend(input);
+            list.appendChild(label);
+          });
+          el.ignoreList.appendChild(group);
+        }
       }
 
       async function saveIgnoreRecommendations() {

@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.22
+
+- Grouped the ignore suggestions into labeled sections for easier scanning.
+
 ## 1.0.21
 
 - Added a one-click button to write the built-in `.gitignore` defaults.
