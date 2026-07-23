@@ -28,6 +28,7 @@ IGNORE_PATTERNS = (
     "ip_bans.yaml",
     "known_devices.yaml",
     ".ha_run.lock",
+    ".ruff.toml",
     "*.db",
     "*.sqlite",
     "*.sqlite3",

@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.20
+
+- Added `.ruff.toml` to the built-in ignore defaults.
+
 ## 1.0.19
 
 - Made repository selection auto-save with the rest of the settings and removed the separate Save Settings button.

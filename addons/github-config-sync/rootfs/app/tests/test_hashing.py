@@ -69,6 +69,7 @@ class HashingTests(unittest.TestCase):
         self.assertIn("known_devices.yaml", DEFAULT_IGNORE_PATTERNS)
         self.assertIn(".storage/", DEFAULT_IGNORE_PATTERNS)
         self.assertIn(".cloud/", DEFAULT_IGNORE_PATTERNS)
+        self.assertIn(".ruff.toml", DEFAULT_IGNORE_PATTERNS)
 
     def test_diff_hash_indexes_returns_expected_added_changed_removed(self) -> None:
         previous = {"a.yaml": "1", "b.yaml": "2"}
