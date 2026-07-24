@@ -14,8 +14,8 @@ from sync.errors import SyncError
 from sync.github_client import GitHubClient
 from sync.hashing import IGNORE_PATTERNS
 
-APP_VERSION = "1.0.33"
-STABLE_REPO_VERSION = "1.0.33"
+APP_VERSION = "1.0.34"
+STABLE_REPO_VERSION = "1.0.34"
 DEV_REPO_VERSION = "1.0.37"
 APP_PORT = 8099
 DEFAULT_OAUTH_CLIENT_ID = "Ov23li2ycCraodta6WCU"
@@ -236,6 +236,14 @@ def _save_state(updates: dict[str, Any]) -> dict[str, Any]:
     state.update(updates)
     _save_json(STATE_PATH, state)
     return state
+
+
+def _clear_sync_progress_state() -> dict[str, Any]:
+    return {
+        "sync_progress": None,
+        "sync_progress_current_path_started_at": None,
+        "sync_progress_last_seen_at": None,
+    }
 
 
 def _persist_options(payload: dict[str, Any]) -> None:
@@ -641,7 +649,16 @@ def trigger_manual_sync():
             "Dry run completed. "
             f"Would upsert {scan['added_count'] + scan['changed_count']} files and delete {scan['removed_count']} files."
         )
-        _save_state({"status": "ok", "last_run": started, "last_error": None, "last_result": result_message, "last_scan": scan})
+        _save_state(
+            {
+                "status": "ok",
+                "last_run": started,
+                "last_error": None,
+                "last_result": result_message,
+                "last_scan": scan,
+                **_clear_sync_progress_state(),
+            }
+        )
         return jsonify(
             {
                 "ok": True,
@@ -668,6 +685,7 @@ def trigger_manual_sync():
             "last_error": None,
             "last_result": None,
             "last_scan": None,
+            **_clear_sync_progress_state(),
         }
     )
     _set_cancel_requested(False)
@@ -702,6 +720,7 @@ def trigger_manual_sync():
                 "last_error": str(err),
                 "last_result": None,
                 "last_scan": scan,
+                **_clear_sync_progress_state(),
             }
         )
         return jsonify({"ok": False, "error": str(err), "state": state}), 502
@@ -713,6 +732,7 @@ def trigger_manual_sync():
             "last_result": result.message,
             "last_scan": scan,
             "last_error": None,
+            **_clear_sync_progress_state(),
         }
     )
     return jsonify(
@@ -1139,6 +1159,7 @@ def trigger_sync():
                 "status": "error",
                 "last_error": "github_repository is required",
                 "last_run": dt.datetime.now(dt.timezone.utc).isoformat(),
+                **_clear_sync_progress_state(),
             }
         )
         return jsonify({"ok": False, "error": "github_repository is required", "state": state}), 400
@@ -1156,6 +1177,7 @@ def trigger_sync():
             "last_error": None,
             "last_result": None,
             "last_scan": None,
+            **_clear_sync_progress_state(),
         }
     )
     _set_cancel_requested(False)
@@ -1194,6 +1216,7 @@ def trigger_sync():
                         "last_error": friendly_message,
                         "last_result": None,
                         "last_scan": scan,
+                        **_clear_sync_progress_state(),
                     }
                 )
                 _append_log(f"Repository probe failed: {friendly_message}")
@@ -1209,6 +1232,7 @@ def trigger_sync():
                 "last_error": str(err),
                 "last_result": None,
                 "last_scan": scan,
+                **_clear_sync_progress_state(),
             }
         )
         _append_log(f"Sync failed: {err}")
@@ -1223,6 +1247,7 @@ def trigger_sync():
             "last_result": result.message,
             "last_scan": scan,
             "last_error": None,
+            **_clear_sync_progress_state(),
         }
     )
     _append_log(result.message)
@@ -1273,7 +1298,7 @@ def trigger_clean_sync():
         version_retention_count=sync_config.version_retention_count,
     )
     started = dt.datetime.now(dt.timezone.utc).isoformat()
-    _save_state({"status": "running", "last_run": started, "last_error": None})
+    _save_state({"status": "running", "last_run": started, "last_error": None, **_clear_sync_progress_state()})
     _set_cancel_requested(False)
     _append_log(f"Clean upload started for {sync_config.repository} (forced live upload)")
     scan: dict[str, Any] | None = None
@@ -1289,6 +1314,7 @@ def trigger_clean_sync():
                     "last_error": reason,
                     "last_result": None,
                     "last_scan": None,
+                    **_clear_sync_progress_state(),
                 }
             )
             _append_log(f"Clean upload blocked: {reason}")
@@ -1325,6 +1351,7 @@ def trigger_clean_sync():
                         "last_error": friendly_message,
                         "last_result": None,
                         "last_scan": scan,
+                        **_clear_sync_progress_state(),
                     }
                 )
                 _append_log(f"Repository probe failed: {friendly_message}")
@@ -1340,6 +1367,7 @@ def trigger_clean_sync():
                 "last_error": str(err),
                 "last_result": None,
                 "last_scan": scan,
+                **_clear_sync_progress_state(),
             }
         )
         return jsonify({"ok": False, "error": str(err), "state": state}), 502
@@ -1351,6 +1379,7 @@ def trigger_clean_sync():
             "last_result": result.message,
             "last_scan": scan,
             "last_error": None,
+            **_clear_sync_progress_state(),
         }
     )
     return jsonify(
@@ -1381,7 +1410,7 @@ def trigger_clean_repo():
         return jsonify({"ok": False, "error": confirmation_error}), 400
 
     started = dt.datetime.now(dt.timezone.utc).isoformat()
-    _save_state({"status": "running", "last_run": started, "last_error": None})
+    _save_state({"status": "running", "last_run": started, "last_error": None, **_clear_sync_progress_state()})
     _set_cancel_requested(False)
     _append_log(f"Clean repo requested for {sync_config.repository}")
 
@@ -1400,6 +1429,7 @@ def trigger_clean_repo():
                 "last_error": str(err),
                 "last_result": None,
                 "last_scan": None,
+                **_clear_sync_progress_state(),
             }
         )
         _append_log(f"Clean repo failed: {err}")
@@ -1412,6 +1442,7 @@ def trigger_clean_repo():
             "last_result": "Clean repo completed. Remote repo fully reset and skeleton restored.",
             "last_scan": None,
             "last_error": None,
+            **_clear_sync_progress_state(),
         }
     )
     _append_log("Clean repo completed: remote tree wiped, skeleton restored, marker refreshed")

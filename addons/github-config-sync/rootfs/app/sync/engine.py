@@ -161,14 +161,42 @@ class SyncEngine:
                 snapshot_entries.append((target, path.read_bytes()))
         if not snapshot_entries:
             return
+        self._progress_callback(
+            {
+                "status": "running",
+                "current_action": "snapshotting",
+                "current_path": "",
+                "upsert_total": 0,
+                "remove_total": 0,
+                "upsert_remaining": len(snapshot_entries),
+                "remove_remaining": 0,
+                "upsert_paths": [target for target, _content in snapshot_entries[:50]],
+                "remove_paths": [],
+            }
+        )
         max_workers = min(_MAX_PARALLEL_SNAPSHOT_UPLOADS, len(snapshot_entries))
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             futures = [
                 executor.submit(self._put_with_retry, target, content, f"sync: snapshot {target}")
                 for target, content in snapshot_entries
             ]
+            remaining = len(snapshot_entries)
             for future in as_completed(futures):
                 future.result()
+                remaining -= 1
+                self._progress_callback(
+                    {
+                        "status": "running",
+                        "current_action": "snapshotting",
+                        "current_path": "",
+                        "upsert_total": 0,
+                        "remove_total": 0,
+                        "upsert_remaining": remaining,
+                        "remove_remaining": 0,
+                        "upsert_paths": [target for target, _content in snapshot_entries[:50]],
+                        "remove_paths": [],
+                    }
+                )
 
     def _rotate_version_snapshots(self) -> None:
         keep = max(1, self._config.version_retention_count)
@@ -368,9 +396,35 @@ class SyncEngine:
                     skipped_count += 1
                     continue
                 futures[executor.submit(self._put_with_retry, relative, local_path.read_bytes())] = relative
+            self._progress_callback(
+                {
+                    "status": "running",
+                    "current_action": "upserting",
+                    "current_path": "",
+                    "upsert_total": total,
+                    "remove_total": len(removed_paths),
+                    "upsert_remaining": len(futures),
+                    "remove_remaining": len(removed_paths),
+                    "upsert_paths": upsert_paths[:50],
+                    "remove_paths": removed_paths[:50],
+                }
+            )
             for future in as_completed(futures):
                 future.result()
                 synced_count += 1
+                self._progress_callback(
+                    {
+                        "status": "running",
+                        "current_action": "upserting",
+                        "current_path": "",
+                        "upsert_total": total,
+                        "remove_total": len(removed_paths),
+                        "upsert_remaining": len(futures) - synced_count,
+                        "remove_remaining": len(removed_paths),
+                        "upsert_paths": upsert_paths[:50],
+                        "remove_paths": removed_paths[:50],
+                    }
+                )
         if self._cancel_requested():
             cancelled = True
         return synced_count, skipped_count, cancelled
@@ -403,12 +457,38 @@ class SyncEngine:
                     }
                 )
                 futures[executor.submit(self._delete_one, relative)] = relative
+            self._progress_callback(
+                {
+                    "status": "running",
+                    "current_action": "deleting",
+                    "current_path": "",
+                    "upsert_total": len(upsert_paths),
+                    "remove_total": total,
+                    "upsert_remaining": 0,
+                    "remove_remaining": len(futures),
+                    "upsert_paths": [],
+                    "remove_paths": removed_paths[:50],
+                }
+            )
             for future in as_completed(futures):
                 did_delete = future.result()
                 if did_delete:
                     deleted_count += 1
                 else:
                     skipped_count += 1
+                self._progress_callback(
+                    {
+                        "status": "running",
+                        "current_action": "deleting",
+                        "current_path": "",
+                        "upsert_total": len(upsert_paths),
+                        "remove_total": total,
+                        "upsert_remaining": 0,
+                        "remove_remaining": len(futures) - deleted_count - skipped_count,
+                        "upsert_paths": [],
+                        "remove_paths": removed_paths[:50],
+                    }
+                )
         if self._cancel_requested():
             cancelled = True
         return deleted_count, skipped_count, cancelled

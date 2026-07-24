@@ -226,6 +226,40 @@ class SyncEngineTests(unittest.TestCase):
             self.assertIn("one.yaml", uploaded_paths)
             self.assertTrue(any(path.startswith("versions/") for path in uploaded_paths))
 
+    def test_run_live_reports_waiting_and_snapshot_progress(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "one.yaml").write_text("1", encoding="utf-8")
+
+            config = SyncConfig(
+                repository="owner/repo",
+                branch="main",
+                token="token",
+                config_root=str(root),
+                addon_config_root="/addon_configs",
+                dry_run=False,
+                version_retention_count=1,
+            )
+            plan = SyncPlan(added=["one.yaml"], changed=[], removed=[], total_files=1)
+            fake_client = MagicMock()
+            fake_client.get_content.return_value = None
+            fake_client.list_directory_contents.return_value = []
+
+            with patch("sync.engine.GitHubClient", return_value=fake_client):
+                engine = SyncEngine(config, previous_hash_index={})
+                progress_events: list[dict[str, object]] = []
+                engine.set_progress_callback(progress_events.append)
+                engine.run(plan)
+
+            self.assertTrue(
+                any(
+                    event.get("current_action") == "upserting"
+                    and event.get("current_path") == ""
+                    for event in progress_events
+                )
+            )
+            self.assertTrue(any(event.get("current_action") == "snapshotting" for event in progress_events))
+
     def test_run_live_retries_version_snapshot_on_sha_conflict(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

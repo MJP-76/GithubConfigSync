@@ -6,12 +6,12 @@ Use this as the single source of truth for **where we are**, **what is next**, a
 
 ## Status Snapshot
 
-- **Current milestone:** `v1.0.33 — stable release`
+- **Current milestone:** `v1.0.34 — stable release`
 - **Last updated:** 2026-07-22
 - **Track:** Home Assistant Integration + Home Assistant Add-on (Ingress Web UI)
 - **Latest shipped improvements:** autosave in the UI, bundled starter files, fast git-tree Clean Repo, dry-run feedback in manual sync, split changelog surfaces, and stable release promotion
 - **Current operator UX:** Device Login section first, existing/create repo flow, troubleshooting auth overrides hidden by default
-- **Version state:** stable and dev use separate numeric lanes (`1.0.33` / `1.0.37`).
+- **Version state:** stable and dev use separate numeric lanes (`1.0.34` / `1.0.37`).
 - **Release tracks:** stable ships from the main repository, dev carries prerelease work.
 - **Versioning rule:** keep numeric `x.y.z` versions for integration/add-on and surface the track in the status UI.
 - **Changelog rule:** the HA update page uses the short repo-root changelog; the in-app UI uses the full app changelog.
@@ -19,10 +19,10 @@ Use this as the single source of truth for **where we are**, **what is next**, a
 - **Default ignore list:** `.storage`, `.cloud`, `.cache`, `.venv`, `.vscode`, `.idea`, `.pytest_cache`, `.mypy_cache`, `.ruff_cache`, `tts`, `__pycache__`, `.git`, `home-assistant.log`, `home-assistant.log.*`, `home-assistant_v2.db`, `home-assistant_v2.db-*`, `secrets.yaml`, `ip_bans.yaml`, `known_devices.yaml`, `.ha_run.lock`, `*.db`, `*.sqlite`, `*.sqlite3`, `*.tmp`, `*.swp`, `*.pyc`, `*.log`, `.yaml_fix_backups`, `.yaml_fix_backups/*`, `.ha_fix_yaml.py`, `.smbdelete*`, `.DS_Store`, `Thumbs.db`
 
 <!-- VERSION:START -->
-- Integration version: `1.0.33`
-- Add-on version: `1.0.33`
+- Integration version: `1.0.34`
+- Add-on version: `1.0.34`
 - Channel: `stable`
-- Release tag: `v1.0.33`
+- Release tag: `v1.0.34`
 <!-- VERSION:END -->
 
 ---

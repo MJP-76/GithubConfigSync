@@ -26,10 +26,10 @@ If you find this project useful, and would like to help support its continued de
 ## Version Tracker
 
 <!-- VERSION:START -->
-- Integration version: `1.0.33`
-- Add-on version: `1.0.33`
+- Integration version: `1.0.34`
+- Add-on version: `1.0.34`
 - Channel: `stable`
-- Release tag: `v1.0.33`
+- Release tag: `v1.0.34`
 <!-- VERSION:END -->
 
 ## What it provides
@@ -55,7 +55,7 @@ If you find this project useful, and would like to help support its continued de
 - Runtime state is persisted in `/data/state.json`, `/data/hash_index.json`, `/data/device_flow.json`, and `/data/sync.log`.
 - The stable local API contract is `/api/health`, `/api/status`, `/api/sync`, and `/api/diagnostics`.
 - Home Assistant shows the short repo-root changelog on the update page; the in-app UI reads the full changelog from the app folder.
-- Stable and dev now use separate numeric lanes in the UI: stable `1.0.33` and dev `1.0.37`.
+- Stable and dev now use separate numeric lanes in the UI: stable `1.0.34` and dev `1.0.37`.
 - Default ignores include:
   - `.storage`, `.cloud`, `.cache`, `.venv`, `.vscode`, `.idea`, `.pytest_cache`, `.mypy_cache`, `.ruff_cache`, `tts`, `__pycache__`, `.git`
   - `home-assistant.log`, `home-assistant.log.*`, `home-assistant_v2.db`, `home-assistant_v2.db-*`, `secrets.yaml`, `ip_bans.yaml`, `known_devices.yaml`, `.ha_run.lock`, `*.db`, `*.sqlite`, `*.sqlite3`, `*.tmp`, `*.swp`, `*.pyc`, `*.log`, `.yaml_fix_backups`, `.yaml_fix_backups/*`, `.ha_fix_yaml.py`, `.smbdelete*`, `.DS_Store`, `Thumbs.db`

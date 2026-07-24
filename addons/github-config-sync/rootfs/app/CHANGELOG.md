@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.34
+
+- Stable release 1.0.34 for the stuck upload progress fix.
+- Cleared stale sync progress after success, failure, dry runs, and new run startup.
+- Parallel upserts and deletes now report a waiting state instead of leaving the last submitted filename stuck in the activity panel.
+- Version snapshot uploads now show a separate snapshotting phase in progress.
+
 ## 1.0.33
 
 - Stable release 1.0.33 for the repository adoption flow.

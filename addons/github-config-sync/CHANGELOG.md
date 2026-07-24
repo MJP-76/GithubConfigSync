@@ -2,11 +2,18 @@
 
 ## Latest 5 releases
 
+- `1.0.34` — fixed stuck upload progress so the UI clears finished files and shows snapshot work instead of pinning one filename.
 - `1.0.33` — promoted the repository adoption flow to stable, showing adopted repos by default and requiring explicit adoption for unmanaged repos.
 - `1.0.32` — added compatibility support for the managed repo picker endpoint.
 - `1.0.26` — renamed the defaults button and made it preserve user-selected ignore entries.
 - `1.0.25` — added a Select All toggle to the grouped ignore suggestions UI.
-- `1.0.24` — default-selected ignore recommendations now start checked when no local `.gitignore` exists.
+
+## 1.0.34
+
+- Stable release 1.0.34 for the stuck upload progress fix.
+- Cleared stale sync progress when a run completes, fails, or starts a fresh run.
+- Upload and delete progress now switches from the last submitted filename to a waiting state while parallel GitHub calls finish.
+- Version snapshot uploads now report their own phase instead of leaving the UI pinned on the last config file name.
 
 ## 1.0.33
 
