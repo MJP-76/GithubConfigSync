@@ -14,9 +14,9 @@ from sync.errors import SyncError
 from sync.github_client import GitHubClient
 from sync.hashing import IGNORE_PATTERNS
 
-APP_VERSION = "1.0.27"
-STABLE_REPO_VERSION = "1.0.26"
-DEV_REPO_VERSION = "1.0.27"
+APP_VERSION = "1.0.32"
+STABLE_REPO_VERSION = "1.0.32"
+DEV_REPO_VERSION = "1.0.32"
 APP_PORT = 8099
 DEFAULT_OAUTH_CLIENT_ID = "Ov23li2ycCraodta6WCU"
 DEFAULT_NEW_REPO_NAME = "ha-github-config-sync"
