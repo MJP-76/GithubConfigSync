@@ -113,9 +113,9 @@ def main() -> int:
     parser.add_argument("--addon", help="Base add-on version in x.y.z format (defaults to --integration)")
     parser.add_argument(
         "--channel",
-        choices=["stable", "rc", "dev"],
+        choices=["stable", "dev"],
         required=True,
-        help="Release channel; stable and rc use the base version and dev bumps the patch.",
+        help="Release channel; stable uses the base version and dev bumps the patch.",
     )
     parser.add_argument(
         "--check",
