@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.35
+
+- Stable release 1.0.35 promoting the current dev repository-management flow.
+- Keeps the adopted-repos-first picker, explicit repository adoption, and opt-in expansion to unmanaged repos.
+- Keeps the stuck-upload progress cleanup and snapshotting status from the later stable fix.
+
 ## 1.0.34
 
 - Stable release 1.0.34 for the stuck upload progress fix.

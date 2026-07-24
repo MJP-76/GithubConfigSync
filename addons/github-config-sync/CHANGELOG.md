@@ -2,11 +2,17 @@
 
 ## Latest 5 releases
 
+- `1.0.35` — promoted the current dev repository-management behavior to stable on top of the stuck-upload progress fix already in stable.
 - `1.0.34` — fixed stuck upload progress so the UI clears finished files and shows snapshot work instead of pinning one filename.
 - `1.0.33` — promoted the repository adoption flow to stable, showing adopted repos by default and requiring explicit adoption for unmanaged repos.
 - `1.0.32` — added compatibility support for the managed repo picker endpoint.
 - `1.0.26` — renamed the defaults button and made it preserve user-selected ignore entries.
-- `1.0.25` — added a Select All toggle to the grouped ignore suggestions UI.
+
+## 1.0.35
+
+- Stable release 1.0.35 promoting the current dev repository-management flow.
+- Stable keeps the adopted-repos-first picker, explicit repository adoption, and opt-in expansion to other accessible repos.
+- Stable also keeps the newer upload-progress cleanup so finished or failed runs do not stay pinned on a stale file name.
 
 ## 1.0.34
 

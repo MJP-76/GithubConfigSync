@@ -23,19 +23,19 @@ If you find this project useful, and would like to help support its continued de
 ## Version Tracker
 
 <!-- VERSION:START -->
-- Integration version: `1.0.34`
-- Add-on version: `1.0.34`
+- Integration version: `1.0.35`
+- Add-on version: `1.0.35`
 - Channel: `stable`
-- Release tag: `v1.0.34`
+- Release tag: `v1.0.35`
 <!-- VERSION:END -->
 
-Stable and dev now follow separate numeric lanes in the UI: stable `1.0.34` and dev `1.0.37`.
+Stable and dev now follow separate numeric lanes in the UI: stable `1.0.35` and dev `1.0.37`.
 Repos created or adopted by the add-on are marked internally so destructive clean actions and the default repo picker can avoid unsafe existing repositories.
 
 To sync versions across integration/app/runtime/docs automatically:
 
 ```bash
-python3 scripts/sync_versions.py --integration 1.0.34 --addon 1.0.34 --channel stable
+python3 scripts/sync_versions.py --integration 1.0.35 --addon 1.0.35 --channel stable
 ```
 
 ## Home Assistant App (Web UI)
