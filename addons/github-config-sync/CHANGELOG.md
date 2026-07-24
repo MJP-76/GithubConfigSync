@@ -1,5 +1,21 @@
 # Changelog
 
+## Latest 5 releases
+
+- `1.0.33` — promoted the repository adoption flow to stable, showing adopted repos by default and requiring explicit adoption for unmanaged repos.
+- `1.0.32` — added compatibility support for the managed repo picker endpoint.
+- `1.0.26` — renamed the defaults button and made it preserve user-selected ignore entries.
+- `1.0.25` — added a Select All toggle to the grouped ignore suggestions UI.
+- `1.0.24` — default-selected ignore recommendations now start checked when no local `.gitignore` exists.
+
+## 1.0.33
+
+- Stable release 1.0.33 for the repository adoption flow.
+- Load Repositories now shows adopted or marker-managed repos by default.
+- Ticking the existing-repo checkbox expands the picker to show other accessible repos for adoption.
+- Existing unmanaged repos must be explicitly adopted before write actions can target them.
+- Clean Upload and Clean Repo both restore the starter skeleton and refresh the add-on marker.
+
 ## 1.0.32
 
 - Add compatibility support for the managed repo picker endpoint.

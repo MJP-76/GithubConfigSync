@@ -14,9 +14,9 @@ from sync.errors import SyncError
 from sync.github_client import GitHubClient
 from sync.hashing import IGNORE_PATTERNS
 
-APP_VERSION = "1.0.32"
-STABLE_REPO_VERSION = "1.0.32"
-DEV_REPO_VERSION = "1.0.32"
+APP_VERSION = "1.0.33"
+STABLE_REPO_VERSION = "1.0.33"
+DEV_REPO_VERSION = "1.0.37"
 APP_PORT = 8099
 DEFAULT_OAUTH_CLIENT_ID = "Ov23li2ycCraodta6WCU"
 DEFAULT_NEW_REPO_NAME = "ha-github-config-sync"
@@ -39,6 +39,8 @@ logging.getLogger("werkzeug").setLevel(logging.ERROR)
 
 DEFAULT_OPTIONS: dict[str, Any] = {
     "auth_method": "device_flow",
+    "repo_mode": "existing",
+    "existing_repo_confirmed_for": "",
     "github_repository": "",
     "github_branch": "main",
     "github_token": "",
@@ -64,6 +66,44 @@ def _repo_safety_state(engine: SyncEngine) -> tuple[bool, str]:
     marker_present = any(
         isinstance(item.get("path"), str) and item["path"] == ADDON_REPO_MARKER_PATH for item in contents
     )
+
+
+def _repo_sync_config(options: dict[str, Any], repository: str) -> SyncConfig:
+    return SyncConfig(
+        repository=repository,
+        branch=str(options.get("github_branch", "main")).strip() or "main",
+        token=str(options.get("github_token", "")).strip(),
+        config_root=str(CONFIG_ROOT),
+        dry_run=bool(options.get("dry_run", True)),
+        addon_config_root="/addon_configs" if bool(options.get("include_addon_configs", True)) else "",
+        include_media=bool(options.get("include_media", False)),
+        include_share=bool(options.get("include_share", False)),
+        include_ssl=bool(options.get("include_ssl", True)),
+        include_backups=bool(options.get("include_backups", False)),
+        include_www=bool(options.get("include_www", True)),
+        version_retention_count=int(options.get("version_retention_count", 7)),
+    )
+
+
+def _existing_repo_confirmation_error(options: dict[str, Any]) -> str | None:
+    if str(options.get("repo_mode", "existing")).strip() != "existing":
+        return None
+    repository = str(options.get("github_repository", "")).strip()
+    if not repository:
+        return None
+    if str(options.get("existing_repo_confirmed_for", "")).strip() == repository:
+        return None
+    try:
+        engine = SyncEngine(_repo_sync_config(options, repository), previous_hash_index={})
+        safe, _reason = _repo_safety_state(engine)
+        if safe:
+            return None
+    except SyncError:
+        pass
+    return (
+        "Using an existing repository can overwrite or delete remote files. "
+        "Tick the existing-repo confirmation checkbox in Repository setup before continuing."
+    )
     if marker_present:
         return True, "Repository marker found"
     if not contents:
@@ -75,6 +115,11 @@ def _ensure_repo_marker(engine: SyncEngine, repository: str) -> None:
     engine._github.write_repo_marker(  # pylint: disable=protected-access
         {"created_by": "github-config-sync-addon", "repository": repository}
     )
+
+
+def _restore_repo_skeleton_and_marker(engine: SyncEngine, repository: str) -> None:
+    engine.restore_repo_skeleton()
+    _ensure_repo_marker(engine, repository)
 
 
 def _format_sensitive_warning(sensitive_files: list[str]) -> str:
@@ -206,9 +251,16 @@ def _append_log(message: str) -> None:
 
 
 def _validate_payload(payload: dict[str, Any]) -> tuple[bool, str | None]:
+    repo_mode = str(payload.get("repo_mode", "existing")).strip()
+    if repo_mode not in ("existing", "create"):
+        return False, "repo_mode must be existing or create"
+
     repository = str(payload.get("github_repository", "")).strip()
     if repository and repository.count("/") != 1:
         return False, "github_repository must be in owner/repo format"
+    existing_repo_confirmed_for = str(payload.get("existing_repo_confirmed_for", "")).strip()
+    if existing_repo_confirmed_for and existing_repo_confirmed_for.count("/") != 1:
+        return False, "existing_repo_confirmed_for must be in owner/repo format"
 
     branch = str(payload.get("github_branch", "")).strip()
     if not branch:
@@ -321,7 +373,12 @@ def _read_changelog_entries(limit: int = 5) -> list[str]:
 
 
 def _load_managed_repos() -> list[dict[str, Any]]:
-    data = _load_json(MANAGED_REPOS_PATH, [])
+    if not MANAGED_REPOS_PATH.exists():
+        return []
+    try:
+        data = json.loads(MANAGED_REPOS_PATH.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return []
     if not isinstance(data, list):
         return []
     repos: list[dict[str, Any]] = []
@@ -336,13 +393,84 @@ def _load_managed_repos() -> list[dict[str, Any]]:
                 "name": str(item.get("name", "")).strip(),
                 "full_name": full_name,
                 "private": bool(item.get("private", False)),
+                "managed": bool(item.get("managed", True)),
             }
         )
     return repos
 
 
 def _save_managed_repos(repos: list[dict[str, Any]]) -> None:
-    _save_json(MANAGED_REPOS_PATH, repos)
+    MANAGED_REPOS_PATH.parent.mkdir(parents=True, exist_ok=True)
+    MANAGED_REPOS_PATH.write_text(json.dumps(repos, indent=2, sort_keys=True), encoding="utf-8")
+
+
+def _repo_has_addon_marker(options: dict[str, Any], repository: str) -> bool:
+    engine = SyncEngine(_repo_sync_config(options, repository), previous_hash_index={})
+    contents = engine._github.list_directory_contents()  # pylint: disable=protected-access
+    return any(
+        isinstance(item.get("path"), str) and item["path"] == ADDON_REPO_MARKER_PATH
+        for item in contents
+        if isinstance(item, dict)
+    )
+
+
+def _repo_picker_entries(
+    options: dict[str, Any], query: str = "", include_unmanaged: bool = False
+) -> list[dict[str, Any]]:
+    client = _token_client(options)
+    repos = client.list_user_repositories(query=query, limit=100)
+    cached_repos = _load_managed_repos()
+    cached_by_name = {
+        str(item.get("full_name", "")).strip(): item
+        for item in cached_repos
+        if str(item.get("full_name", "")).strip()
+    }
+    combined: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for repo in repos:
+        full_name = str(repo.get("full_name", "")).strip()
+        if not full_name or full_name in seen:
+            continue
+        seen.add(full_name)
+        cached = cached_by_name.get(full_name, {})
+        managed = bool(cached.get("managed", True)) if cached else False
+        if not managed:
+            try:
+                managed = _repo_has_addon_marker(options, full_name)
+            except SyncError:
+                managed = False
+        if not include_unmanaged and not managed:
+            continue
+        combined.append(
+            {
+                "name": str(repo.get("name", "")).strip(),
+                "full_name": full_name,
+                "private": bool(repo.get("private", False)),
+                "managed": managed,
+            }
+        )
+
+    current_repo = str(options.get("github_repository", "")).strip()
+    if current_repo and current_repo not in seen:
+        cached = cached_by_name.get(current_repo, {})
+        managed = bool(cached.get("managed", True)) if cached else False
+        if not managed:
+            try:
+                managed = _repo_has_addon_marker(options, current_repo)
+            except SyncError:
+                managed = False
+        if not include_unmanaged and not managed:
+            return combined
+        combined.insert(
+            0,
+            {
+                "name": current_repo.rsplit("/", 1)[-1],
+                "full_name": current_repo,
+                "private": bool(cached.get("private", True)),
+                "managed": managed,
+            },
+        )
+    return combined
 
 
 def _diagnostics_bundle() -> dict[str, Any]:
@@ -528,6 +656,10 @@ def trigger_manual_sync():
             }
         )
 
+    confirmation_error = _existing_repo_confirmation_error(options)
+    if confirmation_error:
+        return jsonify({"ok": False, "error": confirmation_error}), 400
+
     started = dt.datetime.now(dt.timezone.utc).isoformat()
     _save_state(
         {
@@ -613,6 +745,9 @@ def set_options():
     candidate = {
         "auth_method": str(payload.get("auth_method", _merge_options().get("auth_method", "device_flow"))).strip()
         or "device_flow",
+        "repo_mode": str(payload.get("repo_mode", _merge_options().get("repo_mode", "existing"))).strip()
+        or "existing",
+        "existing_repo_confirmed_for": str(payload.get("existing_repo_confirmed_for", "")).strip(),
         "github_repository": str(payload.get("github_repository", "")).strip(),
         "github_branch": str(payload.get("github_branch", "main")).strip() or "main",
         "github_token": str(payload.get("github_token", "")).strip() or _merge_options().get("github_token", ""),
@@ -825,25 +960,11 @@ def list_repos():
     options = _merge_options()
     query = request.args.get("q", "", type=str)
     try:
-        client = _token_client(options)
-        repos = client.list_user_repositories(query=query, limit=100)
+        repos = _repo_picker_entries(options, query=query, include_unmanaged=True)
     except SyncError as err:
         return jsonify({"ok": False, "error": str(err)}), 400
 
-    return jsonify(
-        {
-            "ok": True,
-            "repos": [
-                {
-                    "name": str(repo.get("name", "")),
-                    "full_name": str(repo.get("full_name", "")),
-                    "private": bool(repo.get("private", False)),
-                }
-                for repo in repos
-                if str(repo.get("full_name", "")).strip()
-            ],
-        }
-    )
+    return jsonify({"ok": True, "repos": repos})
 
 
 @app.get("/api/repos/managed")
@@ -851,48 +972,71 @@ def list_managed_repos():
     options = _merge_options()
     query = request.args.get("q", "", type=str)
     try:
-        client = _token_client(options)
-        repos = client.list_user_repositories(query=query, limit=100)
+        repos = _repo_picker_entries(options, query=query, include_unmanaged=False)
     except SyncError as err:
         return jsonify({"ok": False, "error": str(err)}), 400
-
-    managed: list[dict[str, Any]] = []
-    for repo in repos:
-        full_name = str(repo.get("full_name", "")).strip()
-        if not full_name:
-            continue
-        repo_config = SyncConfig(
-            repository=full_name,
-            branch=str(options.get("github_branch", "main")).strip() or "main",
-            token=str(options.get("github_token", "")).strip(),
-            config_root=str(CONFIG_ROOT),
-            dry_run=bool(options.get("dry_run", True)),
-            addon_config_root="/addon_configs" if bool(options.get("include_addon_configs", True)) else "",
-            include_media=bool(options.get("include_media", False)),
-            include_share=bool(options.get("include_share", False)),
-            include_ssl=bool(options.get("include_ssl", True)),
-            include_backups=bool(options.get("include_backups", False)),
-            include_www=bool(options.get("include_www", True)),
-            version_retention_count=int(options.get("version_retention_count", 7)),
-        )
-        engine = SyncEngine(repo_config, previous_hash_index={})
-        safe, _reason = _repo_safety_state(engine)
-        if safe:
-            managed.append(
-                {
-                    "name": str(repo.get("name", "")),
-                    "full_name": full_name,
-                    "private": bool(repo.get("private", False)),
-                }
-            )
-
-    _save_managed_repos(managed)
-    return jsonify({"ok": True, "repos": managed})
+    _save_managed_repos(repos)
+    return jsonify({"ok": True, "repos": repos})
 
 
 @app.get("/api/repos/cached")
 def list_cached_managed_repos():
     return jsonify({"ok": True, "repos": _load_managed_repos()})
+
+
+@app.post("/api/repos/adopt")
+def adopt_repo():
+    payload = request.get_json(silent=True)
+    if payload is not None and not isinstance(payload, dict):
+        return jsonify({"ok": False, "error": "Invalid JSON body"}), 400
+
+    options = _merge_options()
+    repository = str((payload or {}).get("repository") or options.get("github_repository", "")).strip()
+    if not repository:
+        return jsonify({"ok": False, "error": "repository is required"}), 400
+    if repository.count("/") != 1:
+        return jsonify({"ok": False, "error": "repository must be in owner/repo format"}), 400
+
+    private_value = (payload or {}).get("private", True)
+    if not isinstance(private_value, bool):
+        return jsonify({"ok": False, "error": "private must be true or false"}), 400
+
+    try:
+        _token_client(options)
+    except SyncError as err:
+        return jsonify({"ok": False, "error": str(err)}), 400
+
+    try:
+        engine = SyncEngine(_repo_sync_config(options, repository), previous_hash_index={})
+        engine._github.write_repo_marker(  # pylint: disable=protected-access
+            {"created_by": "github-config-sync-addon", "repository": repository}
+        )
+    except SyncError as err:
+        return jsonify({"ok": False, "error": str(err)}), 502
+
+    _save_managed_repos(
+        [
+            *[
+                item
+                for item in _load_managed_repos()
+                if str(item.get("full_name", "")).strip() != repository
+            ],
+            {
+                "name": repository.rsplit("/", 1)[-1],
+                "full_name": repository,
+                "private": private_value,
+                "managed": True,
+            },
+        ]
+    )
+
+    merged = _merge_options()
+    merged["repo_mode"] = "existing"
+    merged["github_repository"] = repository
+    merged["existing_repo_confirmed_for"] = repository
+    _save_json(WEBUI_OPTIONS_PATH, merged)
+    _append_log(f"Adopted existing repository {repository} with add-on marker")
+    return jsonify({"ok": True, "repository": repository, "options": _mask_token(_merge_options())})
 
 
 @app.post("/api/repos/create")
@@ -918,7 +1062,6 @@ def create_repo():
         return jsonify({"ok": False, "error": str(err)}), 400
     try:
         repo = client.create_repository(name=name, private=private, description=description)
-        client.write_repo_marker({"created_by": "github-config-sync-addon", "repository": repo.get("full_name")})
         engine = SyncEngine(
             SyncConfig(
                 repository=str(repo.get("full_name", "")).strip(),
@@ -936,12 +1079,14 @@ def create_repo():
             ),
             previous_hash_index={},
         )
-        engine.restore_repo_skeleton()
+        _restore_repo_skeleton_and_marker(engine, str(repo.get("full_name", "")).strip())
     except SyncError as err:
         return jsonify({"ok": False, "error": str(err)}), 502
 
     merged = _merge_options()
+    merged["repo_mode"] = "create"
     merged["github_repository"] = str(repo.get("full_name", "")).strip()
+    merged["existing_repo_confirmed_for"] = merged["github_repository"]
     _save_managed_repos(
         [
             *[
@@ -953,6 +1098,7 @@ def create_repo():
                 "name": str(repo.get("name", "")).strip(),
                 "full_name": merged["github_repository"],
                 "private": bool(repo.get("private", True)),
+                "managed": True,
             },
         ]
     )
@@ -996,6 +1142,11 @@ def trigger_sync():
             }
         )
         return jsonify({"ok": False, "error": "github_repository is required", "state": state}), 400
+
+    if not sync_config.dry_run:
+        confirmation_error = _existing_repo_confirmation_error(options)
+        if confirmation_error:
+            return jsonify({"ok": False, "error": confirmation_error}), 400
 
     started = dt.datetime.now(dt.timezone.utc).isoformat()
     _save_state(
@@ -1049,6 +1200,7 @@ def trigger_sync():
                 return jsonify({"ok": False, "error": friendly_message, "state": state}), 502
         result = engine.run(plan)
         if not sync_config.dry_run:
+            _ensure_repo_marker(engine, sync_config.repository)
             sensitive_files = _sync_sensitive_warning(engine)
     except SyncError as err:
         state = _save_state(
@@ -1103,6 +1255,9 @@ def trigger_clean_sync():
     sync_config = _sync_config(options)
     if not sync_config.repository:
         return jsonify({"ok": False, "error": "github_repository is required"}), 400
+    confirmation_error = _existing_repo_confirmation_error(options)
+    if confirmation_error:
+        return jsonify({"ok": False, "error": confirmation_error}), 400
     sync_config = SyncConfig(
         repository=sync_config.repository,
         branch=sync_config.branch,
@@ -1175,7 +1330,7 @@ def trigger_clean_sync():
                 _append_log(f"Repository probe failed: {friendly_message}")
                 return jsonify({"ok": False, "error": friendly_message, "state": state}), 502
         result = engine.run(plan)
-        _ensure_repo_marker(engine, sync_config.repository)
+        _restore_repo_skeleton_and_marker(engine, sync_config.repository)
         sensitive_files = _sync_sensitive_warning(engine)
         _save_json(HASH_INDEX_PATH, current_hash_index)
     except SyncError as err:
@@ -1221,6 +1376,9 @@ def trigger_clean_repo():
 
     if not sync_config.repository:
         return jsonify({"ok": False, "error": "github_repository is required"}), 400
+    confirmation_error = _existing_repo_confirmation_error(options)
+    if confirmation_error:
+        return jsonify({"ok": False, "error": confirmation_error}), 400
 
     started = dt.datetime.now(dt.timezone.utc).isoformat()
     _save_state({"status": "running", "last_run": started, "last_error": None})
@@ -1234,8 +1392,7 @@ def trigger_clean_repo():
             return jsonify({"ok": False, "error": reason}), 400
         engine.set_progress_callback(lambda payload: _save_state(_sync_progress_payload(payload)))
         engine.clean_remote_tree()
-        engine.restore_repo_skeleton()
-        _ensure_repo_marker(engine, sync_config.repository)
+        _restore_repo_skeleton_and_marker(engine, sync_config.repository)
     except SyncError as err:
         state = _save_state(
             {

@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.0.33
+
+- Stable release 1.0.33 for the repository adoption flow.
+- Added explicit repository adoption for unmanaged existing repositories.
+- The repo picker now shows adopted repos by default and only expands to all accessible repos when the risk checkbox is selected.
+- Existing-repo confirmation now protects live sync, Clean Upload, and Clean Repo instead of blocking normal settings saves.
+- The top status badge now stays on Ready or Running while detailed last-error information remains in the runtime panel.
+
 ## 1.0.26
 
 - Release 1.0.26: stable and dev repo labels now match the current app release.

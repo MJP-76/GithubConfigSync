@@ -415,11 +415,15 @@
           <p class="subtle" style="margin-bottom: 10px; color: var(--err)">
             <strong style="color: var(--err)">Danger Zone:</strong> never use a public repo here, and do not combine this with any other tool that writes back into your Home Assistant config tree.
           </p>
+          <div class="row" style="margin-bottom: 10px">
+            <label><input id="existingRepoRiskAck" type="checkbox" /> I understand this can overwrite or delete files in an existing repository.</label>
+          </div>
           <div class="field" style="margin-top: 12px">
             <div class="repo-picker-header">
               <label for="repoPicker">Repository picker (advanced)</label>
               <div class="row" style="justify-content: flex-end">
                 <button id="loadManagedReposBtn" class="secondary">Load Repositories</button>
+                <button id="adoptRepoBtn" class="secondary">Adopt Repository</button>
               </div>
             </div>
             <select id="repoPicker" style="margin-top: 6px">
@@ -591,7 +595,9 @@
         repoMode: document.querySelectorAll("input[name='repoMode']"),
         existingRepoSection: document.getElementById("existingRepoSection"),
         createRepoSection: document.getElementById("createRepoSection"),
+        existingRepoRiskAck: document.getElementById("existingRepoRiskAck"),
         loadManagedReposBtn: document.getElementById("loadManagedReposBtn"),
+        adoptRepoBtn: document.getElementById("adoptRepoBtn"),
         repoPicker: document.getElementById("repoPicker"),
         newRepoName: document.getElementById("newRepoName"),
         newRepoDescription: document.getElementById("newRepoDescription"),
@@ -634,6 +640,15 @@
       function setStatus(message, ok = true) {
         el.status.textContent = message;
         el.status.className = `status ${ok ? "ok" : "err"}`;
+      }
+
+      function isExistingRepoConfirmationMessage(message) {
+        return typeof message === "string" && message.includes("Tick the existing-repo confirmation checkbox");
+      }
+
+      function showUiError(error) {
+        const message = error && error.message ? error.message : String(error);
+        setStatus(message, isExistingRepoConfirmationMessage(message));
       }
 
       function setButtonBusy(button, busy, label) {
@@ -709,7 +724,9 @@
         repos.forEach((repo) => {
           const option = document.createElement("option");
           option.value = repo.full_name;
-          option.textContent = `${repo.full_name}${repo.private ? " (private)" : ""}`;
+          const visibilityLabel = repo.private ? "private" : "public";
+          const managedLabel = repo.managed ? ", adopted" : "";
+          option.textContent = `${repo.full_name} (${visibilityLabel}${managedLabel})`;
           el.repoPicker.appendChild(option);
         });
       }
@@ -789,7 +806,16 @@
 
       async function loadOptions() {
         const data = await fetchJson(apiUrl("/api/options"));
+        const repoMode = data.repo_mode === "create" ? "create" : "existing";
+        el.repoMode.forEach((item) => {
+          item.checked = item.value === repoMode;
+        });
         el.repo.value = data.github_repository || "";
+        const confirmedFor = (data.existing_repo_confirmed_for || "").trim();
+        el.existingRepoRiskAck.checked =
+          repoMode === "existing" &&
+          Boolean(confirmedFor) &&
+          confirmedFor === (data.github_repository || "").trim();
         el.authMethod.value = data.auth_method || "device_flow";
         el.branch.value = data.github_branch || "main";
         el.token.value = "";
@@ -804,23 +830,27 @@
         el.includeSsl.checked = Boolean(data.include_ssl !== false);
         el.includeBackups.checked = Boolean(data.include_backups);
         el.includeWww.checked = Boolean(data.include_www !== false);
+        applyRepoMode();
         updateAuthMethodHelp();
       }
 
       async function loadManagedRepositories(strict = false) {
         try {
-          const data = strict
-            ? await fetchJson(apiUrl("/api/repos/managed"))
-            : await fetchJson(apiUrl("/api/repos/cached"));
+          const showUnmanaged = Boolean(el.existingRepoRiskAck.checked);
+          const data = showUnmanaged
+            ? await fetchJson(apiUrl("/api/repos"))
+            : strict
+              ? await fetchJson(apiUrl("/api/repos/managed"))
+              : await fetchJson(apiUrl("/api/repos/cached"));
           cachedRepos = data.repos || [];
           renderRepoPicker(cachedRepos);
           if (el.repo.value) {
             el.repoPicker.value = el.repo.value;
           }
           if (strict) {
-            setStatus(`Loaded ${cachedRepos.length} add-on repositories`);
+            setStatus(showUnmanaged ? `Loaded ${cachedRepos.length} repositories` : `Loaded ${cachedRepos.length} adopted repositories`);
           }
-          if (!strict && cachedRepos.length === 0) {
+          if (!showUnmanaged && !strict && cachedRepos.length === 0) {
             return loadManagedRepositories(true);
           }
         } catch (error) {
@@ -830,6 +860,10 @@
             throw error;
           }
         }
+      }
+
+      async function loadRepositories(strict = false) {
+        return loadManagedRepositories(strict);
       }
 
       async function loadDeviceFlowStatus() {
@@ -884,7 +918,12 @@
         el.versionBadge.textContent = `Version: ${data.version || "unknown"}`;
         el.stableRepoVersion.textContent = (data.repo_versions && data.repo_versions.stable) || "unknown";
         el.devRepoVersion.textContent = (data.repo_versions && data.repo_versions.dev) || "unknown";
-        setStatus(`${(data.state && data.state.status) || "idle"}`, !(data.state && data.state.status === "error"));
+        const stateStatus = (data.state && data.state.status) || "idle";
+        if (stateStatus === "running") {
+          setStatus("Running");
+        } else {
+          setStatus("Ready");
+        }
       }
 
       function startStatusPolling() {
@@ -984,7 +1023,11 @@
       async function saveOptions() {
         autoSaveInFlight = true;
         try {
+          const repoMode = getRepoMode();
           const payload = {
+            repo_mode: repoMode,
+            existing_repo_confirmed_for:
+              repoMode === "existing" && el.existingRepoRiskAck.checked ? el.repo.value.trim() : "",
             github_repository: el.repo.value.trim(),
             auth_method: el.authMethod.value,
             github_branch: el.branch.value.trim() || "main",
@@ -1023,7 +1066,7 @@
             autoSaveQueued = true;
             return;
           }
-          saveOptions().catch((error) => setStatus(error.message, false));
+          saveOptions().catch(showUiError);
         }, 900);
       }
 
@@ -1031,6 +1074,7 @@
         setButtonBusy(el.startDeviceBtn, true, "Starting...");
         updateTokenBadge({ state: "checking" });
         try {
+          await saveOptions();
           const data = await fetchJson(apiUrl("/api/auth/device/start"), {
             method: "POST",
             body: JSON.stringify({ client_id: el.clientId.value.trim() }),
@@ -1074,11 +1118,37 @@
         } finally {
           setButtonBusy(el.createRepoBtn, false);
         }
+
+        async function adoptRepository() {
+          const repository = el.repo.value.trim() || el.repoPicker.value.trim();
+          if (!repository) {
+            throw new Error("Select an existing repository to adopt first.");
+          }
+          const selected = cachedRepos.find((item) => item.full_name === repository);
+          const privateValue = selected ? Boolean(selected.private) : true;
+          if (!window.confirm(`Adopt ${repository}? This will add the add-on marker file to the repository.`)) {
+            return;
+          }
+          setButtonBusy(el.adoptRepoBtn, true, "Adopting...");
+          try {
+            const data = await fetchJson(apiUrl("/api/repos/adopt"), {
+              method: "POST",
+              body: JSON.stringify({ repository, private: privateValue }),
+            });
+            el.repo.value = data.repository || repository;
+            el.existingRepoRiskAck.checked = true;
+            await Promise.all([loadManagedRepositories(true), loadOptions(), loadStatus()]);
+            setStatus(`Repository adopted: ${el.repo.value}`);
+          } finally {
+            setButtonBusy(el.adoptRepoBtn, false);
+          }
+        }
       }
 
       async function runSync() {
         setButtonBusy(el.syncBtn, true, "Running...");
         try {
+          await saveOptions();
           const data = await fetchJson(apiUrl("/api/sync/manual"), { method: "POST" });
           if (data.summary) {
             renderDryRunPlan(data.summary);
@@ -1098,6 +1168,7 @@
       async function runCleanSync() {
         setButtonBusy(el.cleanSyncBtn, true, "Uploading...");
         try {
+          await saveOptions();
           const data = await fetchJson(apiUrl("/api/sync/clean"), { method: "POST" });
           setStatus(data.result || "Clean upload completed");
           await loadStatus();
@@ -1109,6 +1180,7 @@
       async function cleanRepoSkeleton() {
         setButtonBusy(el.cleanRepoBtn, true, "Cleaning...");
         try {
+          await saveOptions();
           const data = await fetchJson(apiUrl("/api/sync/clean-repo"), { method: "POST" });
           setStatus(data.result || "Clean repo completed");
           await loadStatus();
@@ -1150,7 +1222,15 @@
       el.startDeviceBtn.addEventListener("click", () =>
         startDeviceLogin().catch((error) => setStatus(error.message, false))
       );
-      el.repoMode.forEach((item) => item.addEventListener("change", applyRepoMode));
+      el.repoMode.forEach((item) =>
+        item.addEventListener("change", () => {
+          applyRepoMode();
+          if (getRepoMode() !== "existing") {
+            el.existingRepoRiskAck.checked = false;
+          }
+          scheduleAutoSave();
+        })
+      );
       el.loadManagedReposBtn.addEventListener("click", () =>
         {
           setButtonBusy(el.loadManagedReposBtn, true, "Loading...");
@@ -1159,10 +1239,18 @@
             .finally(() => setButtonBusy(el.loadManagedReposBtn, false));
         }
       );
+      el.adoptRepoBtn.addEventListener("click", () =>
+        adoptRepository().catch((error) => setStatus(error.message, false))
+      );
       el.repoPicker.addEventListener("change", () => {
         if (el.repoPicker.value) {
           el.repo.value = el.repoPicker.value;
           scheduleAutoSave();
+        }
+      });
+      el.existingRepoRiskAck.addEventListener("change", () => {
+        if (getRepoMode() === "existing") {
+          loadManagedRepositories(true).catch((error) => setStatus(error.message, false));
         }
       });
       el.createRepoBtn.addEventListener("click", () =>
@@ -1188,6 +1276,7 @@
         el.includeSsl,
         el.includeBackups,
         el.includeWww,
+        el.existingRepoRiskAck,
       ].forEach((item) => {
         const eventName = item && item.type === "checkbox" ? "change" : "input";
         item.addEventListener(eventName, scheduleAutoSave);
@@ -1247,7 +1336,7 @@
         loadOptions(),
         loadStatus(),
         loadDeviceFlowStatus(),
-        loadManagedRepositories(false),
+        loadRepositories(false),
         loadIgnoreRecommendations(),
       ]).then((results) => {
         const failed = results.find((result) => result.status === "rejected");

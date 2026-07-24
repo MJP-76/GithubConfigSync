@@ -33,6 +33,7 @@ class ServerApiTests(unittest.TestCase):
         self._orig_state = server.STATE_PATH
         self._orig_log = server.LOG_PATH
         self._orig_hash_index = server.HASH_INDEX_PATH
+        self._orig_managed_repos = server.MANAGED_REPOS_PATH
         self._orig_device_flow = server.DEVICE_FLOW_PATH
         self._orig_config_root = server.CONFIG_ROOT
 
@@ -42,6 +43,7 @@ class ServerApiTests(unittest.TestCase):
         server.STATE_PATH = self._data_dir / "state.json"
         server.LOG_PATH = self._data_dir / "sync.log"
         server.HASH_INDEX_PATH = self._data_dir / "hash_index.json"
+        server.MANAGED_REPOS_PATH = self._data_dir / "managed_repos.json"
         server.DEVICE_FLOW_PATH = self._data_dir / "device_flow.json"
         server.CONFIG_ROOT = self._config_root
 
@@ -55,6 +57,7 @@ class ServerApiTests(unittest.TestCase):
         server.STATE_PATH = self._orig_state
         server.LOG_PATH = self._orig_log
         server.HASH_INDEX_PATH = self._orig_hash_index
+        server.MANAGED_REPOS_PATH = self._orig_managed_repos
         server.DEVICE_FLOW_PATH = self._orig_device_flow
         server.CONFIG_ROOT = self._orig_config_root
 
@@ -208,7 +211,7 @@ class ServerApiTests(unittest.TestCase):
         self.assertEqual(len(body["repos"]), 2)
         self.assertEqual(body["repos"][0]["full_name"], "owner/repo-a")
 
-    def test_list_repositories_filters_out_unsafe_existing_repos(self) -> None:
+    def test_list_managed_repositories_only_returns_marked_repos(self) -> None:
         self._write_options({"github_repository": "owner/repo", "github_branch": "main", "github_token": "gho_x"})
         with patch("sync.github_client.GitHubClient.list_user_repositories") as list_repos:
             list_repos.return_value = [
@@ -217,13 +220,31 @@ class ServerApiTests(unittest.TestCase):
             ]
             with patch("sync.github_client.GitHubClient.list_directory_contents") as list_contents:
                 list_contents.side_effect = [[{"path": server.ADDON_REPO_MARKER_PATH}], [{"path": "README.md"}]]
-                response = self.client.get("/api/repos")
+                response = self.client.get("/api/repos/managed")
 
         body = response.get_json()
         self.assertEqual(response.status_code, 200)
         self.assertTrue(body["ok"])
         self.assertEqual(len(body["repos"]), 1)
         self.assertEqual(body["repos"][0]["full_name"], "owner/repo-a")
+        self.assertTrue(body["repos"][0]["managed"])
+
+    def test_adopt_repository_marks_repo_and_updates_options(self) -> None:
+        self._write_options({"github_repository": "", "github_branch": "main", "github_token": "gho_x"})
+        with patch("sync.github_client.GitHubClient.write_repo_marker") as write_marker:
+            response = self.client.post(
+                "/api/repos/adopt",
+                json={"repository": "owner/repo-a", "private": True},
+            )
+
+        body = response.get_json()
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(body["ok"])
+        self.assertEqual(body["repository"], "owner/repo-a")
+        write_marker.assert_called_once()
+        saved = json.loads(server.WEBUI_OPTIONS_PATH.read_text(encoding="utf-8"))
+        self.assertEqual(saved["github_repository"], "owner/repo-a")
+        self.assertEqual(saved["existing_repo_confirmed_for"], "owner/repo-a")
 
     def test_create_repository_updates_selected_repository(self) -> None:
         self._write_options({"auth_method": "device_flow", "github_branch": "main", "github_token": "gho_x"})
