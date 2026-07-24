@@ -6,7 +6,7 @@
 [![HASSfest](https://img.shields.io/badge/HASSfest-validated-success.svg)](https://developers.home-assistant.io/docs/add-ons/)
 [![Release](https://img.shields.io/github/v/tag/MJP-76/GithubConfigSync?label=release)](https://github.com/MJP-76/GithubConfigSync/releases)
 
-Containerized Home Assistant app with an ingress web UI for GitHub config sync operations. Release v1.0.0. This is a sync tool, not a backup tool.
+Containerized Home Assistant app with an ingress web UI for GitHub config sync operations. Release v1.0.32. This is a sync tool, not a backup tool.
 
 Authentication supports GitHub Device Flow or a fine-grained PAT scoped to the single target repository.
 
@@ -26,10 +26,10 @@ If you find this project useful, and would like to help support its continued de
 ## Version Tracker
 
 <!-- VERSION:START -->
-- Integration version: `1.0.0`
-- Add-on version: `1.0.0`
+- Integration version: `1.0.32`
+- Add-on version: `1.0.32`
 - Channel: `stable`
-- Release tag: `v1.0.0`
+- Release tag: `v1.0.32`
 <!-- VERSION:END -->
 
 ## What it provides
@@ -55,7 +55,7 @@ If you find this project useful, and would like to help support its continued de
 - Runtime state is persisted in `/data/state.json`, `/data/hash_index.json`, `/data/device_flow.json`, and `/data/sync.log`.
 - The stable local API contract is `/api/health`, `/api/status`, `/api/sync`, and `/api/diagnostics`.
 - Home Assistant shows the short repo-root changelog on the update page; the in-app UI reads the full changelog from the app folder.
-- Stable and dev now use separate numeric lanes in the UI: stable `1.0.0` and dev `1.0.1`.
+- Stable and dev now use separate numeric lanes in the UI: stable `1.0.32` and dev `1.0.32`.
 - Default ignores include:
   - `.storage`, `.cloud`, `.cache`, `.venv`, `.vscode`, `.idea`, `.pytest_cache`, `.mypy_cache`, `.ruff_cache`, `tts`, `__pycache__`, `.git`
   - `home-assistant.log`, `home-assistant.log.*`, `home-assistant_v2.db`, `home-assistant_v2.db-*`, `secrets.yaml`, `ip_bans.yaml`, `known_devices.yaml`, `.ha_run.lock`, `*.db`, `*.sqlite`, `*.sqlite3`, `*.tmp`, `*.swp`, `*.pyc`, `*.log`, `.yaml_fix_backups`, `.yaml_fix_backups/*`, `.ha_fix_yaml.py`, `.smbdelete*`, `.DS_Store`, `Thumbs.db`
