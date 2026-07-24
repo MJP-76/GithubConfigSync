@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.32
+
+- Add compatibility support for the managed repo picker endpoint.
+
 ## 1.0.26
 
 - Renamed the defaults button and made it preserve user-selected ignore entries.
