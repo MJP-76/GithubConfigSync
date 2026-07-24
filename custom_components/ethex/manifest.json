@@ -1,0 +1,13 @@
+{
+  "domain": "ethex",
+  "name": "Ethex Investment Platform",
+  "after_dependencies": ["lovelace", "frontend"],
+  "codeowners": ["@MJP-76"],
+  "config_flow": true,
+  "dependencies": [],
+  "documentation": "https://github.com/MJP-76/ha-ethex",
+  "iot_class": "cloud_polling",
+  "issue_tracker": "https://github.com/MJP-76/ha-ethex/issues",
+  "requirements": ["beautifulsoup4>=4.12.0"],
+  "version": "0.1.3"
+}
