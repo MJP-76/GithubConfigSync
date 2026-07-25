@@ -2,11 +2,18 @@
 
 ## Latest 5 releases
 
+- `1.0.36` — added HACS frontend and node_modules to ignore patterns, and added GitHub API rate-limit retry with backoff.
 - `1.0.35` — promoted the current dev repository-management behavior to stable on top of the stuck-upload progress fix already in stable.
 - `1.0.34` — fixed stuck upload progress so the UI clears finished files and shows snapshot work instead of pinning one filename.
 - `1.0.33` — promoted the repository adoption flow to stable, showing adopted repos by default and requiring explicit adoption for unmanaged repos.
 - `1.0.32` — added compatibility support for the managed repo picker endpoint.
-- `1.0.26` — renamed the defaults button and made it preserve user-selected ignore entries.
+
+## 1.0.36
+
+- Added `hacs_frontend` and `node_modules` to the built-in ignore directories so compiled frontend bundles are no longer synced.
+- Added `*.js.map` to the built-in ignore patterns to skip JavaScript source maps.
+- Added automatic retry with backoff when the GitHub API returns a rate-limit error (HTTP 403).
+- Rate-limit retries parse the `X-RateLimit-Reset` header to wait exactly until the window resets, with exponential backoff as fallback.
 
 ## 1.0.35
 

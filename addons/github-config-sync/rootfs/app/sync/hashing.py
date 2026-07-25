@@ -18,6 +18,8 @@ IGNORE_DIRS = {
     "tts",
     "__pycache__",
     ".git",
+    "hacs_frontend",
+    "node_modules",
 }
 IGNORE_PATTERNS = (
     "home-assistant.log",
@@ -36,6 +38,7 @@ IGNORE_PATTERNS = (
     "*.swp",
     "*.pyc",
     "*.log",
+    "*.js.map",
     ".yaml_fix_backups",
     ".yaml_fix_backups/*",
     ".ha_fix_yaml.py",

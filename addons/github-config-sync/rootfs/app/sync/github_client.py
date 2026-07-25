@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import base64
 import json
+import logging
 import time
 import urllib.error
 import urllib.parse
@@ -10,6 +11,8 @@ from dataclasses import dataclass
 from typing import Any
 
 from .errors import SyncError
+
+_LOGGER = logging.getLogger(__name__)
 
 API_BASE = "https://api.github.com"
 OAUTH_BASE = "https://github.com"
@@ -241,23 +244,34 @@ class GitHubClient:
         return decoded
 
     def _request_any(self, method: str, url: str, payload: dict[str, Any] | None = None) -> Any:
-        data = None
-        headers = dict(self._headers)
-        if payload is not None:
-            data = json.dumps(payload).encode("utf-8")
-            headers["Content-Type"] = "application/json"
-        request = urllib.request.Request(url, method=method, data=data, headers=headers)
-        try:
-            with urllib.request.urlopen(request, timeout=60) as response:
-                body = response.read().decode("utf-8")
-                if not body:
-                    return {}
-                return json.loads(body)
-        except urllib.error.HTTPError as err:
-            body = err.read().decode("utf-8", errors="ignore")
-            raise SyncError(f"GitHub API error HTTP {err.code} for {method} {url}: {body}") from err
-        except urllib.error.URLError as err:
-            raise SyncError(f"GitHub API request failed for {method} {url}: {err.reason}") from err
+        max_retries = 5
+        for attempt in range(max_retries):
+            data = None
+            headers = dict(self._headers)
+            if payload is not None:
+                data = json.dumps(payload).encode("utf-8")
+                headers["Content-Type"] = "application/json"
+            request = urllib.request.Request(url, method=method, data=data, headers=headers)
+            try:
+                with urllib.request.urlopen(request, timeout=60) as response:
+                    body = response.read().decode("utf-8")
+                    return json.loads(body) if body else {}
+            except urllib.error.HTTPError as err:
+                body = err.read().decode("utf-8", errors="ignore")
+                if err.code == 403 and "rate limit" in body.lower():
+                    retry_after = _parse_rate_limit_wait(err, attempt)
+                    _LOGGER.warning(
+                        "GitHub rate limit hit (attempt %d/%d), waiting %.0fs before retry",
+                        attempt + 1,
+                        max_retries,
+                        retry_after,
+                    )
+                    time.sleep(retry_after)
+                    continue
+                raise SyncError(f"GitHub API error HTTP {err.code} for {method} {url}: {body}") from err
+            except urllib.error.URLError as err:
+                raise SyncError(f"GitHub API request failed for {method} {url}: {err.reason}") from err
+        raise SyncError(f"GitHub API rate limit exceeded after {max_retries} retries for {method} {url}")
 
     def _oauth_request(self, method: str, path: str, payload: dict[str, Any] | None = None) -> dict[str, Any]:
         headers = {
@@ -293,3 +307,16 @@ class GitHubClient:
 def _is_sha_conflict(err: SyncError) -> bool:
     message = str(err)
     return "HTTP 409" in message or '"status":"409"' in message or '"status": "409"' in message
+
+
+def _parse_rate_limit_wait(err: urllib.error.HTTPError, attempt: int) -> float:
+    """Calculate wait time for GitHub rate limit retry."""
+    reset_header = err.headers.get("X-RateLimit-Reset") if err.headers else None
+    if reset_header:
+        try:
+            reset_epoch = int(reset_header)
+            wait = max(1.0, reset_epoch - time.time() + 2)
+            return min(wait, 300)
+        except (ValueError, TypeError):
+            pass
+    return min(60 * (2 ** attempt), 300)

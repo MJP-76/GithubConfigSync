@@ -19,10 +19,10 @@ Use this as the single source of truth for **where we are**, **what is next**, a
 - **Default ignore list:** `.storage`, `.cloud`, `.cache`, `.venv`, `.vscode`, `.idea`, `.pytest_cache`, `.mypy_cache`, `.ruff_cache`, `tts`, `__pycache__`, `.git`, `home-assistant.log`, `home-assistant.log.*`, `home-assistant_v2.db`, `home-assistant_v2.db-*`, `secrets.yaml`, `ip_bans.yaml`, `known_devices.yaml`, `.ha_run.lock`, `*.db`, `*.sqlite`, `*.sqlite3`, `*.tmp`, `*.swp`, `*.pyc`, `*.log`, `.yaml_fix_backups`, `.yaml_fix_backups/*`, `.ha_fix_yaml.py`, `.smbdelete*`, `.DS_Store`, `Thumbs.db`
 
 <!-- VERSION:START -->
-- Integration version: `1.0.35`
-- Add-on version: `1.0.35`
+- Integration version: `1.0.36`
+- Add-on version: `1.0.36`
 - Channel: `stable`
-- Release tag: `v1.0.35`
+- Release tag: `v1.0.36`
 <!-- VERSION:END -->
 
 ---

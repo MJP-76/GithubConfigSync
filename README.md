@@ -23,10 +23,10 @@ If you find this project useful, and would like to help support its continued de
 ## Version Tracker
 
 <!-- VERSION:START -->
-- Integration version: `1.0.35`
-- Add-on version: `1.0.35`
+- Integration version: `1.0.36`
+- Add-on version: `1.0.36`
 - Channel: `stable`
-- Release tag: `v1.0.35`
+- Release tag: `v1.0.36`
 <!-- VERSION:END -->
 
 Stable and dev now follow separate numeric lanes in the UI: stable `1.0.35` and dev `1.0.37`.
