@@ -1,0 +1,39 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect to Ethex Investment Platform",
+        "description": "Enter your Ethex investor account credentials.",
+        "data": {
+          "username": "Email / Username",
+          "password": "Password"
+        }
+      },
+      "dashboard": {
+        "title": "Create a dashboard?",
+        "description": "Home Assistant can automatically create an \"Ethex Investment Platform\" dashboard populated with your portfolio sensors. You can change this later, or create one manually yourself instead.",
+        "data": {
+          "create_dashboard": "Automatically create the Ethex Investment Platform dashboard"
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "Invalid username or password",
+      "cannot_connect": "Failed to connect to Ethex",
+      "unknown": "Unexpected error"
+    },
+    "abort": {
+      "already_configured": "This Ethex Investment Platform account is already configured"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Ethex Investment Platform options",
+        "data": {
+          "create_dashboard": "Automatically create the Ethex Investment Platform dashboard"
+        }
+      }
+    }
+  }
+}
