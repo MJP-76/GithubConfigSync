@@ -1,7 +1,7 @@
 {
   "domain": "github_config_sync",
   "name": "Github Config Sync",
-  "version": "1.0.35",
+  "version": "1.0.40",
   "config_flow": true,
   "dependencies": [
     "http"
