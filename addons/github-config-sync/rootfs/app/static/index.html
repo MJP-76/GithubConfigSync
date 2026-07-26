@@ -547,22 +547,6 @@
             <button id="refreshIgnoreBtn" class="secondary">Refresh Ignore Suggestions</button>
           </div>
         </details>
-        <details style="margin-top: 12px">
-          <summary style="cursor: pointer; color: var(--muted)">Troubleshooting options</summary>
-          <p style="margin: 8px 0 0; font-size: 0.85rem; color: var(--muted)">
-            Use the token override only if you need to test a specific GitHub token. For normal use, complete Device Login and let the app store the token.
-          </p>
-          <div class="grid" style="margin-top: 10px">
-            <div class="field">
-              <label for="token">GitHub Token (manual override)</label>
-              <input id="token" type="password" placeholder="ghp_..." />
-            </div>
-            <div class="field">
-              <label for="clientId">GitHub OAuth Client ID (override)</label>
-              <input id="clientId" placeholder="Ov23..." />
-            </div>
-          </div>
-        </details>
         <div class="row" style="margin-top: 12px">
           <input id="dryRun" type="checkbox" />
           <label for="dryRun">Dry run mode (no push)</label>
@@ -610,8 +594,6 @@
         authMethod: document.getElementById("authMethod"),
         authMethodHelp: document.getElementById("authMethodHelp"),
         branch: document.getElementById("branch"),
-        token: document.getElementById("token"),
-        clientId: document.getElementById("clientId"),
         versionRetention: document.getElementById("versionRetention"),
         autoSyncEnabled: document.getElementById("autoSyncEnabled"),
         autoSyncOptions: document.getElementById("autoSyncOptions"),
@@ -897,8 +879,6 @@
           confirmedFor === (data.github_repository || "").trim();
         el.authMethod.value = data.auth_method || "device_flow";
         el.branch.value = data.github_branch || "main";
-        el.token.value = "";
-        el.clientId.value = data.github_client_id || "";
         el.versionRetention.value = data.version_retention_count || 7;
         el.dryRun.checked = Boolean(data.dry_run);
         el.autoSyncEnabled.checked = Boolean(data.auto_sync_enabled);
@@ -1123,8 +1103,6 @@
             github_repository: el.repo.value.trim(),
             auth_method: el.authMethod.value,
             github_branch: el.branch.value.trim() || "main",
-            github_token: el.token.value.trim(),
-            github_client_id: el.clientId.value.trim(),
             version_retention_count: Number(el.versionRetention.value || "7"),
             dry_run: el.dryRun.checked,
             auto_sync_enabled: el.autoSyncEnabled.checked,
@@ -1171,7 +1149,7 @@
           await saveOptions();
           const data = await fetchJson(apiUrl("/api/auth/device/start"), {
             method: "POST",
-            body: JSON.stringify({ client_id: el.clientId.value.trim() }),
+            body: JSON.stringify({}),
           });
           el.deviceFlowInfo.innerHTML = `Authorize with code <strong>${data.user_code}</strong> at <a href="${data.verification_uri_complete}" target="_blank" rel="noopener noreferrer">GitHub device login</a>`;
           window.open(data.verification_uri_complete, "_blank", "noopener,noreferrer");
@@ -1359,7 +1337,6 @@
         el.repo,
         el.authMethod,
         el.branch,
-        el.clientId,
         el.versionRetention,
         el.dryRun,
         el.includeAddonConfigs,
