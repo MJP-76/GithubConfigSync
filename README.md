@@ -3,115 +3,33 @@
 [![HASSfest](https://img.shields.io/badge/HASSfest-validated-success.svg)](https://developers.home-assistant.io/docs/creating_integration_manifest/)
 [![HACS](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://github.com/hacs/integration)
 [![Home Assistant](https://img.shields.io/badge/Home%20Assistant-Compatible-03a9f4.svg)](https://www.home-assistant.io/)
-[![HA Ready](https://img.shields.io/badge/Home%20Assistant-Ready-03a9f4.svg)](https://www.home-assistant.io/)
 [![Python](https://img.shields.io/badge/Python-3.12+-3776AB.svg)](https://www.python.org/)
-[![Manifest](https://img.shields.io/badge/Manifest-validated-success.svg)](https://developers.home-assistant.io/docs/creating_integration_manifest/)
 [![Release](https://img.shields.io/github/v/tag/MJP-76/GithubConfigSync?label=release)](https://github.com/MJP-76/GithubConfigSync/releases)
 
-Home Assistant custom integration for syncing the Home Assistant config folder to GitHub. This is a config sync tool, not a backup tool. <strong style="color:#ef4444">Danger Zone:</strong> <strong>Private repositories are strongly recommended.</strong> Use caution with public repositories and with any two-way sync or other tools that can also write to the Home Assistant config tree, because they can cause local config loss or unexpected deletions.
+Home Assistant integration and add-on for syncing your config folder to GitHub. This is a config sync tool, not a backup tool.
 
-This documentation and code were drafted with AI assistance and then reviewed/edited by the maintainer.
-
-## Support me
-
-If you find this project useful, and would like to help support its continued development, you can do so here:
+**Private repositories are strongly recommended.** Use caution with public repos and any two-way sync tools that also write to your Home Assistant config tree — they can cause local config loss or unexpected deletions.
 
 [![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-FFDD00?style=for-the-badge&logo=buymeacoffee&logoColor=000000)](https://www.buymeacoffee.com/mjp76)
 [![Ko-fi](https://img.shields.io/badge/Ko--fi-F16061?style=for-the-badge&logo=ko-fi&logoColor=ffffff)](https://ko-fi.com/mjp76)
 [![Octopus Energy — you get £50, I get £50](https://img.shields.io/badge/Octopus%20Energy-%E2%80%94%20you%20get%20%C2%A350%2C%20I%20get%20%C2%A350-14294A?style=for-the-badge&logo=octopus-energy&logoColor=ffffff)](https://share.octopus.energy/iron-moose-196)
 
-## Version Tracker
+## Features
 
-<!-- VERSION:START -->
-- Integration version: `1.0.40`
-- Add-on version: `1.0.40`
-- Channel: `stable`
-- Release tag: `v1.0.40`
-<!-- VERSION:END -->
+- GitHub OAuth Device Flow login (approve on github.com)
+- Create a new repository or use an existing one
+- Sync your Home Assistant config folder to GitHub
+- Auto-generate a Home Assistant-friendly `.gitignore`
+- Customizable ignore patterns
+- Manual sync button in Home Assistant
+- Scheduled syncs (default: every 24 hours)
+- Customizable sync start time and repeat interval
+- Clean Upload — force full re-upload and remove remote extras
+- Clean Repo — wipe remote repo and restore starter files in one step
+- Repository picker with safety checks to avoid accidental overwrites
+- Sensitive-file scanning and reporting
 
-Stable and dev now follow separate numeric lanes in the UI: stable `1.0.35` and dev `1.0.37`.
-Repos created or adopted by the add-on are marked internally so destructive clean actions and the default repo picker can avoid unsafe existing repositories.
-
-To sync versions across integration/app/runtime/docs automatically:
-
-```bash
-python3 scripts/sync_versions.py --integration 1.0.35 --addon 1.0.35 --channel stable
-```
-
-## Home Assistant App (Web UI)
-
-This repository now also includes a containerized Home Assistant app with ingress UI under:
-
-`addons/github-config-sync/`
-
-App repository metadata is provided via `repository.yaml` so it can be added directly in Home Assistant Add-on Store.
-Security hardening is part of the current release: private repos only, sensitive-path filtering, and two-way sync warnings. Follow-up work includes local API auth checks, path ancestry validation, and stronger diagnostics redaction.
-
-## Sync defaults
-
-- Runs once a day by default.
-- Keeps 7 GitHub version snapshots by default.
-- Both values are configurable in the app UI.
-- Numeric releases stay in sequence across stable and dev.
-- Stable lives in the main repository; dev remains the prerelease/testing track.
-- Default ignores include:
-  - `.storage`, `.cloud`, `.cache`, `.venv`, `.vscode`, `.idea`, `.pytest_cache`, `.mypy_cache`, `.ruff_cache`, `tts`, `__pycache__`, `.git`
-  - `home-assistant.log`, `home-assistant.log.*`, `home-assistant_v2.db`, `home-assistant_v2.db-*`, `secrets.yaml`, `ip_bans.yaml`, `known_devices.yaml`, `.ha_run.lock`, `*.db`, `*.sqlite`, `*.sqlite3`, `*.tmp`, `*.swp`, `*.pyc`, `*.log`, `.yaml_fix_backups`, `.yaml_fix_backups/*`, `.ha_fix_yaml.py`, `.smbdelete*`, `.DS_Store`, `Thumbs.db`
-- Live uploads also write a root `SECURITY_UPLOAD_WARNINGS.md` file when suspicious files are skipped.
-- The repo-root changelog is updated on every pushed build/version so the HA update page stays current.
-
-## Architecture
-
-- The custom integration handles Home Assistant entities, config flow, and operator actions.
-- The app provides the ingress web UI and the sync runtime API.
-- Sync planning is hash-based: the app scans `/config`, diffs against the last saved hash index, and classifies files as added, changed, or removed.
-- AppDaemon configs and apps under `/addon_configs/` are included in the normal sync scan.
-- The mount-point checklist lets you include or exclude standard Home Assistant folders, and the recommended .gitignore keeps the ignore list aligned.
-- Dry runs do not touch GitHub; live runs probe the repository first, then upsert and delete files through the GitHub Contents API. Remote deletes never remove local files.
-- Repository creation uses the add-on flow and defaults to `ha-github-config-sync` with private visibility, with an optional public visibility choice.
-- Live runs also write versioned snapshots under `versions/<timestamp>/...` (parallelized uploads) and keep the most recent 7 by default.
-- State, logs, device-flow data, and the last hash index live in `/data`.
-- The app exposes a stable local API contract via `/api/health`, `/api/status`, `/api/sync`, and `/api/diagnostics`.
-- The Home Assistant update page uses the short repo-root changelog; the in-app UI uses the full app changelog.
-- Single-repo release flow: releases are numeric and sequential, and the same repository can be used for stable or prerelease testing.
-- The generated `.gitignore` includes the common Home Assistant guidance entries such as `secrets.yaml`, `ip_bans.yaml`, `known_devices.yaml`, `.storage/`, and `.cloud/`, while still honoring any local user additions.
-- After a release, Home Assistant may need a rebuild/reinstall to pick up UI changes from the app image.
-
-## Runbook
-
-### Dry run
-
-1. Open the app UI and confirm `github_repository`, `github_branch`, and `dry_run=true`.
-2. Start or complete GitHub device login if a token is not already present.
-3. Run a sync and review the scan summary and dry-run result in the status panel.
-4. Confirm the result shows the expected upsert/delete counts without changing GitHub contents.
-
-### Live run
-
-1. Verify the target repository exists and is accessible with the saved token.
-2. Confirm the branch name is correct for the target repo.
-3. Set `dry_run=false` in the app settings.
-4. Run a sync, or use **Clean Upload** to force a full re-upload plus cleanup of remote extras. **Clean Repo** now empties the remote repo with a fast git-tree reset and restores the starter files in one live step. If you want scheduled runs to ignore dry run, enable the scheduled override in the add-on UI.
-5. Confirm the repository probe succeeds before the write phase.
-6. Review the status panel and logs for the final upsert/delete/skip counts.
-
-### Diagnostics bundle
-
-1. Open the app UI.
-2. Click **Download Diagnostics**.
-3. Share the resulting JSON with support or use it to compare config, status, and sanitized logs.
-
-## Release checklist
-
-Before tagging a release:
-
-1. Bump the integration/app versions as needed.
-2. Run the repository validation workflow and the app test suite.
-3. Confirm the docs and plan are updated and the tracker matches the shipped state.
-4. Create the tag and publish the release.
-5. Update the changelog and migration notes.
-
-## Installation (App)
+## Installation (Add-on)
 
 1. In Home Assistant, open **Settings → Add-ons → Add-on Store → Repositories**.
 2. Add this repository URL: `https://github.com/MJP-76/GithubConfigSync`.
@@ -124,33 +42,35 @@ Before tagging a release:
 2. Add `MJP-76/GithubConfigSync` as a custom repository (category: Integration).
 3. Install **Github Config Sync** and restart Home Assistant.
 
-## Features
+## Getting Started
 
-- GitHub OAuth Device Flow login (approve on github.com)
-- Create a new repository or use an existing one
-- Sync the Home Assistant config folder into GitHub
-- Auto-generate a Home Assistant-friendly `.gitignore`
-- Let you add extra ignore patterns from setup
-- Manual sync button in Home Assistant
-- Scheduled syncs every 24 hours by default
-- Customizable sync start time and repeat interval
-- Ignore patterns for files you do not want uploaded
+1. Open the app UI from the Add-on page.
+2. Complete GitHub Device Flow login.
+3. Pick an existing repository or create a new one.
+4. Run a dry run first to confirm the scan looks correct.
+5. Switch to a live run when ready.
+
+## Default Ignore List
+
+The following are excluded from sync by default:
+
+- **HA runtime:** `.storage`, `.cloud`, `tts`, `.ha_run.lock`, `home-assistant.log`, `home-assistant.log.*`, `home-assistant_v2.db`, `home-assistant_v2.db-*`, `secrets.yaml`, `ip_bans.yaml`, `known_devices.yaml`
+- **Databases:** `*.db`, `*.sqlite`, `*.sqlite3`
+- **Dev/cache:** `.git`, `.cache`, `.venv`, `.vscode`, `.idea`, `.pytest_cache`, `.mypy_cache`, `.ruff_cache`, `__pycache__`, `.yaml_fix_backups`, `.yaml_fix_backups/*`
+- **Temp/junk:** `*.tmp`, `*.swp`, `*.pyc`, `*.log`, `*.smbdelete*`, `.DS_Store`, `Thumbs.db`, `.ha_fix_yaml.py`
+
+You can add extra patterns in the app UI. Live uploads also write a root `SECURITY_UPLOAD_WARNINGS.md` file when suspicious files are skipped.
 
 ## Notes
 
-- This is not a zip-backup integration.
-- Files are synced individually as repository contents.
+- This is not a zip-backup integration — files are synced individually as repository contents.
 - The Home Assistant config folder is used automatically.
-- A managed `.gitignore` is created with Home Assistant defaults and your extra patterns.
-- Keep the repository private if the config contains sensitive data.
-- The uploaded base was adapted into this folder-sync implementation.
-- If `GITHUB_OAUTH_CLIENT_ID` is set in `custom_components/github_config_sync/const.py`, the flow uses it and skips asking for client ID.
-- HACS repository metadata is currently aligned with the integration manifest: repository name, URL, maintainer, and category wiring are present.
-- New repository creation now falls back to a humanized default name/description when those fields are left blank.
-- New release includes the repo-create blank-field defaults and the sync stability fixes from the prior commits.
+- A managed `.gitignore` is created with HA defaults and your extra patterns.
+- Keep the repository private if your config contains sensitive data.
+- After a release, Home Assistant may need a rebuild/reinstall to pick up UI changes from the add-on image.
+- If `GITHUB_OAUTH_CLIENT_ID` is set in `custom_components/github_config_sync/const.py`, the flow uses it directly.
 
-## Sync verification
+## Documentation
 
-- **Dry run**: use `dry_run: true` first to confirm the scan is picking up added, changed, and removed files without pushing anything.
-- **Live run**: switch `dry_run` to `false` only after the dry-run summary looks correct, then confirm the repository probe succeeds and the run reports upserts/deletes as expected.
-- **Recovery check**: if a file is missing locally during a live run, it is counted as skipped rather than forcing a bad write.
+- **[Project Guide](PROJECT.md)** — architecture, security, changelog rules, release workflow, and dev milestones.
+- **[Changelog](CHANGELOG.md)** — release history.
