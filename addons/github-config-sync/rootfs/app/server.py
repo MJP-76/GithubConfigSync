@@ -14,9 +14,9 @@ from sync.errors import SyncError
 from sync.github_client import GitHubClient
 from sync.hashing import IGNORE_PATTERNS
 
-APP_VERSION = "1.0.41"
-STABLE_REPO_VERSION = "1.0.41"
-DEV_REPO_VERSION = "1.0.41"
+APP_VERSION = "1.0.42"
+STABLE_REPO_VERSION = "1.0.42"
+DEV_REPO_VERSION = "1.0.42"
 APP_PORT = 8099
 DEFAULT_OAUTH_CLIENT_ID = "Ov23li2ycCraodta6WCU"
 DEFAULT_NEW_REPO_NAME = "ha-github-config-sync"
@@ -66,6 +66,11 @@ def _repo_safety_state(engine: SyncEngine) -> tuple[bool, str]:
     marker_present = any(
         isinstance(item.get("path"), str) and item["path"] == ADDON_REPO_MARKER_PATH for item in contents
     )
+    if marker_present:
+        return True, "Repository marker found"
+    if not contents:
+        return True, "Repository is empty"
+    return False, "Repository was not created by this add-on and is not empty"
 
 
 def _repo_sync_config(options: dict[str, Any], repository: str) -> SyncConfig:
@@ -104,11 +109,6 @@ def _existing_repo_confirmation_error(options: dict[str, Any]) -> str | None:
         "Using an existing repository can overwrite or delete remote files. "
         "Tick the existing-repo confirmation checkbox in Repository setup before continuing."
     )
-    if marker_present:
-        return True, "Repository marker found"
-    if not contents:
-        return True, "Repository is empty"
-    return False, "Repository was not created by this add-on and is not empty"
 
 
 def _ensure_repo_marker(engine: SyncEngine, repository: str) -> None:
