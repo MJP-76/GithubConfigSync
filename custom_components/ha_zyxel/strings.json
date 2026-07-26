@@ -1,9 +1,0 @@
-{
-  "config": {
-    "step": {
-      "user": {
-        "description": "Select Device Type\n\n{supported_models_table}"
-      }
-    }
-  }
-}
