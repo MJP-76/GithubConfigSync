@@ -1204,12 +1204,12 @@
         runSync().catch((error) => setStatus(error.message, false))
       );
       el.cleanSyncBtn.addEventListener("click", () => {
-        if (window.confirm(`Run Clean Upload on ${el.repo.value.trim() || "the selected repository"}? This will rebuild the remote repo from the current local config.`)) {
+        if (window.confirm(`Run Clean Upload on ${el.repo.value.trim() || "the selected repository"}?\n\nThis will rebuild the remote repo from the current local config.\n\nWARNING: This is an atomic GitHub tree operation and cannot be cancelled once started.`)) {
           runCleanSync().catch((error) => setStatus(error.message, false));
         }
       });
       el.cleanRepoBtn.addEventListener("click", () => {
-        if (window.confirm(`Run Clean Repo on ${el.repo.value.trim() || "the selected repository"}? This will empty the remote repo and restore the base skeleton.`)) {
+        if (window.confirm(`Run Clean Repo on ${el.repo.value.trim() || "the selected repository"}?\n\nThis will empty the remote repo and restore the base skeleton.\n\nWARNING: This is an atomic GitHub tree operation and cannot be cancelled once started.`)) {
           cleanRepoSkeleton().catch((error) => setStatus(error.message, false));
         }
       });
