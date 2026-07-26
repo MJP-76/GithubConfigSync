@@ -618,7 +618,6 @@
         branch: document.getElementById("branch"),
         token: document.getElementById("token"),
         clientId: document.getElementById("clientId"),
-        interval: document.getElementById("interval"),
         versionRetention: document.getElementById("versionRetention"),
         autoSyncEnabled: document.getElementById("autoSyncEnabled"),
         autoSyncOptions: document.getElementById("autoSyncOptions"),
@@ -898,7 +897,6 @@
         el.branch.value = data.github_branch || "main";
         el.token.value = "";
         el.clientId.value = data.github_client_id || "";
-        el.interval.value = data.sync_interval_minutes || 1440;
         el.versionRetention.value = data.version_retention_count || 7;
         el.dryRun.checked = Boolean(data.dry_run);
         el.scheduledLiveSync.checked = Boolean(data.scheduled_live_sync);
@@ -1130,7 +1128,6 @@
             github_branch: el.branch.value.trim() || "main",
             github_token: el.token.value.trim(),
             github_client_id: el.clientId.value.trim(),
-            sync_interval_minutes: Number(el.interval.value || "60"),
             version_retention_count: Number(el.versionRetention.value || "7"),
             dry_run: el.dryRun.checked,
             scheduled_live_sync: el.scheduledLiveSync.checked,
@@ -1367,7 +1364,6 @@
         el.authMethod,
         el.branch,
         el.clientId,
-        el.interval,
         el.versionRetention,
         el.dryRun,
         el.scheduledLiveSync,
@@ -1378,6 +1374,16 @@
         el.includeBackups,
         el.includeWww,
         el.existingRepoRiskAck,
+        el.autoSyncEnabled,
+        el.autoSyncTime,
+        el.autoSyncCreateRelease,
+        el.dayMon,
+        el.dayTue,
+        el.dayWed,
+        el.dayThu,
+        el.dayFri,
+        el.daySat,
+        el.daySun,
       ].forEach((item) => {
         const eventName = item && item.type === "checkbox" ? "change" : "input";
         item.addEventListener(eventName, scheduleAutoSave);
