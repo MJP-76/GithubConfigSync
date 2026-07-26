@@ -18,9 +18,23 @@ from sync.errors import SyncError
 from sync.github_client import GitHubClient
 from sync.hashing import IGNORE_PATTERNS
 
-APP_VERSION = "1.3.3"
-STABLE_REPO_VERSION = "1.3.3"
-DEV_REPO_VERSION = "1.3.3"
+def _read_addon_version() -> str:
+    """Read version from the add-on config.yaml (single source of truth)."""
+    import re
+    for candidate in (Path("/app/config.yaml"), Path(__file__).resolve().parent.parent.parent / "config.yaml"):
+        try:
+            text = candidate.read_text()
+            match = re.search(r'^version:\s*["\']?([^"\']+)["\']?\s*$', text, re.MULTILINE)
+            if match:
+                return match.group(1).strip()
+        except Exception:
+            pass
+    return "0.0.0"
+
+
+APP_VERSION = _read_addon_version()
+STABLE_REPO_VERSION = APP_VERSION
+DEV_REPO_VERSION = APP_VERSION
 APP_PORT = 8099
 DEFAULT_OAUTH_CLIENT_ID = "Ov23li2ycCraodta6WCU"
 DEFAULT_NEW_REPO_NAME = "ha-github-config-sync"

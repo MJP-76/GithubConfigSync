@@ -3,6 +3,7 @@ FROM ${BUILD_FROM}
 
 WORKDIR /app
 
+COPY config.yaml /app/config.yaml
 COPY rootfs /
 
 RUN chmod a+x /usr/local/bin/start.sh \
