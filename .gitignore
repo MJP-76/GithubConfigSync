@@ -1,40 +1,13 @@
-# HA runtime config (synced from /config but should not live in add-on repo)
-configuration.yaml
-automations.yaml
-.HA_VERSION
-blueprints/
-
-# Third-party / non-project custom components
-custom_components/hacs/
-custom_components/ha_zyxel/
-custom_components/ethex/
-custom_components/cross_battery_charge_guard/
-
 # Python bytecode
 __pycache__/
 *.pyc
 *.pyo
 
-# HA system files
-home-assistant.log
-home-assistant.log.*
-home-assistant_v2.db
-home-assistant_v2.db-*
-secrets.yaml
-ip_bans.yaml
-known_devices.yaml
-.ha_run.lock
-.ruff.toml
-*.db
-*.sqlite
-*.sqlite3
+# Temp / swap
 *.tmp
 *.swp
 *.log
-.yaml_fix_backups
-.yaml_fix_backups/*
-.ha_fix_yaml.py
-.smbdelete*
+
+# OS junk
 .DS_Store
 Thumbs.db
-.github-config-sync-addon.json
