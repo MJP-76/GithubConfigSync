@@ -534,18 +534,27 @@ class SyncEngine:
 
     def _local_path_for(self, relative: str) -> Path:
         if relative.startswith("media/"):
-            return Path("/media") / relative.removeprefix("media/")
-        if relative.startswith("share/"):
-            return Path("/share") / relative.removeprefix("share/")
-        if relative.startswith("ssl/"):
-            return Path("/ssl") / relative.removeprefix("ssl/")
-        if relative.startswith("backups/"):
-            return Path("/backups") / relative.removeprefix("backups/")
-        if relative.startswith("www/"):
-            return Path("/www") / relative.removeprefix("www/")
-        if relative.startswith("addon_configs/"):
-            return self._addon_config_root / relative.removeprefix("addon_configs/")
-        return self._config_root / relative
+            candidate = Path("/media") / relative.removeprefix("media/")
+        elif relative.startswith("share/"):
+            candidate = Path("/share") / relative.removeprefix("share/")
+        elif relative.startswith("ssl/"):
+            candidate = Path("/ssl") / relative.removeprefix("ssl/")
+        elif relative.startswith("backups/"):
+            candidate = Path("/backups") / relative.removeprefix("backups/")
+        elif relative.startswith("www/"):
+            candidate = Path("/www") / relative.removeprefix("www/")
+        elif relative.startswith("addon_configs/"):
+            candidate = self._addon_config_root / relative.removeprefix("addon_configs/")
+        else:
+            candidate = self._config_root / relative
+
+        resolved = candidate.resolve()
+        allowed_prefixes = tuple(
+            root.resolve() for _, root in self._root_map if root.exists()
+        )
+        if not any(str(resolved).startswith(str(p)) for p in allowed_prefixes):
+            raise SyncError(f"Path escapes allowed sync roots: {relative}")
+        return candidate
 
     def _root_enabled(self, name: str) -> bool:
         if name == "":

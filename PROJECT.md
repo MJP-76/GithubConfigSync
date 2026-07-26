@@ -54,9 +54,9 @@ Home Assistant add-on with ingress web UI. Runs a Flask server that handles:
 
 ### Open security items
 
-- [ ] Lock down local API endpoints with Supervisor/Ingress header checks and review diagnostics exposure.
-- [ ] Revisit mount-point path resolution and path ancestry checks for any user-controlled filesystem inputs.
-- [ ] Tighten diagnostics redaction to strip auth headers, URLs, and token-shaped secrets before export.
+- [x] Lock down local API endpoints with Supervisor/Ingress header checks — `_require_ingress` decorator checks `X-Home-Assistant-Instance-ID` on all mutating endpoints (dev mode bypass via `FLASK_DEBUG`).
+- [x] Revisit mount-point path resolution and path ancestry checks — `_local_path_for` validates resolved path stays within allowed root map before returning.
+- [x] Tighten diagnostics redaction — `_sanitized_log_tail` applies `_redact_line` to strip `ghp_`, `github_pat_`, `gho_`, bearer tokens, key-value secrets, and credential URLs.
 - [ ] Review whether any additional secret-scanning or blocklist patterns should be added later.
 
 ---
@@ -151,7 +151,7 @@ Home Assistant add-on with ingress web UI. Runs a Flask server that handles:
 ## Immediate Next Steps
 
 - [ ] Normalize version tracker across stable and dev release lines.
-- [ ] Close remaining security hardening follow-ups.
+- [x] Close remaining security hardening follow-ups (ingress checks, path ancestry, diagnostics redaction).
 - [ ] Keep this file aligned with the active release track.
 
 ---

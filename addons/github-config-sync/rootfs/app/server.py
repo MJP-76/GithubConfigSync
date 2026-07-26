@@ -3,6 +3,9 @@ from __future__ import annotations
 import datetime as dt
 import json
 import logging
+import os
+import re
+from functools import wraps
 from pathlib import Path
 from typing import Any
 from urllib.parse import quote
@@ -36,6 +39,52 @@ CONFIG_ROOT = Path("/config")
 CHANGELOG_PATH = Path(__file__).resolve().parent / "CHANGELOG.md"
 
 logging.getLogger("werkzeug").setLevel(logging.ERROR)
+
+ALLOWED_SYNC_ROOTS = {"/config", "/media", "/share", "/ssl", "/backups", "/www", "/addon_configs"}
+
+
+def _require_ingress(f):
+    """Reject requests that did not come through the Home Assistant ingress proxy."""
+
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if os.environ.get("FLASK_DEBUG"):
+            return f(*args, **kwargs)
+        if not request.headers.get("X-Home-Assistant-Instance-ID"):
+            return jsonify({"ok": False, "error": "Request must come through Home Assistant ingress"}), 403
+        return f(*args, **kwargs)
+
+    return decorated
+
+
+def _assert_safe_path(path: Path, allowed_roots: set[str]) -> None:
+    """Ensure a resolved path is within one of the allowed root directories."""
+
+    resolved = path.resolve()
+    for root in allowed_roots:
+        try:
+            resolved.relative_to(root)
+            return
+        except ValueError:
+            continue
+    raise SyncError(f"Path escapes allowed sync roots: {path}")
+
+
+_REDACT_PATTERNS = [
+    re.compile(r"ghp_[A-Za-z0-9]{36,}"),
+    re.compile(r"github_pat_[A-Za-z0-9_]{80,}"),
+    re.compile(r"gho_[A-Za-z0-9]{36,}"),
+    re.compile(r"(?i)bearer\s+[A-Za-z0-9._-]{20,}"),
+    re.compile(r'(?i)(password|passwd|secret|token|api[_-]?key|client_secret|oauth)["\s:=]+\S+'),
+    re.compile(r'https?://[^@\s]+:[^@\s]+@[^\s]+'),
+]
+
+
+def _redact_line(line: str) -> str:
+    for pattern in _REDACT_PATTERNS:
+        line = pattern.sub("[REDACTED]", line)
+    return line
+
 
 DEFAULT_OPTIONS: dict[str, Any] = {
     "auth_method": "device_flow",
@@ -362,7 +411,8 @@ def _token_health(options: dict[str, Any]) -> dict[str, Any]:
 def _sanitized_log_tail(limit: int = 4000) -> str:
     if not LOG_PATH.exists():
         return ""
-    return LOG_PATH.read_text(encoding="utf-8")[-limit:]
+    raw = LOG_PATH.read_text(encoding="utf-8")[-limit:]
+    return "\n".join(_redact_line(line) for line in raw.splitlines())
 
 
 def _read_changelog_entries(limit: int = 5) -> list[str]:
@@ -631,6 +681,7 @@ def health():
 
 
 @app.post("/api/sync/manual")
+@_require_ingress
 def trigger_manual_sync():
     options = _merge_options()
     sync_config = _sync_config(options)
@@ -748,11 +799,13 @@ def trigger_manual_sync():
 
 
 @app.get("/api/options")
+@_require_ingress
 def get_options():
     return jsonify(_mask_token(_merge_options()))
 
 
 @app.post("/api/options")
+@_require_ingress
 def set_options():
     payload = request.get_json(silent=True)
     if not isinstance(payload, dict):
@@ -836,6 +889,7 @@ def get_ignore_recommendations():
 
 
 @app.post("/api/ignore/recommendations")
+@_require_ingress
 def save_ignore_recommendations():
     payload = request.get_json(silent=True)
     if not isinstance(payload, dict):
@@ -885,6 +939,7 @@ def get_device_auth_status():
 
 
 @app.post("/api/auth/device/start")
+@_require_ingress
 def start_device_auth():
     payload = request.get_json(silent=True)
     if payload is not None and not isinstance(payload, dict):
@@ -940,6 +995,7 @@ def start_device_auth():
 
 
 @app.post("/api/auth/device/complete")
+@_require_ingress
 def complete_device_auth():
     flow = _load_device_flow()
     if not flow:
@@ -1001,6 +1057,7 @@ def list_cached_managed_repos():
 
 
 @app.post("/api/repos/adopt")
+@_require_ingress
 def adopt_repo():
     payload = request.get_json(silent=True)
     if payload is not None and not isinstance(payload, dict):
@@ -1056,6 +1113,7 @@ def adopt_repo():
 
 
 @app.post("/api/repos/create")
+@_require_ingress
 def create_repo():
     payload = request.get_json(silent=True)
     if not isinstance(payload, dict):
@@ -1130,6 +1188,7 @@ def create_repo():
 
 
 @app.post("/api/sync")
+@_require_ingress
 def trigger_sync():
     options = _merge_options()
     sync_config = _sync_config(options)
@@ -1264,6 +1323,7 @@ def trigger_sync():
 
 
 @app.post("/api/sync/cancel")
+@_require_ingress
 def cancel_sync():
     _set_cancel_requested(True)
     _append_log("Cancel requested for current sync/upload")
@@ -1271,6 +1331,7 @@ def cancel_sync():
 
 
 @app.post("/api/sync/clean")
+@_require_ingress
 def trigger_clean_sync():
     options = _merge_options()
     sync_config = _sync_config(options)
@@ -1395,6 +1456,7 @@ def trigger_clean_sync():
 
 
 @app.post("/api/sync/clean-repo")
+@_require_ingress
 def trigger_clean_repo():
     options = _merge_options()
     sync_config = _sync_config(options)
