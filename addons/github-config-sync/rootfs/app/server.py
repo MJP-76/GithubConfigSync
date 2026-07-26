@@ -6,7 +6,6 @@ import logging
 import os
 import re
 import threading
-import time
 from functools import wraps
 from pathlib import Path
 from typing import Any
@@ -19,9 +18,9 @@ from sync.errors import SyncError
 from sync.github_client import GitHubClient
 from sync.hashing import IGNORE_PATTERNS
 
-APP_VERSION = "1.2.0"
-STABLE_REPO_VERSION = "1.2.0"
-DEV_REPO_VERSION = "1.2.0"
+APP_VERSION = "1.3.0"
+STABLE_REPO_VERSION = "1.3.0"
+DEV_REPO_VERSION = "1.3.0"
 APP_PORT = 8099
 DEFAULT_OAUTH_CLIENT_ID = "Ov23li2ycCraodta6WCU"
 DEFAULT_NEW_REPO_NAME = "ha-github-config-sync"
@@ -101,6 +100,10 @@ DEFAULT_OPTIONS: dict[str, Any] = {
     "manual_version_retention_days": 7,
     "dry_run": True,
     "scheduled_live_sync": False,
+    "auto_sync_enabled": False,
+    "auto_sync_days": [1, 2, 3, 4, 5],
+    "auto_sync_time": "03:00",
+    "auto_sync_create_release": True,
     "include_addon_configs": True,
     "include_media": False,
     "include_share": False,
@@ -353,6 +356,24 @@ def _validate_payload(payload: dict[str, Any]) -> tuple[bool, str | None]:
         return False, "dry_run must be true or false"
     if not isinstance(payload.get("scheduled_live_sync"), bool):
         return False, "scheduled_live_sync must be true or false"
+    if not isinstance(payload.get("auto_sync_enabled"), bool):
+        return False, "auto_sync_enabled must be true or false"
+    if not isinstance(payload.get("auto_sync_create_release"), bool):
+        return False, "auto_sync_create_release must be true or false"
+    auto_sync_time = str(payload.get("auto_sync_time", "03:00")).strip()
+    if auto_sync_time and ":" not in auto_sync_time:
+        return False, "auto_sync_time must be in HH:MM format"
+    auto_sync_days = payload.get("auto_sync_days", [])
+    if isinstance(auto_sync_days, str):
+        auto_sync_days = [d.strip() for d in auto_sync_days.split(",") if d.strip()]
+    if auto_sync_days:
+        for day in auto_sync_days:
+            try:
+                d = int(day)
+                if d < 1 or d > 7:
+                    return False, "auto_sync_days must contain values 1-7 (Mon-Sun)"
+            except (TypeError, ValueError):
+                return False, "auto_sync_days must contain integers 1-7 (Mon-Sun)"
 
     if str(payload.get("auth_method", "device_flow")) not in ("device_flow", "fine_grained_pat"):
         return False, "auth_method must be device_flow or fine_grained_pat"
@@ -669,50 +690,74 @@ def _run_sync(sync_config: SyncConfig, clean_upload: bool = False) -> tuple[int,
 
 
 class _SyncScheduler:
-    """Background scheduler that runs sync on a configurable interval.
+    """Background scheduler that runs sync at configured days/times.
 
-    Re-reads options each cycle so interval/token/branch changes take effect.
+    Polls every 30 seconds and checks if current day-of-week and time match
+    the configured schedule. Creates a dated release before each scheduled sync
+    and prunes old releases based on version_retention_count.
     """
+
+    POLL_INTERVAL = 30
 
     def __init__(self) -> None:
         self._timer: threading.Timer | None = None
         self._lock = threading.Lock()
         self._running = False
-        self._interval: float = 0
-        self._started_at: float = 0
+        self._last_triggered_minute: str | None = None
 
     def restart(self) -> None:
-        """Cancel any pending timer and schedule the next sync."""
+        """Cancel any pending timer and start a fresh poll cycle."""
         with self._lock:
             if self._timer is not None:
                 self._timer.cancel()
                 self._timer = None
-            options = _merge_options()
-            if not options.get("github_token") or not options.get("github_repository"):
-                _append_log("Scheduler: no token or repository configured, skipping")
-                return
-            interval = max(5, int(options.get("sync_interval_minutes", 1440)))
-            self._interval = interval * 60
-            self._started_at = time.monotonic()
-            _append_log(f"Scheduler: next sync in {interval} minutes")
-            self._timer = threading.Timer(self._interval, self._run)
+            self._last_triggered_minute = None
+        self._schedule_next_poll()
+
+    def _schedule_next_poll(self) -> None:
+        with self._lock:
+            self._timer = threading.Timer(self.POLL_INTERVAL, self._poll)
             self._timer.daemon = True
             self._timer.start()
 
-    def _run(self) -> None:
+    def _poll(self) -> None:
+        try:
+            options = _merge_options()
+            if not options.get("auto_sync_enabled"):
+                return
+            if not options.get("github_token") or not options.get("github_repository"):
+                return
+            now = dt.datetime.now(dt.timezone.utc)
+            local_now = now.astimezone()
+            day_of_week = local_now.isoweekday()
+            auto_days = options.get("auto_sync_days", [])
+            if isinstance(auto_days, str):
+                auto_days = [int(d) for d in auto_days.split(",") if d.strip().isdigit()]
+            if day_of_week not in [int(d) for d in auto_days]:
+                return
+            configured_time = str(options.get("auto_sync_time", "03:00")).strip()
+            current_minute = local_now.strftime("%H:%M")
+            trigger_key = f"{local_now.strftime('%Y-%m-%d')}:{current_minute}"
+            if trigger_key == self._last_triggered_minute:
+                return
+            if current_minute != configured_time:
+                return
+            self._last_triggered_minute = trigger_key
+            self._do_sync(options)
+        except Exception as err:
+            _append_log(f"Scheduler poll error: {err}")
+        finally:
+            self._schedule_next_poll()
+
+    def _do_sync(self, options: dict[str, Any]) -> None:
         with self._lock:
             if self._running:
                 _append_log("Scheduler: sync already in progress, skipping")
-                self.restart()
                 return
             self._running = True
         try:
-            options = _merge_options()
             token = str(options.get("github_token", "")).strip()
             repository = str(options.get("github_repository", "")).strip()
-            if not token or not repository:
-                _append_log("Scheduler: token or repository missing, skipping")
-                return
             dry_run = not bool(options.get("scheduled_live_sync", False))
             sync_config = SyncConfig(
                 repository=repository,
@@ -728,7 +773,32 @@ class _SyncScheduler:
                 include_www=bool(options.get("include_www", True)),
                 version_retention_count=int(options.get("version_retention_count", 7)),
             )
-            started = dt.datetime.now(dt.timezone.utc).isoformat()
+            now = dt.datetime.now(dt.timezone.utc)
+            local_now = now.astimezone()
+            tag_name = f"sync-{local_now.strftime('%d/%m/%y-%H/%M/%S').replace('/', '-')}"
+            release_name = f"Sync {local_now.strftime('%d/%m/%y %H:%M:%S')}"
+            if not dry_run and options.get("auto_sync_create_release", True):
+                try:
+                    github = GitHubClient(repository=repository, branch=sync_config.branch, token=token)
+                    github.create_release(tag_name=tag_name, name=release_name, body=f"Auto-sync release created at {release_name}")
+                    _append_log(f"Scheduler: created release {tag_name}")
+                    retention = int(options.get("version_retention_count", 7))
+                    releases = github.list_releases()
+                    sync_releases = [r for r in releases if isinstance(r.get("tag_name"), str) and r["tag_name"].startswith("sync-")]
+                    sync_releases.sort(key=lambda r: r.get("created_at", ""), reverse=True)
+                    for old in sync_releases[retention:]:
+                        old_id = old.get("id")
+                        old_tag = old.get("tag_name", "")
+                        if old_id:
+                            try:
+                                github.delete_release(int(old_id))
+                                github.delete_tag(old_tag)
+                                _append_log(f"Scheduler: pruned old release {old_tag}")
+                            except SyncError:
+                                pass
+                except SyncError as err:
+                    _append_log(f"Scheduler: release creation failed: {err}")
+            started = now.isoformat()
             _append_log(f"Scheduler: sync started for {repository} (dry_run={dry_run})")
             _save_state({"status": "running", "last_run": started, "last_error": None, **_clear_sync_progress_state()})
             scan: dict[str, Any] | None = None
@@ -775,21 +845,22 @@ class _SyncScheduler:
         finally:
             with self._lock:
                 self._running = False
-            self.restart()
 
     @property
-    def next_run_in(self) -> str | None:
-        with self._lock:
-            if self._timer is None:
-                return None
-            remaining = self._interval - (time.monotonic() - self._started_at)
-            if remaining <= 0:
-                return "running"
-            minutes = int(remaining // 60)
-            seconds = int(remaining % 60)
-            if minutes > 0:
-                return f"{minutes}m {seconds}s"
-            return f"{seconds}s"
+    def next_run_info(self) -> dict[str, Any]:
+        options = _merge_options()
+        if not options.get("auto_sync_enabled"):
+            return {"enabled": False}
+        auto_days = options.get("auto_sync_days", [])
+        if isinstance(auto_days, str):
+            auto_days = [int(d) for d in auto_days.split(",") if d.strip().isdigit()]
+        configured_time = str(options.get("auto_sync_time", "03:00")).strip()
+        return {
+            "enabled": True,
+            "days": auto_days,
+            "time": configured_time,
+            "create_release": bool(options.get("auto_sync_create_release", True)),
+        }
 
 
 _scheduler = _SyncScheduler()
@@ -956,6 +1027,10 @@ def set_options():
         "manual_version_retention_days": payload.get("manual_version_retention_days", 7),
         "dry_run": payload.get("dry_run", True),
         "scheduled_live_sync": payload.get("scheduled_live_sync", False),
+        "auto_sync_enabled": payload.get("auto_sync_enabled", False),
+        "auto_sync_days": payload.get("auto_sync_days", [1, 2, 3, 4, 5]),
+        "auto_sync_time": str(payload.get("auto_sync_time", "03:00")).strip() or "03:00",
+        "auto_sync_create_release": payload.get("auto_sync_create_release", True),
         "include_addon_configs": payload.get("include_addon_configs", True),
         "include_media": payload.get("include_media", False),
         "include_share": payload.get("include_share", False),
@@ -993,11 +1068,7 @@ def get_status():
             "token_health": _token_health(options),
             "cancel_sync": _is_cancel_requested(),
             "log_tail": _sanitized_log_tail(),
-            "scheduler": {
-                "next_run_in": _scheduler.next_run_in,
-                "sync_interval_minutes": int(options.get("sync_interval_minutes", 1440)),
-                "scheduled_live_sync": bool(options.get("scheduled_live_sync", False)),
-            },
+                "scheduler": _scheduler.next_run_info,
         }
     )
 

@@ -237,6 +237,33 @@ class GitHubClient:
             raise SyncError("GitHub directory listing response was not a list")
         return [item for item in payload if isinstance(item, dict)]
 
+    def create_release(self, tag_name: str, name: str, body: str = "") -> dict[str, Any]:
+        payload: dict[str, Any] = {
+            "tag_name": tag_name,
+            "name": name,
+            "body": body,
+            "draft": False,
+            "prerelease": False,
+        }
+        return self._request_json("POST", f"{self._base}/releases", payload=payload)
+
+    def list_releases(self, per_page: int = 50) -> list[dict[str, Any]]:
+        payload = self._request_any("GET", f"{self._base}/releases?per_page={max(1, min(per_page, 100))}")
+        if not isinstance(payload, list):
+            return []
+        return [r for r in payload if isinstance(r, dict)]
+
+    def delete_release(self, release_id: int) -> None:
+        self._request_any("DELETE", f"{self._base}/releases/{release_id}")
+
+    def delete_tag(self, tag_name: str) -> None:
+        try:
+            self._request_any("DELETE", f"{self._base}/git/refs/tags/{urllib.parse.quote(tag_name, safe='')}")
+        except SyncError as err:
+            if "HTTP 404" in str(err):
+                return
+            raise
+
     def _request_json(self, method: str, url: str, payload: dict[str, Any] | None = None) -> dict[str, Any]:
         decoded = self._request_any(method, url, payload=payload)
         if not isinstance(decoded, dict):

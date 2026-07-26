@@ -2,6 +2,15 @@
 
 ## Latest Releases
 
+## 1.3.0
+
+- Feature: scheduled sync with day-of-week and time-of-day selection
+- Feature: optional dated release creation before each scheduled sync (tagged dd/mm/yy hh:mm:ss)
+- Feature: auto-prune old sync releases based on "Keep versions on GitHub" count
+- Feature: new GitHub API methods for release management (create, list, delete)
+- Scheduler polls every 30 seconds and matches against configured days and time
+- Scheduler uses local time of the Home Assistant server
+
 ## 1.2.0
 
 - Feature: auto-sync scheduler — runs sync on a configurable interval in the background

@@ -460,15 +460,61 @@
             <input id="branch" placeholder="main" />
           </div>
           <div class="field">
-            <label for="interval">Auto-sync interval (minutes)</label>
-            <input id="interval" type="number" min="5" max="1440" />
-          </div>
-          <div class="field">
             <label for="versionRetention">Keep versions on GitHub</label>
             <input id="versionRetention" type="number" min="1" max="100" />
             <p style="font-size: 0.8rem; color: var(--muted); margin: 2px 0 0">Number of GitHub releases to retain</p>
           </div>
         </div>
+        <details style="margin-top: 12px">
+          <summary style="cursor: pointer; color: var(--muted)">Scheduled sync</summary>
+          <div style="margin-top: 10px; padding: 10px; border: 1px solid var(--border); border-radius: 6px;">
+            <div class="row" style="margin-bottom: 10px">
+              <input id="autoSyncEnabled" type="checkbox" />
+              <label for="autoSyncEnabled"><strong>Enable scheduled sync</strong></label>
+            </div>
+            <div id="autoSyncOptions" style="opacity: 0.5; pointer-events: none;">
+              <p style="font-size: 0.85rem; color: var(--muted); margin: 0 0 10px 0">
+                The add-on runs in the background and syncs on the selected days at the chosen time (local time of your Home Assistant server).
+              </p>
+              <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px;">
+                <label style="display: flex; align-items: center; gap: 4px; font-size: 0.85rem;">
+                  <input id="dayMon" type="checkbox" value="1" /> Mon
+                </label>
+                <label style="display: flex; align-items: center; gap: 4px; font-size: 0.85rem;">
+                  <input id="dayTue" type="checkbox" value="2" /> Tue
+                </label>
+                <label style="display: flex; align-items: center; gap: 4px; font-size: 0.85rem;">
+                  <input id="dayWed" type="checkbox" value="3" /> Wed
+                </label>
+                <label style="display: flex; align-items: center; gap: 4px; font-size: 0.85rem;">
+                  <input id="dayThu" type="checkbox" value="4" /> Thu
+                </label>
+                <label style="display: flex; align-items: center; gap: 4px; font-size: 0.85rem;">
+                  <input id="dayFri" type="checkbox" value="5" /> Fri
+                </label>
+                <label style="display: flex; align-items: center; gap: 4px; font-size: 0.85rem;">
+                  <input id="daySat" type="checkbox" value="6" /> Sat
+                </label>
+                <label style="display: flex; align-items: center; gap: 4px; font-size: 0.85rem;">
+                  <input id="daySun" type="checkbox" value="7" /> Sun
+                </label>
+              </div>
+              <div class="grid" style="margin-bottom: 10px;">
+                <div class="field">
+                  <label for="autoSyncTime">Sync time</label>
+                  <input id="autoSyncTime" type="time" value="03:00" />
+                </div>
+              </div>
+              <div class="row">
+                <input id="autoSyncCreateRelease" type="checkbox" />
+                <label for="autoSyncCreateRelease">Create a dated release before each sync</label>
+              </div>
+              <p style="font-size: 0.8rem; color: var(--muted); margin: 4px 0 0 0">
+                Releases are tagged with dd/mm/yy hh:mm:ss format and auto-pruned to the "Keep versions" count above.
+              </p>
+            </div>
+          </div>
+        </details>
         <details style="margin-top: 12px">
           <summary style="cursor: pointer; color: var(--muted)">Mount points to sync</summary>
           <div class="grid" style="margin-top: 10px">
@@ -574,6 +620,17 @@
         clientId: document.getElementById("clientId"),
         interval: document.getElementById("interval"),
         versionRetention: document.getElementById("versionRetention"),
+        autoSyncEnabled: document.getElementById("autoSyncEnabled"),
+        autoSyncOptions: document.getElementById("autoSyncOptions"),
+        autoSyncTime: document.getElementById("autoSyncTime"),
+        autoSyncCreateRelease: document.getElementById("autoSyncCreateRelease"),
+        dayMon: document.getElementById("dayMon"),
+        dayTue: document.getElementById("dayTue"),
+        dayWed: document.getElementById("dayWed"),
+        dayThu: document.getElementById("dayThu"),
+        dayFri: document.getElementById("dayFri"),
+        daySat: document.getElementById("daySat"),
+        daySun: document.getElementById("daySun"),
         includeAddonConfigs: document.getElementById("includeAddonConfigs"),
         includeMedia: document.getElementById("includeMedia"),
         includeShare: document.getElementById("includeShare"),
@@ -712,6 +769,26 @@
         el.createRepoSection.style.display = mode === "create" ? "block" : "none";
       }
 
+      function getSelectedDays() {
+        const days = [];
+        if (el.dayMon.checked) days.push(1);
+        if (el.dayTue.checked) days.push(2);
+        if (el.dayWed.checked) days.push(3);
+        if (el.dayThu.checked) days.push(4);
+        if (el.dayFri.checked) days.push(5);
+        if (el.daySat.checked) days.push(6);
+        if (el.daySun.checked) days.push(7);
+        return days;
+      }
+
+      function toggleAutoSyncOptions() {
+        const enabled = el.autoSyncEnabled.checked;
+        el.autoSyncOptions.style.opacity = enabled ? "1" : "0.5";
+        el.autoSyncOptions.style.pointerEvents = enabled ? "auto" : "none";
+      }
+
+      el.autoSyncEnabled.addEventListener("change", toggleAutoSyncOptions);
+
       function humanizeRepoName(name) {
         return name
           .trim()
@@ -825,6 +902,19 @@
         el.versionRetention.value = data.version_retention_count || 7;
         el.dryRun.checked = Boolean(data.dry_run);
         el.scheduledLiveSync.checked = Boolean(data.scheduled_live_sync);
+        el.autoSyncEnabled.checked = Boolean(data.auto_sync_enabled);
+        const autoDays = data.auto_sync_days || [1, 2, 3, 4, 5];
+        const autoDaysArr = Array.isArray(autoDays) ? autoDays : String(autoDays).split(",").map(Number).filter(Boolean);
+        el.dayMon.checked = autoDaysArr.includes(1);
+        el.dayTue.checked = autoDaysArr.includes(2);
+        el.dayWed.checked = autoDaysArr.includes(3);
+        el.dayThu.checked = autoDaysArr.includes(4);
+        el.dayFri.checked = autoDaysArr.includes(5);
+        el.daySat.checked = autoDaysArr.includes(6);
+        el.daySun.checked = autoDaysArr.includes(7);
+        el.autoSyncTime.value = data.auto_sync_time || "03:00";
+        el.autoSyncCreateRelease.checked = Boolean(data.auto_sync_create_release !== false);
+        toggleAutoSyncOptions();
         el.includeAddonConfigs.checked = Boolean(data.include_addon_configs !== false);
         el.includeMedia.checked = Boolean(data.include_media);
         el.includeShare.checked = Boolean(data.include_share);
@@ -925,9 +1015,11 @@
         } else {
           setStatus("Ready");
         }
-        if (data.scheduler && data.scheduler.next_run_in) {
-          const mode = data.scheduler.scheduled_live_sync ? "live" : "dry-run";
-          el.versionBadge.textContent += ` | Auto-sync in ${data.scheduler.next_run_in} (${mode})`;
+        if (data.scheduler && data.scheduler.enabled) {
+          const dayNames = ["", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+          const days = (data.scheduler.days || []).map(d => dayNames[d]).join(", ");
+          const release = data.scheduler.create_release ? " + release" : "";
+          el.versionBadge.textContent += ` | Scheduled: ${days} at ${data.scheduler.time}${release}`;
         }
       }
 
@@ -1042,6 +1134,10 @@
             version_retention_count: Number(el.versionRetention.value || "7"),
             dry_run: el.dryRun.checked,
             scheduled_live_sync: el.scheduledLiveSync.checked,
+            auto_sync_enabled: el.autoSyncEnabled.checked,
+            auto_sync_days: getSelectedDays(),
+            auto_sync_time: el.autoSyncTime.value || "03:00",
+            auto_sync_create_release: el.autoSyncCreateRelease.checked,
             include_addon_configs: el.includeAddonConfigs.checked,
             include_media: el.includeMedia.checked,
             include_share: el.includeShare.checked,
