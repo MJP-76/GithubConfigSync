@@ -14,9 +14,9 @@ from sync.errors import SyncError
 from sync.github_client import GitHubClient
 from sync.hashing import IGNORE_PATTERNS
 
-APP_VERSION = "1.0.44"
-STABLE_REPO_VERSION = "1.0.44"
-DEV_REPO_VERSION = "1.0.44"
+APP_VERSION = "1.0.45"
+STABLE_REPO_VERSION = "1.0.45"
+DEV_REPO_VERSION = "1.0.45"
 APP_PORT = 8099
 DEFAULT_OAUTH_CLIENT_ID = "Ov23li2ycCraodta6WCU"
 DEFAULT_NEW_REPO_NAME = "ha-github-config-sync"
@@ -1420,7 +1420,10 @@ def trigger_clean_repo():
         if not safe:
             return jsonify({"ok": False, "error": reason}), 400
         engine.set_progress_callback(lambda payload: _save_state(_sync_progress_payload(payload)))
+        engine.set_cancel_checker(_is_cancel_requested)
         engine.clean_remote_tree()
+        if _is_cancel_requested():
+            raise SyncError("Clean cancelled")
         _restore_repo_skeleton_and_marker(engine, sync_config.repository)
     except SyncError as err:
         state = _save_state(

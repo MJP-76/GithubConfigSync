@@ -133,6 +133,8 @@ class SyncEngine:
         return list(self._sensitive_files)
 
     def clean_remote_tree(self) -> None:
+        if self._cancel_requested():
+            raise SyncError("Clean cancelled")
         try:
             self._wipe_remote_repository()
             return
@@ -314,6 +316,8 @@ class SyncEngine:
 
     def _delete_remote_tree(self, root: str) -> None:
         for item in self._github.list_directory_contents(root):
+            if self._cancel_requested():
+                raise SyncError("Clean cancelled")
             item_type = item.get("type")
             item_path = item.get("path")
             if not isinstance(item_path, str):
@@ -511,6 +515,8 @@ class SyncEngine:
             ("repository.yaml", repo_root / "repository.yaml"),
         ]
         for remote_path, local_path in skeleton_files:
+            if self._cancel_requested():
+                raise SyncError("Clean cancelled")
             if local_path.exists():
                 self._put_with_retry(remote_path, local_path.read_bytes(), message=f"sync: restore {remote_path}")
 
