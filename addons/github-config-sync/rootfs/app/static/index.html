@@ -328,7 +328,7 @@
       </div>
 
       <div class="card">
-        <h2 class="section-title">Installation</h2>
+        <h2 class="section-title">Installation and Usage</h2>
         <details id="authSection" open>
           <summary style="cursor: pointer; color: var(--muted)">1. GitHub Device Login <span id="tokenBadge" class="pill status">Token missing</span></summary>
           <div style="margin-top: 10px; padding: 10px; border: 1px solid var(--border); border-radius: 6px;">
@@ -393,12 +393,26 @@
             </div>
           </div>
         </details>
-        <p class="subtle" style="margin-top: 12px; margin-bottom: 0">
-          3. Check the folder structure inclusions/exclusions and the .gitignore files.
-        </p>
-        <p class="subtle" style="margin-top: 4px; margin-bottom: 0">
-          4. Run Sync Now, Clean Upload, or Cancel Current Upload as needed.
-        </p>
+        <details id="targetRepoSection" style="margin-top: 12px" open>
+          <summary style="cursor: pointer; color: var(--muted)">3. Target repository</summary>
+          <div style="margin-top: 10px; padding: 10px; border: 1px solid var(--border); border-radius: 6px;">
+            <div class="grid">
+              <div class="field">
+                <label for="repo">Target repository (owner/repo)</label>
+                <input id="repo" placeholder="MJP-76/GithubConfigSync" />
+              </div>
+              <div class="field">
+                <label for="branch">Target branch</label>
+                <input id="branch" placeholder="main" />
+              </div>
+            </div>
+          </div>
+        </details>
+        <div class="row" style="margin-top: 14px">
+          <button id="syncBtn" class="secondary">Sync Now</button>
+          <button id="cancelSyncBtn" class="secondary">Cancel Current Upload</button>
+          <button id="refreshBtn" class="secondary">Refresh Status</button>
+        </div>
       </div>
 
       <div class="card">
@@ -450,17 +464,7 @@
       </div>
 
       <div class="card">
-        <div class="grid">
-          <div class="field">
-            <label for="repo">Target repository (owner/repo)</label>
-            <input id="repo" placeholder="MJP-76/GithubConfigSync" />
-          </div>
-          <div class="field">
-            <label for="branch">Target branch</label>
-            <input id="branch" placeholder="main" />
-          </div>
-        </div>
-        <details style="margin-top: 12px">
+        <details style="margin-top: 0">
           <summary style="cursor: pointer; color: var(--muted)">Scheduled sync <span id="schedulerStatus"></span></summary>
           <div style="margin-top: 10px; padding: 10px; border: 1px solid var(--border); border-radius: 6px;">
             <div class="row" style="margin-bottom: 10px">
@@ -548,11 +552,6 @@
         <div class="row" style="margin-top: 12px">
           <input id="dryRun" type="checkbox" />
           <label for="dryRun">Dry run mode (no push)</label>
-        </div>
-        <div class="row" style="margin-top: 14px">
-          <button id="syncBtn" class="secondary">Sync Now</button>
-          <button id="cancelSyncBtn" class="secondary">Cancel Current Upload</button>
-          <button id="refreshBtn" class="secondary">Refresh Status</button>
         </div>
       </div>
 
@@ -658,6 +657,7 @@
         repoBadge: document.getElementById("repoBadge"),
         authSection: document.getElementById("authSection"),
         repoSection: document.getElementById("repoSection"),
+        targetRepoSection: document.getElementById("targetRepoSection"),
       };
       let cachedRepos = [];
       let cachedIgnorePatterns = [];
@@ -720,16 +720,20 @@
                 : "Token missing";
         el.tokenBadge.textContent = label;
         el.tokenBadge.className = `status ${isChecking ? "" : isGood ? "ok" : "err"}`.trim();
-        if (!isChecking) {
-          el.authSection.open = !isGood;
-        }
       }
 
       function updateRepoBadge(repo) {
         const hasRepo = Boolean(repo && repo.trim());
         el.repoBadge.textContent = hasRepo ? "Configured" : "No repository";
         el.repoBadge.className = `status ${hasRepo ? "ok" : "err"}`.trim();
-        el.repoSection.open = !hasRepo;
+      }
+
+      function collapseResolvedSections() {
+        const tokenOk = el.tokenBadge.classList.contains("ok");
+        const repoOk = el.repoBadge.classList.contains("ok");
+        el.authSection.open = !tokenOk;
+        el.repoSection.open = !repoOk;
+        el.targetRepoSection.open = !repoOk;
       }
 
       function updateAuthMethodHelp() {
@@ -1443,6 +1447,7 @@
           setStatus(failed.reason.message || String(failed.reason), false);
           return;
         }
+        collapseResolvedSections();
         setStatus("Ready");
       });
       startStatusPolling();
