@@ -5,6 +5,7 @@
 [![Home Assistant](https://img.shields.io/badge/Home%20Assistant-Compatible-03a9f4.svg)](https://www.home-assistant.io/)
 [![Python](https://img.shields.io/badge/Python-3.12+-3776AB.svg)](https://www.python.org/)
 [![Release](https://img.shields.io/github/v/tag/MJP-76/GithubConfigSync?label=release)](https://github.com/MJP-76/GithubConfigSync/releases)
+![Status](https://img.shields.io/badge/status-experimental-yellow)
 
 Home Assistant integration and add-on for syncing your config folder to GitHub. This is a config sync tool, not a backup tool.
 
