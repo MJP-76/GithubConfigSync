@@ -14,9 +14,9 @@ from sync.errors import SyncError
 from sync.github_client import GitHubClient
 from sync.hashing import IGNORE_PATTERNS
 
-APP_VERSION = "1.0.48"
-STABLE_REPO_VERSION = "1.0.48"
-DEV_REPO_VERSION = "1.0.48"
+APP_VERSION = "1.0.49"
+STABLE_REPO_VERSION = "1.0.49"
+DEV_REPO_VERSION = "1.0.49"
 APP_PORT = 8099
 DEFAULT_OAUTH_CLIENT_ID = "Ov23li2ycCraodta6WCU"
 DEFAULT_NEW_REPO_NAME = "ha-github-config-sync"
@@ -441,7 +441,7 @@ def _repo_picker_entries(
             continue
         seen.add(full_name)
         cached = cached_by_name.get(full_name, {})
-        managed = bool(cached.get("managed", True)) if cached else False
+        managed = bool(cached.get("managed", False)) if cached else False
         if not managed:
             try:
                 managed = _repo_has_addon_marker(options, full_name)
@@ -461,7 +461,7 @@ def _repo_picker_entries(
     current_repo = str(options.get("github_repository", "")).strip()
     if current_repo and current_repo not in seen:
         cached = cached_by_name.get(current_repo, {})
-        managed = bool(cached.get("managed", True)) if cached else False
+        managed = bool(cached.get("managed", False)) if cached else False
         if not managed:
             try:
                 managed = _repo_has_addon_marker(options, current_repo)
