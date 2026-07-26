@@ -76,6 +76,16 @@ You can add extra patterns in the app UI. Live uploads also write a root `SECURI
 - After a release, Home Assistant may need a rebuild/reinstall to pick up UI changes from the add-on image.
 - If `GITHUB_OAUTH_CLIENT_ID` is set in `custom_components/github_config_sync/const.py`, the flow uses it directly.
 
+## Development Track
+
+To use the dev branch on a separate HA instance, add the repository URL with `?ref=dev`:
+
+```
+https://github.com/MJP-76/GithubConfigSync?ref=dev
+```
+
+Development happens on the `dev` branch. When ready, merge `dev` into `main` and tag the release.
+
 ## Documentation
 
 - **[Project Guide](PROJECT.md)** — architecture, security, changelog rules, release workflow, and dev milestones.

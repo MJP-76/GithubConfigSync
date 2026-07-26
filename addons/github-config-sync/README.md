@@ -121,8 +121,8 @@ If you find this project useful, and would like to help support its continued de
 - Version snapshots now skip ignored directories like `.cache`, even inside release snapshots.
 - New repository creation defaults blank name/description fields to a humanized repository name.
 - This release carries the repo-create default behavior and the sync fixes from the last two commits.
-- Release track split: `MJP-76/GithubConfigSync` publishes stable releases, and `MJP-76/GithubConfigSync-dev` publishes dev releases.
-- Versioning rule: keep numeric `x.y.z` versions and use stable releases in the main repo with dev releases in the dev fork.
+- Release track: stable releases on `main`, dev releases on `dev` branch.
+- Versioning rule: keep numeric `x.y.z` versions and use stable releases on `main` with dev releases on `dev`.
 
 ## Verification notes
 
