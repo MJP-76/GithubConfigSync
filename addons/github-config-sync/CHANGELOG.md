@@ -1,12 +1,39 @@
 # Changelog
 
-## Latest 5 releases
+## Latest Releases
 
-- `1.0.40` — added HACS frontend and node_modules to ignore patterns, and added GitHub API rate-limit retry with backoff.
-- `1.0.35` — promoted the current dev repository-management behavior to stable on top of the stuck-upload progress fix already in stable.
-- `1.0.34` — fixed stuck upload progress so the UI clears finished files and shows snapshot work instead of pinning one filename.
-- `1.0.33` — promoted the repository adoption flow to stable, showing adopted repos by default and requiring explicit adoption for unmanaged repos.
-- `1.0.32` — added compatibility support for the managed repo picker endpoint.
+## 1.0.50
+
+- Always verify managed repo status against the live GitHub marker file, never trust the cache.
+- Removed stale cache entries from keeping unmanaged repos in the list.
+
+## 1.0.49
+
+- Fixed cache default: `managed` now defaults to `False` instead of `True`.
+- Repos without a marker file no longer show as managed.
+
+## 1.0.48
+
+- Removed `_repo_safety_state` and `_existing_repo_confirmation_error` checks from the clean-repo endpoint.
+- Clean-repo now only requires the confirmation dialog.
+
+## 1.0.47
+
+- Removed addon marker file (`.github-config-sync-addon.json`) from source repos.
+- Cleaned `.gitignore` (removed stale HA config entries).
+- Added cancel checks to clean-repo.
+- Added atomic-operation warning to Clean Upload/Repo confirmation dialogs.
+- UI loads live repos on init instead of stale cache.
+- Fixed `_repo_safety_state()` missing return values.
+
+## 1.0.46
+
+- Added atomic-operation warning to Clean Upload and Clean Repo confirmation dialogs.
+- Both now warn that the operation cannot be cancelled once started.
+
+---
+
+## Older Releases
 
 ## 1.0.40
 
