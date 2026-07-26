@@ -2,6 +2,15 @@
 
 ## Latest Releases
 
+## 1.1.1
+
+- Security hardening: ingress header validation on mutating API endpoints.
+- Security hardening: path ancestry checks on filesystem operations.
+- Security hardening: diagnostics log redaction strips tokens, secrets, and URLs.
+- Consolidated project documentation into single PROJECT.md.
+- Rewrote README for user-facing clarity.
+- Added experimental status badge and My Home Assistant install button.
+
 ## 1.0.50
 
 - Always verify managed repo status against the live GitHub marker file, never trust the cache.

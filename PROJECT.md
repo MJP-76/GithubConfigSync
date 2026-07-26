@@ -6,7 +6,7 @@ Single source of truth for project status, architecture, security, and workflow.
 
 ## Current Status
 
-- **Version:** `1.1.0`
+- **Version:** `1.1.1`
 - **Last updated:** 2026-07-26
 - **Tracks:** Stable (`GithubConfigSync`) and Dev (`GithubConfigSync-dev`)
 - **Add-on path:** `addons/github-config-sync/`
@@ -135,7 +135,16 @@ Home Assistant add-on with ingress web UI. Runs a Flask server that handles:
 - Default ignore rules for HA runtime files
 - Sensitive-file scanning and reporting
 
-### v1.1.0 — Current
+### v1.1.1 — Current
+
+- Security hardening: ingress header validation on mutating API endpoints
+- Security hardening: path ancestry checks on filesystem operations
+- Security hardening: diagnostics log redaction strips tokens, secrets, and URLs
+- Consolidated project documentation into single PROJECT.md
+- Rewrote README for user-facing clarity
+- Added experimental status badge and My Home Assistant install button
+
+### v1.1.0
 
 - Managed repos always verified against live GitHub marker file
 - Stale cache no longer keeps unmanaged repos in the list
