@@ -1284,7 +1284,7 @@
       el.refreshBtn.addEventListener("click", () =>
         {
           setButtonBusy(el.refreshBtn, true, "Refreshing...");
-          Promise.all([loadStatus(), loadDeviceFlowStatus(), loadRepositories(false)])
+          Promise.all([loadStatus(), loadDeviceFlowStatus(), loadManagedRepositories(true)])
             .then(() => setStatus("Status refreshed"))
             .catch((error) => setStatus(error.message, false))
             .finally(() => setButtonBusy(el.refreshBtn, false));
@@ -1336,7 +1336,7 @@
         loadOptions(),
         loadStatus(),
         loadDeviceFlowStatus(),
-        loadRepositories(false),
+        loadManagedRepositories(true),
         loadIgnoreRecommendations(),
       ]).then((results) => {
         const failed = results.find((result) => result.status === "rejected");
