@@ -2,6 +2,19 @@
 
 ## Latest Releases
 
+## 1.4.0
+
+- Restructured UI: Installation card now contains Device Login, Repository Setup, Target Repository, and action buttons
+- Sections auto-expand when not configured, stay collapsed when configured
+- Renamed "Installation" to "Installation and Usage"
+- Moved "Keep versions on GitHub" into Scheduled sync section
+- Removed "Auto-sync pushes changes" toggle — scheduled sync always pushes when enabled
+- Removed Troubleshooting options section
+- Added Skipped (unchanged) count to sync activity display
+- SHA conflict retries with backoff (up to 3 attempts)
+- Version auto-read from config.yaml — single source of truth
+- Reworded skeleton README
+
 ## 1.3.3
 
 - Merged safety notes into single block at top of config card
