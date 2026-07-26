@@ -37,3 +37,4 @@ known_devices.yaml
 .smbdelete*
 .DS_Store
 Thumbs.db
+.github-config-sync-addon.json
