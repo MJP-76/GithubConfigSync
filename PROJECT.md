@@ -98,15 +98,6 @@ Home Assistant add-on with ingress web UI. Runs a Flask server that handles:
 
 ---
 
-## Cross-Device Handoff
-
-1. Pull the latest from the active branch.
-2. Read this file for current status and architecture.
-3. Check the latest release tag on GitHub.
-4. Continue work and keep this file updated.
-
----
-
 ## Completed Milestones
 
 ### Foundation (v0.1.0–v0.1.2)
