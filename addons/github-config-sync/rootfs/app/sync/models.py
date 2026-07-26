@@ -16,7 +16,6 @@ class SyncConfig:
     include_ssl: bool = True
     include_backups: bool = False
     include_www: bool = True
-    version_retention_count: int = 7
 
 
 @dataclass(frozen=True)

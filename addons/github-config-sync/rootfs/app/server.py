@@ -18,9 +18,9 @@ from sync.errors import SyncError
 from sync.github_client import GitHubClient
 from sync.hashing import IGNORE_PATTERNS
 
-APP_VERSION = "1.3.0"
-STABLE_REPO_VERSION = "1.3.0"
-DEV_REPO_VERSION = "1.3.0"
+APP_VERSION = "1.3.1"
+STABLE_REPO_VERSION = "1.3.1"
+DEV_REPO_VERSION = "1.3.1"
 APP_PORT = 8099
 DEFAULT_OAUTH_CLIENT_ID = "Ov23li2ycCraodta6WCU"
 DEFAULT_NEW_REPO_NAME = "ha-github-config-sync"
@@ -95,9 +95,7 @@ DEFAULT_OPTIONS: dict[str, Any] = {
     "github_branch": "main",
     "github_token": "",
     "github_client_id": DEFAULT_OAUTH_CLIENT_ID,
-    "sync_interval_minutes": 1440,
     "version_retention_count": 7,
-    "manual_version_retention_days": 7,
     "dry_run": True,
     "scheduled_live_sync": False,
     "auto_sync_enabled": False,
@@ -140,7 +138,6 @@ def _repo_sync_config(options: dict[str, Any], repository: str) -> SyncConfig:
         include_ssl=bool(options.get("include_ssl", True)),
         include_backups=bool(options.get("include_backups", False)),
         include_www=bool(options.get("include_www", True)),
-        version_retention_count=int(options.get("version_retention_count", 7)),
     )
 
 
@@ -328,13 +325,6 @@ def _validate_payload(payload: dict[str, Any]) -> tuple[bool, str | None]:
     if not branch:
         return False, "github_branch is required"
 
-    interval_raw = payload.get("sync_interval_minutes")
-    try:
-        interval = int(interval_raw)
-    except (TypeError, ValueError):
-        return False, "sync_interval_minutes must be an integer"
-    if interval < 5 or interval > 1440:
-        return False, "sync_interval_minutes must be between 5 and 1440"
 
     retention_raw = payload.get("version_retention_count")
     try:
@@ -344,13 +334,6 @@ def _validate_payload(payload: dict[str, Any]) -> tuple[bool, str | None]:
     if retention < 1 or retention > 100:
         return False, "version_retention_count must be between 1 and 100"
 
-    manual_days_raw = payload.get("manual_version_retention_days")
-    try:
-        manual_days = int(manual_days_raw)
-    except (TypeError, ValueError):
-        return False, "manual_version_retention_days must be an integer"
-    if manual_days < 1 or manual_days > 100:
-        return False, "manual_version_retention_days must be between 1 and 100"
 
     if not isinstance(payload.get("dry_run"), bool):
         return False, "dry_run must be true or false"
@@ -577,7 +560,6 @@ def _sync_config(options: dict[str, Any]) -> SyncConfig:
         include_ssl=bool(options.get("include_ssl", True)),
         include_backups=bool(options.get("include_backups", False)),
         include_www=bool(options.get("include_www", True)),
-        version_retention_count=int(options.get("version_retention_count", 7)),
     )
 
 
@@ -771,7 +753,6 @@ class _SyncScheduler:
                 include_ssl=bool(options.get("include_ssl", True)),
                 include_backups=bool(options.get("include_backups", False)),
                 include_www=bool(options.get("include_www", True)),
-                version_retention_count=int(options.get("version_retention_count", 7)),
             )
             now = dt.datetime.now(dt.timezone.utc)
             local_now = now.astimezone()
@@ -947,7 +928,6 @@ def trigger_manual_sync():
             config_root=sync_config.config_root,
             addon_config_root=sync_config.addon_config_root,
             dry_run=bool(options.get("dry_run", True)),
-            version_retention_count=sync_config.version_retention_count,
         )
         engine = SyncEngine(sync_config, previous_hash_index=_load_json(HASH_INDEX_PATH, {}))
         engine.set_cancel_checker(_is_cancel_requested)
@@ -958,7 +938,6 @@ def trigger_manual_sync():
         if not probe_ok:
             raise SyncError(probe_message)
         result = engine.run(plan)
-        engine.prune_versions_older_than_days(int(options.get("manual_version_retention_days", 7)))
         _save_json(HASH_INDEX_PATH, current_hash_index)
     except SyncError as err:
         state = _save_state(
@@ -1022,9 +1001,7 @@ def set_options():
             payload.get("github_client_id", _merge_options().get("github_client_id", DEFAULT_OAUTH_CLIENT_ID))
         ).strip()
         or DEFAULT_OAUTH_CLIENT_ID,
-        "sync_interval_minutes": payload.get("sync_interval_minutes", 1440),
         "version_retention_count": payload.get("version_retention_count", 7),
-        "manual_version_retention_days": payload.get("manual_version_retention_days", 7),
         "dry_run": payload.get("dry_run", True),
         "scheduled_live_sync": payload.get("scheduled_live_sync", False),
         "auto_sync_enabled": payload.get("auto_sync_enabled", False),
@@ -1043,7 +1020,6 @@ def set_options():
     if not valid:
         return jsonify({"ok": False, "error": message}), 400
 
-    candidate["sync_interval_minutes"] = int(candidate["sync_interval_minutes"])
     _persist_options(candidate)
     _append_log("Settings updated via web UI")
     _scheduler.restart()
@@ -1348,7 +1324,6 @@ def create_repo():
                 include_ssl=bool(options.get("include_ssl", True)),
                 include_backups=bool(options.get("include_backups", False)),
                 include_www=bool(options.get("include_www", True)),
-                version_retention_count=int(options.get("version_retention_count", 7)),
             ),
             previous_hash_index={},
         )
@@ -1403,7 +1378,6 @@ def trigger_sync():
             include_ssl=sync_config.include_ssl,
             include_backups=sync_config.include_backups,
             include_www=sync_config.include_www,
-            version_retention_count=sync_config.version_retention_count,
         )
 
     if not sync_config.repository:
@@ -1548,7 +1522,6 @@ def trigger_clean_sync():
         include_ssl=sync_config.include_ssl,
         include_backups=sync_config.include_backups,
         include_www=sync_config.include_www,
-        version_retention_count=sync_config.version_retention_count,
     )
     started = dt.datetime.now(dt.timezone.utc).isoformat()
     _save_state({"status": "running", "last_run": started, "last_error": None, **_clear_sync_progress_state()})

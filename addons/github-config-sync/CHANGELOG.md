@@ -2,6 +2,12 @@
 
 ## Latest Releases
 
+## 1.3.1
+
+- Removed snapshot/versioning system — replaced by GitHub releases
+- Removed sync_interval_minutes and manual_version_retention_days options
+- Renamed "Run Sync Now" to "Sync Now"
+
 ## 1.3.0
 
 - Feature: scheduled sync with day-of-week and time-of-day selection

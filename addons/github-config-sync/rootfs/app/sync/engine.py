@@ -1,16 +1,13 @@
 from __future__ import annotations
 
 from pathlib import Path
-import datetime as dt
 from typing import Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from .errors import SyncError
 from .github_client import GitHubClient
-from .hashing import build_hash_index, diff_hash_indexes, is_ignored, scan_sensitive_files
+from .hashing import build_hash_index, diff_hash_indexes, scan_sensitive_files
 from .models import SyncConfig, SyncPlan, SyncResult
-
-_MAX_PARALLEL_SNAPSHOT_UPLOADS = 8
 
 
 class SyncEngine:
@@ -114,10 +111,6 @@ class SyncEngine:
             return self._cancelled_result(plan, synced_count, deleted_count, skipped_count + skipped_upserts + skipped_deletes)
         skipped_count = skipped_upserts + skipped_deletes
 
-        if self._config.version_retention_count > 0:
-            self._sync_version_snapshot()
-            self._rotate_version_snapshots()
-
         return SyncResult(
             synced_count=synced_count,
             deleted_count=deleted_count,
@@ -143,92 +136,6 @@ class SyncEngine:
 
     def restore_repo_skeleton(self) -> None:
         self._restore_repo_skeleton()
-
-    def _sync_version_snapshot(self) -> None:
-        timestamp = dt.datetime.now(dt.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-        version_root = f"versions/{timestamp}"
-        snapshot_entries: list[tuple[str, bytes]] = []
-        for prefix, root in self._root_map:
-            if not root.exists():
-                continue
-            for path in sorted(root.rglob("*")):
-                if self._cancel_requested():
-                    return
-                if not path.is_file():
-                    continue
-                relative = path.relative_to(root).as_posix()
-                if is_ignored(relative):
-                    continue
-                target = f"{version_root}/{prefix}/{relative}" if prefix else f"{version_root}/{relative}"
-                snapshot_entries.append((target, path.read_bytes()))
-        if not snapshot_entries:
-            return
-        self._progress_callback(
-            {
-                "status": "running",
-                "current_action": "snapshotting",
-                "current_path": "",
-                "upsert_total": 0,
-                "remove_total": 0,
-                "upsert_remaining": len(snapshot_entries),
-                "remove_remaining": 0,
-                "upsert_paths": [target for target, _content in snapshot_entries[:50]],
-                "remove_paths": [],
-            }
-        )
-        max_workers = min(_MAX_PARALLEL_SNAPSHOT_UPLOADS, len(snapshot_entries))
-        with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            futures = [
-                executor.submit(self._put_with_retry, target, content, f"sync: snapshot {target}")
-                for target, content in snapshot_entries
-            ]
-            remaining = len(snapshot_entries)
-            for future in as_completed(futures):
-                future.result()
-                remaining -= 1
-                self._progress_callback(
-                    {
-                        "status": "running",
-                        "current_action": "snapshotting",
-                        "current_path": "",
-                        "upsert_total": 0,
-                        "remove_total": 0,
-                        "upsert_remaining": remaining,
-                        "remove_remaining": 0,
-                        "upsert_paths": [target for target, _content in snapshot_entries[:50]],
-                        "remove_paths": [],
-                    }
-                )
-
-    def _rotate_version_snapshots(self) -> None:
-        keep = max(1, self._config.version_retention_count)
-        version_dirs = [
-            item.get("name")
-            for item in self._github.list_directory_contents("versions")
-            if item.get("type") == "dir" and isinstance(item.get("name"), str)
-        ]
-        if len(version_dirs) <= keep:
-            return
-        for version in sorted(version_dirs)[: len(version_dirs) - keep]:
-            self._delete_remote_tree(f"versions/{version}")
-
-    def prune_versions_older_than_days(self, days: int) -> None:
-        if days < 1:
-            return
-        cutoff = dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=days)
-        version_dirs = [
-            item
-            for item in self._github.list_directory_contents("versions")
-            if item.get("type") == "dir" and isinstance(item.get("name"), str)
-        ]
-        for item in version_dirs:
-            name = item["name"]
-            try:
-                parsed = dt.datetime.strptime(name, "%Y%m%dT%H%M%SZ").replace(tzinfo=dt.timezone.utc)
-            except ValueError:
-                continue
-            if parsed < cutoff:
-                self._delete_remote_tree(f"versions/{name}")
 
     def _cancelled_result(
         self, plan: SyncPlan, synced_count: int, deleted_count: int, skipped_count: int
