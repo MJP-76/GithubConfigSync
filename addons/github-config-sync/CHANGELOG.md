@@ -2,6 +2,10 @@
 
 ## Latest Releases
 
+## 1.1.2
+
+- Fix: removed ingress requirement from device auth endpoints. Device flow was blocked by the security hardening in 1.1.1, preventing GitHub login from completing.
+
 ## 1.1.1
 
 - Security hardening: ingress header validation on mutating API endpoints.
