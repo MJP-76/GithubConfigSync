@@ -2,6 +2,14 @@
 
 ## Latest Releases
 
+## 1.3.3
+
+- Merged safety notes into single block at top of config card
+- Moved .gitignore entries under Mount points section
+- Moved runtime status into Diagnostics section with download button
+- Renamed Danger Zone to collapsible red section, removed duplicate security text
+- Added Safety & Security Recommendations section
+
 ## 1.3.2
 
 - Moved "Keep versions on GitHub" into the Scheduled sync section

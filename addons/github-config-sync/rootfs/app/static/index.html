@@ -317,11 +317,11 @@
             <span id="devRepoVersion" class="progress-value">Loading...</span>
           </div>
         </div>
-        <div class="notice" style="margin-top: 12px">
-          <strong>Safety note:</strong> remote deletes only affect GitHub and never remove local files.
-        </div>
         <div class="danger" style="margin-top: 12px">
-          <strong style="color: var(--err)">Danger Zone:</strong> Home Assistant config can contain secrets, tokens, device data, and other sensitive files. Public repositories are strongly discouraged, sensitive paths are filtered, and any two-way sync or inbound write path can put your local config at risk.
+          <strong>Safety note:</strong> remote deletes only affect GitHub and never remove local files.
+          Home Assistant config can contain secrets, tokens, device data, and other sensitive files.
+          Public repositories are strongly discouraged, sensitive paths are filtered, and any two-way
+          sync or inbound write path can put your local config at risk.
         </div>
       </div>
 
@@ -461,7 +461,7 @@
           </div>
         </div>
         <details style="margin-top: 12px">
-          <summary style="cursor: pointer; color: var(--muted)">Scheduled sync</summary>
+          <summary style="cursor: pointer; color: var(--muted)">Scheduled sync <span id="schedulerStatus"></span></summary>
           <div style="margin-top: 10px; padding: 10px; border: 1px solid var(--border); border-radius: 6px;">
             <div class="row" style="margin-bottom: 10px">
               <input id="autoSyncEnabled" type="checkbox" />
@@ -527,6 +527,25 @@
           </div>
         </details>
         <details style="margin-top: 12px">
+          <summary style="cursor: pointer; color: var(--muted)">Recommended .gitignore entries</summary>
+          <p class="subtle" style="margin-bottom: 10px">
+            These are safe defaults for Home Assistant. They are read from your local .gitignore and can be added with one click.
+          </p>
+          <div id="ignoreMeta" class="muted" style="margin-bottom: 10px"></div>
+          <div class="row" style="margin-bottom: 10px">
+            <label class="row" style="gap: 8px">
+              <input id="selectAllIgnore" type="checkbox" />
+              <span>Select All</span>
+            </label>
+          </div>
+          <div id="ignoreList" class="ignore-list"></div>
+          <div class="row" style="margin-top: 12px">
+            <button id="addIgnoreDefaultsBtn" class="secondary">Update local .gitignore Defaults</button>
+            <button id="saveIgnoreBtn" class="secondary">Write Selected Entries to .gitignore</button>
+            <button id="refreshIgnoreBtn" class="secondary">Refresh Ignore Suggestions</button>
+          </div>
+        </details>
+        <details style="margin-top: 12px">
           <summary style="cursor: pointer; color: var(--muted)">Troubleshooting options</summary>
           <p style="margin: 8px 0 0; font-size: 0.85rem; color: var(--muted)">
             Use the token override only if you need to test a specific GitHub token. For normal use, complete Device Login and let the app store the token.
@@ -553,47 +572,31 @@
         </div>
       </div>
 
-      <div class="card danger">
-        <h2 class="section-title"><strong style="color: var(--err)">Danger Zone</strong></h2>
+      <div class="card">
+        <h2 class="section-title">Safety & Security Recommendations</h2>
         <p class="subtle" style="margin-bottom: 10px">
-          Destructive actions live here. Clean Upload rebuilds the remote repo from the current local config, and Clean Repo empties the remote repo before restoring the starter files.
+          Home Assistant config can contain secrets, tokens, device data, and other sensitive files. Public repositories are strongly discouraged, sensitive paths are filtered, and any two-way sync or inbound write path can put your local config at risk.
         </p>
-        <p class="subtle" style="margin-bottom: 10px; color: var(--err)">
-          <strong style="color: var(--err)">Danger:</strong> private repositories are recommended, and avoid any two-way sync tools that can write back into your Home Assistant config tree.
-        </p>
-        <div class="row">
-          <button id="cleanSyncBtn">Clean Upload</button>
-          <button id="cleanRepoBtn" class="secondary">Clean Repo</button>
-          <button id="cancelProcessBtn" class="secondary">Cancel Process</button>
-        </div>
       </div>
 
-      <div class="card">
+      <div class="card danger">
         <details>
-          <summary class="section-title" style="cursor: pointer">Recommended .gitignore entries</summary>
-          <p class="subtle" style="margin-bottom: 10px">
-            These are safe defaults for Home Assistant. They are read from your local .gitignore and can be added with one click.
+          <summary class="section-title" style="cursor: pointer; color: var(--err)"><strong>Danger Zone</strong></summary>
+          <p class="subtle" style="margin-top: 10px; margin-bottom: 10px">
+            Clean Upload rebuilds the remote repo from the current local config. Clean Repo empties the remote repo before restoring the starter files.
           </p>
-          <div id="ignoreMeta" class="muted" style="margin-bottom: 10px"></div>
-          <div class="row" style="margin-bottom: 10px">
-            <label class="row" style="gap: 8px">
-              <input id="selectAllIgnore" type="checkbox" />
-              <span>Select All</span>
-            </label>
-          </div>
-          <div id="ignoreList" class="ignore-list"></div>
-          <div class="row" style="margin-top: 12px">
-            <button id="addIgnoreDefaultsBtn" class="secondary">Update local .gitignore Defaults</button>
-            <button id="saveIgnoreBtn" class="secondary">Write Selected Entries to .gitignore</button>
-            <button id="refreshIgnoreBtn" class="secondary">Refresh Ignore Suggestions</button>
+          <div class="row">
+            <button id="cleanSyncBtn">Clean Upload</button>
+            <button id="cleanRepoBtn" class="secondary">Clean Repo</button>
+            <button id="cancelProcessBtn" class="secondary">Cancel Process</button>
           </div>
         </details>
       </div>
 
       <div class="card">
         <details>
-          <summary class="section-title" style="cursor: pointer">Runtime Status</summary>
-          <pre id="runtime">Loading status...</pre>
+          <summary class="section-title" style="cursor: pointer">Diagnostics</summary>
+          <pre id="runtime" style="margin-top: 10px">Loading status...</pre>
           <div class="row" style="margin-top: 12px">
             <button id="downloadDiagnosticsBtn" class="secondary">Download Diagnostics</button>
           </div>
@@ -633,6 +636,7 @@
         includeBackups: document.getElementById("includeBackups"),
         includeWww: document.getElementById("includeWww"),
         dryRun: document.getElementById("dryRun"),
+        schedulerStatus: document.getElementById("schedulerStatus"),
         runtime: document.getElementById("runtime"),
         progressStatus: document.getElementById("progressStatus"),
         activityDetail: document.getElementById("activityDetail"),
@@ -779,6 +783,14 @@
         const enabled = el.autoSyncEnabled.checked;
         el.autoSyncOptions.style.opacity = enabled ? "1" : "0.5";
         el.autoSyncOptions.style.pointerEvents = enabled ? "auto" : "none";
+        updateSchedulerStatus(enabled);
+      }
+
+      function updateSchedulerStatus(enabled) {
+        el.schedulerStatus.textContent = enabled ? "Enabled" : "Disabled";
+        el.schedulerStatus.style.color = enabled ? "var(--good)" : "var(--err)";
+        el.schedulerStatus.style.fontWeight = "bold";
+        el.schedulerStatus.style.fontSize = "0.85rem";
       }
 
       el.autoSyncEnabled.addEventListener("change", toggleAutoSyncOptions);
@@ -895,6 +907,7 @@
         el.versionRetention.value = data.version_retention_count || 7;
         el.dryRun.checked = Boolean(data.dry_run);
         el.autoSyncEnabled.checked = Boolean(data.auto_sync_enabled);
+        updateSchedulerStatus(Boolean(data.auto_sync_enabled));
         const autoDays = data.auto_sync_days || [1, 2, 3, 4, 5];
         const autoDaysArr = Array.isArray(autoDays) ? autoDays : String(autoDays).split(",").map(Number).filter(Boolean);
         el.dayMon.checked = autoDaysArr.includes(1);
@@ -1007,12 +1020,7 @@
         } else {
           setStatus("Ready");
         }
-        if (data.scheduler && data.scheduler.enabled) {
-          const dayNames = ["", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-          const days = (data.scheduler.days || []).map(d => dayNames[d]).join(", ");
-          const release = data.scheduler.create_release ? " + release" : "";
-          el.versionBadge.textContent += ` | Scheduled: ${days} at ${data.scheduler.time}${release}`;
-        }
+        updateSchedulerStatus(Boolean(data.scheduler && data.scheduler.enabled));
       }
 
       function startStatusPolling() {
