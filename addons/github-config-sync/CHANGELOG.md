@@ -2,6 +2,14 @@
 
 ## Latest Releases
 
+## 1.2.0
+
+- Feature: auto-sync scheduler — runs sync on a configurable interval in the background
+- Scheduler re-reads settings each cycle, so interval/token/branch changes take effect immediately
+- "Auto-sync pushes changes (ignores dry run)" checkbox now controls whether the scheduler does live pushes or dry-runs
+- Scheduler status shown in version badge (next run time and mode)
+- Renamed UI labels for clarity
+
 ## 1.1.3
 
 - Fix: removed ingress header validation — breaks when HA is behind a reverse proxy that strips headers. HA ingress URL token alone is sufficient authentication.

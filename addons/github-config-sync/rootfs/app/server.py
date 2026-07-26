@@ -5,6 +5,8 @@ import json
 import logging
 import os
 import re
+import threading
+import time
 from functools import wraps
 from pathlib import Path
 from typing import Any
@@ -17,9 +19,9 @@ from sync.errors import SyncError
 from sync.github_client import GitHubClient
 from sync.hashing import IGNORE_PATTERNS
 
-APP_VERSION = "1.1.3"
-STABLE_REPO_VERSION = "1.1.3"
-DEV_REPO_VERSION = "1.1.3"
+APP_VERSION = "1.2.0"
+STABLE_REPO_VERSION = "1.2.0"
+DEV_REPO_VERSION = "1.2.0"
 APP_PORT = 8099
 DEFAULT_OAUTH_CLIENT_ID = "Ov23li2ycCraodta6WCU"
 DEFAULT_NEW_REPO_NAME = "ha-github-config-sync"
@@ -666,8 +668,136 @@ def _run_sync(sync_config: SyncConfig, clean_upload: bool = False) -> tuple[int,
     return 200, scan, result.message
 
 
+class _SyncScheduler:
+    """Background scheduler that runs sync on a configurable interval.
+
+    Re-reads options each cycle so interval/token/branch changes take effect.
+    """
+
+    def __init__(self) -> None:
+        self._timer: threading.Timer | None = None
+        self._lock = threading.Lock()
+        self._running = False
+        self._interval: float = 0
+        self._started_at: float = 0
+
+    def restart(self) -> None:
+        """Cancel any pending timer and schedule the next sync."""
+        with self._lock:
+            if self._timer is not None:
+                self._timer.cancel()
+                self._timer = None
+            options = _merge_options()
+            if not options.get("github_token") or not options.get("github_repository"):
+                _append_log("Scheduler: no token or repository configured, skipping")
+                return
+            interval = max(5, int(options.get("sync_interval_minutes", 1440)))
+            self._interval = interval * 60
+            self._started_at = time.monotonic()
+            _append_log(f"Scheduler: next sync in {interval} minutes")
+            self._timer = threading.Timer(self._interval, self._run)
+            self._timer.daemon = True
+            self._timer.start()
+
+    def _run(self) -> None:
+        with self._lock:
+            if self._running:
+                _append_log("Scheduler: sync already in progress, skipping")
+                self.restart()
+                return
+            self._running = True
+        try:
+            options = _merge_options()
+            token = str(options.get("github_token", "")).strip()
+            repository = str(options.get("github_repository", "")).strip()
+            if not token or not repository:
+                _append_log("Scheduler: token or repository missing, skipping")
+                return
+            dry_run = not bool(options.get("scheduled_live_sync", False))
+            sync_config = SyncConfig(
+                repository=repository,
+                branch=str(options.get("github_branch", "main")).strip() or "main",
+                token=token,
+                config_root=str(CONFIG_ROOT),
+                dry_run=dry_run,
+                addon_config_root="/addon_configs" if bool(options.get("include_addon_configs", True)) else "",
+                include_media=bool(options.get("include_media", False)),
+                include_share=bool(options.get("include_share", False)),
+                include_ssl=bool(options.get("include_ssl", True)),
+                include_backups=bool(options.get("include_backups", False)),
+                include_www=bool(options.get("include_www", True)),
+                version_retention_count=int(options.get("version_retention_count", 7)),
+            )
+            started = dt.datetime.now(dt.timezone.utc).isoformat()
+            _append_log(f"Scheduler: sync started for {repository} (dry_run={dry_run})")
+            _save_state({"status": "running", "last_run": started, "last_error": None, **_clear_sync_progress_state()})
+            scan: dict[str, Any] | None = None
+            try:
+                engine = SyncEngine(sync_config, previous_hash_index=_load_json(HASH_INDEX_PATH, {}))
+                engine.set_progress_callback(lambda payload: _save_state(_sync_progress_payload(payload)))
+                plan, current_hash_index = engine.plan()
+                scan = _plan_summary(plan)
+                if not sync_config.dry_run:
+                    probe_ok, probe_message = engine._github.probe_repository()
+                    if not probe_ok:
+                        raise SyncError(probe_message)
+                result = engine.run(plan)
+                if not sync_config.dry_run:
+                    _ensure_repo_marker(engine, sync_config.repository)
+                _save_json(HASH_INDEX_PATH, current_hash_index)
+                _save_state({
+                    "status": "ok",
+                    "last_success": dt.datetime.now(dt.timezone.utc).isoformat(),
+                    "last_result": result.message,
+                    "last_scan": scan,
+                    "last_error": None,
+                    **_clear_sync_progress_state(),
+                })
+                _append_log(f"Scheduler: {result.message}")
+            except SyncError as err:
+                _save_state({
+                    "status": "error",
+                    "last_error": str(err),
+                    "last_result": None,
+                    "last_scan": scan,
+                    **_clear_sync_progress_state(),
+                })
+                _append_log(f"Scheduler: sync failed: {err}")
+            except Exception as err:
+                _save_state({
+                    "status": "error",
+                    "last_error": str(err),
+                    "last_result": None,
+                    "last_scan": scan,
+                    **_clear_sync_progress_state(),
+                })
+                _append_log(f"Scheduler: unexpected error: {err}")
+        finally:
+            with self._lock:
+                self._running = False
+            self.restart()
+
+    @property
+    def next_run_in(self) -> str | None:
+        with self._lock:
+            if self._timer is None:
+                return None
+            remaining = self._interval - (time.monotonic() - self._started_at)
+            if remaining <= 0:
+                return "running"
+            minutes = int(remaining // 60)
+            seconds = int(remaining % 60)
+            if minutes > 0:
+                return f"{minutes}m {seconds}s"
+            return f"{seconds}s"
+
+
+_scheduler = _SyncScheduler()
+
+
 app = Flask(__name__, static_folder=str(STATIC_DIR), static_url_path="/static")
 _reset_stale_runtime_state()
+_scheduler.restart()
 
 
 @app.get("/")
@@ -841,6 +971,7 @@ def set_options():
     candidate["sync_interval_minutes"] = int(candidate["sync_interval_minutes"])
     _persist_options(candidate)
     _append_log("Settings updated via web UI")
+    _scheduler.restart()
     return jsonify({"ok": True, "options": _mask_token(_merge_options())})
 
 
@@ -862,6 +993,11 @@ def get_status():
             "token_health": _token_health(options),
             "cancel_sync": _is_cancel_requested(),
             "log_tail": _sanitized_log_tail(),
+            "scheduler": {
+                "next_run_in": _scheduler.next_run_in,
+                "sync_interval_minutes": int(options.get("sync_interval_minutes", 1440)),
+                "scheduled_live_sync": bool(options.get("scheduled_live_sync", False)),
+            },
         }
     )
 

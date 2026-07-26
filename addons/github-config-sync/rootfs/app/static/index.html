@@ -460,12 +460,13 @@
             <input id="branch" placeholder="main" />
           </div>
           <div class="field">
-            <label for="interval">Sync Interval (minutes)</label>
+            <label for="interval">Auto-sync interval (minutes)</label>
             <input id="interval" type="number" min="5" max="1440" />
           </div>
           <div class="field">
             <label for="versionRetention">Keep versions on GitHub</label>
             <input id="versionRetention" type="number" min="1" max="100" />
+            <p style="font-size: 0.8rem; color: var(--muted); margin: 2px 0 0">Number of GitHub releases to retain</p>
           </div>
         </div>
         <details style="margin-top: 12px">
@@ -501,7 +502,7 @@
         </div>
         <div class="row" style="margin-top: 8px">
           <input id="scheduledLiveSync" type="checkbox" />
-          <label for="scheduledLiveSync">Scheduled sync ignores dry run</label>
+          <label for="scheduledLiveSync">Auto-sync pushes changes (ignores dry run)</label>
         </div>
         <div class="row" style="margin-top: 14px">
           <button id="syncBtn" class="secondary">Run Sync Now</button>
@@ -923,6 +924,10 @@
           setStatus("Running");
         } else {
           setStatus("Ready");
+        }
+        if (data.scheduler && data.scheduler.next_run_in) {
+          const mode = data.scheduler.scheduled_live_sync ? "live" : "dry-run";
+          el.versionBadge.textContent += ` | Auto-sync in ${data.scheduler.next_run_in} (${mode})`;
         }
       }
 
