@@ -328,17 +328,75 @@
       </div>
 
       <div class="card">
-        <h2 class="section-title">Instructions</h2>
-        <p class="subtle" style="margin-bottom: 10px">
-          1. Connect GitHub with Device Login.
-        </p>
-        <p class="subtle" style="margin-bottom: 10px">
-          2. Use an add-on-created repository or create `ha-github-config-sync` through the flow (private by default, public optional).
-        </p>
-        <p class="subtle" style="margin-bottom: 10px">
+        <h2 class="section-title">Installation</h2>
+        <details id="authSection" open>
+          <summary style="cursor: pointer; color: var(--muted)">1. GitHub Device Login <span id="tokenBadge" class="pill status">Token missing</span></summary>
+          <div style="margin-top: 10px; padding: 10px; border: 1px solid var(--border); border-radius: 6px;">
+            <p class="subtle" style="margin-bottom: 10px">
+              Choose how GitHub should authenticate this add-on.
+            </p>
+            <div class="field" style="margin-bottom: 10px">
+              <label for="authMethod">Authentication method</label>
+              <select id="authMethod">
+                <option value="device_flow">GitHub Device Flow (Recommended)</option>
+                <option value="fine_grained_pat">Fine-grained PAT (Security Focused)</option>
+              </select>
+            </div>
+            <p id="authMethodHelp" class="subtle" style="margin-bottom: 10px"></p>
+            <div class="row" id="deviceLoginRow">
+              <button id="startDeviceBtn" class="secondary">Start Device Login</button>
+            </div>
+            <p id="deviceFlowInfo" class="subtle" style="margin-top: 10px"></p>
+          </div>
+        </details>
+        <details id="repoSection" style="margin-top: 12px" open>
+          <summary style="cursor: pointer; color: var(--muted)">2. Repository setup <span id="repoBadge" class="pill status">No repository</span></summary>
+          <div style="margin-top: 10px; padding: 10px; border: 1px solid var(--border); border-radius: 6px;">
+            <div class="field">
+              <div class="row">
+                <label><input type="radio" name="repoMode" value="existing" checked /> Use existing repository</label>
+                <label><input type="radio" name="repoMode" value="create" /> Create new repository</label>
+              </div>
+            </div>
+            <div id="existingRepoSection" style="margin-top: 12px">
+              <div class="row" style="margin-bottom: 10px">
+                <label><input id="existingRepoRiskAck" type="checkbox" /> I understand this can overwrite or delete files in an existing repository.</label>
+              </div>
+              <div class="field" style="margin-top: 12px">
+                <div class="repo-picker-header">
+                  <label for="repoPicker">Repository picker (advanced)</label>
+                  <div class="row" style="justify-content: flex-end">
+                    <button id="loadManagedReposBtn" class="secondary">Load Repositories</button>
+                    <button id="adoptRepoBtn" class="secondary">Adopt Repository</button>
+                  </div>
+                </div>
+                <select id="repoPicker" style="margin-top: 6px">
+                  <option value="">Select a repository...</option>
+                </select>
+              </div>
+            </div>
+            <div id="createRepoSection" style="margin-top: 12px; display: none">
+              <div class="grid">
+                <div class="field">
+                  <label for="newRepoName">New repository name (default: ha-github-config-sync)</label>
+                  <input id="newRepoName" placeholder="ha-github-config-sync" value="ha-github-config-sync" />
+                </div>
+                <div class="field">
+                  <label for="newRepoDescription">Description (defaults to the repo name with spaces)</label>
+                  <input id="newRepoDescription" placeholder="Home Assistant config sync" />
+                </div>
+              </div>
+              <div class="row" style="margin-top: 12px">
+                <label><input id="newRepoPrivate" type="checkbox" checked /> Private repository</label>
+                <button id="createRepoBtn" class="secondary">Create Repository</button>
+              </div>
+            </div>
+          </div>
+        </details>
+        <p class="subtle" style="margin-top: 12px; margin-bottom: 0">
           3. Check the folder structure inclusions/exclusions and the .gitignore files.
         </p>
-        <p class="subtle" style="margin-bottom: 0">
+        <p class="subtle" style="margin-top: 4px; margin-bottom: 0">
           4. Run Sync Now, Clean Upload, or Cancel Current Upload as needed.
         </p>
       </div>
@@ -389,72 +447,6 @@
             </div>
           </div>
         </details>
-      </div>
-
-      <div class="card">
-        <h2 class="section-title">GitHub Device Login</h2>
-        <p class="subtle" style="margin-bottom: 10px">
-          Choose how GitHub should authenticate this add-on.
-        </p>
-        <div class="field" style="margin-bottom: 10px">
-          <label for="authMethod">Authentication method</label>
-          <select id="authMethod">
-            <option value="device_flow">GitHub Device Flow (Recommended)</option>
-            <option value="fine_grained_pat">Fine-grained PAT (Security Focused)</option>
-          </select>
-        </div>
-        <p id="authMethodHelp" class="subtle" style="margin-bottom: 10px"></p>
-        <div class="row" id="deviceLoginRow">
-          <button id="startDeviceBtn" class="secondary">Start Device Login</button>
-          <span id="tokenBadge" class="pill status">Token missing</span>
-        </div>
-        <p id="deviceFlowInfo" class="subtle" style="margin-top: 10px"></p>
-      </div>
-
-      <div class="card">
-        <div class="field">
-          <label>Repository setup</label>
-          <div class="row">
-            <label><input type="radio" name="repoMode" value="existing" checked /> Use existing repository</label>
-            <label><input type="radio" name="repoMode" value="create" /> Create new repository</label>
-          </div>
-        </div>
-        <div id="existingRepoSection" style="margin-top: 12px">
-          <p class="subtle" style="margin-bottom: 10px; color: var(--err)">
-            <strong style="color: var(--err)">Danger Zone:</strong> never use a public repo here, and do not combine this with any other tool that writes back into your Home Assistant config tree.
-          </p>
-          <div class="row" style="margin-bottom: 10px">
-            <label><input id="existingRepoRiskAck" type="checkbox" /> I understand this can overwrite or delete files in an existing repository.</label>
-          </div>
-          <div class="field" style="margin-top: 12px">
-            <div class="repo-picker-header">
-              <label for="repoPicker">Repository picker (advanced)</label>
-              <div class="row" style="justify-content: flex-end">
-                <button id="loadManagedReposBtn" class="secondary">Load Repositories</button>
-                <button id="adoptRepoBtn" class="secondary">Adopt Repository</button>
-              </div>
-            </div>
-            <select id="repoPicker" style="margin-top: 6px">
-              <option value="">Select a repository...</option>
-            </select>
-          </div>
-        </div>
-        <div id="createRepoSection" style="margin-top: 12px; display: none">
-          <div class="grid">
-            <div class="field">
-              <label for="newRepoName">New repository name (default: ha-github-config-sync)</label>
-              <input id="newRepoName" placeholder="ha-github-config-sync" value="ha-github-config-sync" />
-            </div>
-            <div class="field">
-              <label for="newRepoDescription">Description (defaults to the repo name with spaces)</label>
-              <input id="newRepoDescription" placeholder="Home Assistant config sync" />
-            </div>
-          </div>
-          <div class="row" style="margin-top: 12px">
-            <label><input id="newRepoPrivate" type="checkbox" checked /> Private repository</label>
-            <button id="createRepoBtn" class="secondary">Create Repository</button>
-          </div>
-        </div>
       </div>
 
       <div class="card">
@@ -663,6 +655,9 @@
         refreshIgnoreBtn: document.getElementById("refreshIgnoreBtn"),
         deviceFlowInfo: document.getElementById("deviceFlowInfo"),
         tokenBadge: document.getElementById("tokenBadge"),
+        repoBadge: document.getElementById("repoBadge"),
+        authSection: document.getElementById("authSection"),
+        repoSection: document.getElementById("repoSection"),
       };
       let cachedRepos = [];
       let cachedIgnorePatterns = [];
@@ -725,6 +720,16 @@
                 : "Token missing";
         el.tokenBadge.textContent = label;
         el.tokenBadge.className = `status ${isChecking ? "" : isGood ? "ok" : "err"}`.trim();
+        if (!isChecking) {
+          el.authSection.open = !isGood;
+        }
+      }
+
+      function updateRepoBadge(repo) {
+        const hasRepo = Boolean(repo && repo.trim());
+        el.repoBadge.textContent = hasRepo ? "Configured" : "No repository";
+        el.repoBadge.className = `status ${hasRepo ? "ok" : "err"}`.trim();
+        el.repoSection.open = !hasRepo;
       }
 
       function updateAuthMethodHelp() {
@@ -882,6 +887,7 @@
           item.checked = item.value === repoMode;
         });
         el.repo.value = data.github_repository || "";
+        updateRepoBadge(data.github_repository);
         const confirmedFor = (data.existing_repo_confirmed_for || "").trim();
         el.existingRepoRiskAck.checked =
           repoMode === "existing" &&
@@ -1190,6 +1196,7 @@
             body: JSON.stringify(payload),
           });
           el.repo.value = data.repository || "";
+          updateRepoBadge(el.repo.value);
           el.repoMode.forEach((item) => {
             item.checked = item.value === "existing";
           });
@@ -1219,6 +1226,7 @@
               body: JSON.stringify({ repository, private: privateValue }),
             });
             el.repo.value = data.repository || repository;
+            updateRepoBadge(el.repo.value);
             el.existingRepoRiskAck.checked = true;
             await Promise.all([loadManagedRepositories(true), loadOptions(), loadStatus()]);
             setStatus(`Repository adopted: ${el.repo.value}`);
@@ -1328,6 +1336,7 @@
       el.repoPicker.addEventListener("change", () => {
         if (el.repoPicker.value) {
           el.repo.value = el.repoPicker.value;
+          updateRepoBadge(el.repo.value);
           scheduleAutoSave();
         }
       });
