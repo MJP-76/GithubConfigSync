@@ -14,9 +14,9 @@ from sync.errors import SyncError
 from sync.github_client import GitHubClient
 from sync.hashing import IGNORE_PATTERNS
 
-APP_VERSION = "1.0.49"
-STABLE_REPO_VERSION = "1.0.49"
-DEV_REPO_VERSION = "1.0.49"
+APP_VERSION = "1.0.50"
+STABLE_REPO_VERSION = "1.0.50"
+DEV_REPO_VERSION = "1.0.50"
 APP_PORT = 8099
 DEFAULT_OAUTH_CLIENT_ID = "Ov23li2ycCraodta6WCU"
 DEFAULT_NEW_REPO_NAME = "ha-github-config-sync"
@@ -440,13 +440,11 @@ def _repo_picker_entries(
         if not full_name or full_name in seen:
             continue
         seen.add(full_name)
-        cached = cached_by_name.get(full_name, {})
-        managed = bool(cached.get("managed", False)) if cached else False
-        if not managed:
-            try:
-                managed = _repo_has_addon_marker(options, full_name)
-            except SyncError:
-                managed = False
+        managed = False
+        try:
+            managed = _repo_has_addon_marker(options, full_name)
+        except SyncError:
+            managed = False
         if not include_unmanaged and not managed:
             continue
         combined.append(
@@ -460,13 +458,11 @@ def _repo_picker_entries(
 
     current_repo = str(options.get("github_repository", "")).strip()
     if current_repo and current_repo not in seen:
-        cached = cached_by_name.get(current_repo, {})
-        managed = bool(cached.get("managed", False)) if cached else False
-        if not managed:
-            try:
-                managed = _repo_has_addon_marker(options, current_repo)
-            except SyncError:
-                managed = False
+        managed = False
+        try:
+            managed = _repo_has_addon_marker(options, current_repo)
+        except SyncError:
+            managed = False
         if not include_unmanaged and not managed:
             return combined
         combined.insert(
@@ -474,7 +470,7 @@ def _repo_picker_entries(
             {
                 "name": current_repo.rsplit("/", 1)[-1],
                 "full_name": current_repo,
-                "private": bool(cached.get("private", True)),
+                "private": True,
                 "managed": managed,
             },
         )
