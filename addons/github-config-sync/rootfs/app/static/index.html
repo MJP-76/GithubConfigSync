@@ -318,10 +318,12 @@
           </div>
         </div>
         <div class="danger" style="margin-top: 12px">
-          <strong>Safety note:</strong> remote deletes only affect GitHub and never remove local files.
-          Home Assistant config can contain secrets, tokens, device data, and other sensitive files.
-          Public repositories are strongly discouraged, sensitive paths are filtered, and any two-way
-          sync or inbound write path can put your local config at risk.
+          <strong>Safety & Security notes:</strong>
+          <ul style="margin: 6px 0 0 18px; padding: 0; font-size: 0.85rem; color: var(--muted)">
+            <li>Deletes only affect GitHub and never remove local files.</li>
+            <li>Home Assistant configs can contain secrets, tokens, device data, and other sensitive files/paths &mdash; public repositories are strongly discouraged.</li>
+            <li>Other two-way sync from the sync repo can put your local config at risk.</li>
+          </ul>
         </div>
       </div>
 
@@ -574,9 +576,11 @@
 
       <div class="card">
         <h2 class="section-title">Safety & Security Recommendations</h2>
-        <p class="subtle" style="margin-bottom: 10px">
-          Home Assistant config can contain secrets, tokens, device data, and other sensitive files. Public repositories are strongly discouraged, sensitive paths are filtered, and any two-way sync or inbound write path can put your local config at risk.
-        </p>
+        <ul style="margin: 6px 0 0 18px; padding: 0; font-size: 0.85rem; color: var(--muted)">
+          <li>Deletes only affect GitHub and never remove local files.</li>
+          <li>Home Assistant configs can contain secrets, tokens, device data, and other sensitive files/paths &mdash; public repositories are strongly discouraged.</li>
+          <li>Other two-way sync from the sync repo can put your local config at risk.</li>
+        </ul>
       </div>
 
       <div class="card danger">
