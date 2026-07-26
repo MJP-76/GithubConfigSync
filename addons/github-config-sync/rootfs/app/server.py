@@ -939,7 +939,6 @@ def get_device_auth_status():
 
 
 @app.post("/api/auth/device/start")
-@_require_ingress
 def start_device_auth():
     payload = request.get_json(silent=True)
     if payload is not None and not isinstance(payload, dict):
@@ -995,7 +994,6 @@ def start_device_auth():
 
 
 @app.post("/api/auth/device/complete")
-@_require_ingress
 def complete_device_auth():
     flow = _load_device_flow()
     if not flow:
