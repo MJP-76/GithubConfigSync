@@ -361,6 +361,12 @@
           </div>
           <div class="progress-group">
             <div class="progress-item">
+              <span class="progress-label">Skipped (unchanged)</span>
+              <span id="unchangedTotal" class="progress-value">0</span>
+            </div>
+          </div>
+          <div class="progress-group">
+            <div class="progress-item">
               <span class="progress-label">Delete remaining</span>
               <span id="removeRemaining" class="progress-value">0</span>
             </div>
@@ -622,6 +628,7 @@
         removeRemaining: document.getElementById("removeRemaining"),
         upsertTotal: document.getElementById("upsertTotal"),
         removeTotal: document.getElementById("removeTotal"),
+        unchangedTotal: document.getElementById("unchangedTotal"),
         dryRunUpserts: document.getElementById("dryRunUpserts"),
         dryRunDeletes: document.getElementById("dryRunDeletes"),
         startDeviceBtn: document.getElementById("startDeviceBtn"),
@@ -820,6 +827,9 @@
         if (el.dryRunDeletes) {
           el.dryRunDeletes.textContent = deletes.length ? deletes.join("\n") : "Nothing to delete.";
         }
+        el.upsertTotal.textContent = String((summary?.added_count || 0) + (summary?.changed_count || 0));
+        el.removeTotal.textContent = String(summary?.removed_count || 0);
+        el.unchangedTotal.textContent = String(summary?.unchanged_count || 0);
       }
 
       function formatDuration(startedAt) {
@@ -974,6 +984,7 @@
           el.removeRemaining.textContent = "0";
           el.upsertTotal.textContent = "0";
           el.removeTotal.textContent = "0";
+          el.unchangedTotal.textContent = "0";
         }
         if (state.last_error) {
           el.activityDetail.textContent = `Last error: ${state.last_error}`;
@@ -1225,7 +1236,7 @@
           if (data.summary) {
             renderDryRunPlan(data.summary);
             setStatus(
-              `${data.result || "Sync completed"} (${data.summary.added_count + data.summary.changed_count} upserts, ${data.summary.removed_count} deletes)`,
+              `${data.result || "Sync completed"} (${data.summary.added_count + data.summary.changed_count} upserts, ${data.summary.removed_count} deletes, ${data.summary.unchanged_count || 0} unchanged)`,
               true
             );
           } else {

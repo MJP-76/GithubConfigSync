@@ -152,28 +152,29 @@ class SyncEngine:
             cancelled=True,
         )
 
-    def _put_with_retry(self, relative: str, content: bytes, message: str | None = None) -> None:
+    def _put_with_retry(self, relative: str, content: bytes, message: str | None = None, retries: int = 3) -> None:
+        import time
         remote = self._github.get_content(relative)
         sha = remote.get("sha") if remote else None
         commit_message = message or f"sync: update {relative}"
-        try:
-            self._github.put_content(
-                path=relative,
-                content=content,
-                message=commit_message,
-                sha=sha,
-            )
-        except Exception as err:  # noqa: BLE001
-            if not _is_sha_conflict(err):
-                raise
-            remote = self._github.get_content(relative)
-            sha = remote.get("sha") if remote else None
-            self._github.put_content(
-                path=relative,
-                content=content,
-                message=commit_message,
-                sha=sha,
-            )
+        last_err: Exception | None = None
+        for attempt in range(retries):
+            try:
+                self._github.put_content(
+                    path=relative,
+                    content=content,
+                    message=commit_message,
+                    sha=sha,
+                )
+                return
+            except Exception as err:  # noqa: BLE001
+                if not _is_sha_conflict(err) or attempt == retries - 1:
+                    raise
+                last_err = err
+                time.sleep(0.5 * (attempt + 1))
+                remote = self._github.get_content(relative)
+                sha = remote.get("sha") if remote else None
+        raise last_err  # type: ignore[misc]  # pragma: no cover
 
     def _wipe_remote_repository(self) -> None:
         head_sha = self._github.get_branch_head_sha()

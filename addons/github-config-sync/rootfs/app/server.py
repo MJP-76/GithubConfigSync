@@ -613,10 +613,12 @@ def _clear_device_flow() -> None:
 
 
 def _plan_summary(plan) -> dict[str, Any]:
+    changed_count = len(plan.added) + len(plan.changed)
     return {
         "added_count": len(plan.added),
         "changed_count": len(plan.changed),
         "removed_count": len(plan.removed),
+        "unchanged_count": plan.total_files - changed_count - len(plan.removed),
         "total_files": plan.total_files,
         "added_files": plan.added[:50],
         "changed_files": plan.changed[:50],
