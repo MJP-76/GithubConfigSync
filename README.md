@@ -1,3 +1,5 @@
+> **MIGRATED** - This repository has been consolidated into [MJP-76/ha-addons](https://github.com/MJP-76/ha-addons). All future updates will be in that repo. Please migrate to the new repository.
+
 # Github Config Sync
 [![CI](https://github.com/MJP-76/GithubConfigSync/actions/workflows/validate.yml/badge.svg)](https://github.com/MJP-76/GithubConfigSync/actions/workflows/validate.yml)
 [![HASSfest](https://img.shields.io/badge/HASSfest-validated-success.svg)](https://developers.home-assistant.io/docs/creating_integration_manifest/)
