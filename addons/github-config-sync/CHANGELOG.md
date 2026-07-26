@@ -2,6 +2,11 @@
 
 ## Latest Releases
 
+## 1.3.2
+
+- Moved "Keep versions on GitHub" into the Scheduled sync section
+- Removed "Auto-sync pushes changes (ignores dry run)" — scheduled sync always pushes when enabled
+
 ## 1.3.1
 
 - Removed snapshot/versioning system — replaced by GitHub releases

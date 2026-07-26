@@ -97,7 +97,6 @@ DEFAULT_OPTIONS: dict[str, Any] = {
     "github_client_id": DEFAULT_OAUTH_CLIENT_ID,
     "version_retention_count": 7,
     "dry_run": True,
-    "scheduled_live_sync": False,
     "auto_sync_enabled": False,
     "auto_sync_days": [1, 2, 3, 4, 5],
     "auto_sync_time": "03:00",
@@ -337,8 +336,6 @@ def _validate_payload(payload: dict[str, Any]) -> tuple[bool, str | None]:
 
     if not isinstance(payload.get("dry_run"), bool):
         return False, "dry_run must be true or false"
-    if not isinstance(payload.get("scheduled_live_sync"), bool):
-        return False, "scheduled_live_sync must be true or false"
     if not isinstance(payload.get("auto_sync_enabled"), bool):
         return False, "auto_sync_enabled must be true or false"
     if not isinstance(payload.get("auto_sync_create_release"), bool):
@@ -740,7 +737,7 @@ class _SyncScheduler:
         try:
             token = str(options.get("github_token", "")).strip()
             repository = str(options.get("github_repository", "")).strip()
-            dry_run = not bool(options.get("scheduled_live_sync", False))
+            dry_run = False
             sync_config = SyncConfig(
                 repository=repository,
                 branch=str(options.get("github_branch", "main")).strip() or "main",
@@ -1003,7 +1000,6 @@ def set_options():
         or DEFAULT_OAUTH_CLIENT_ID,
         "version_retention_count": payload.get("version_retention_count", 7),
         "dry_run": payload.get("dry_run", True),
-        "scheduled_live_sync": payload.get("scheduled_live_sync", False),
         "auto_sync_enabled": payload.get("auto_sync_enabled", False),
         "auto_sync_days": payload.get("auto_sync_days", [1, 2, 3, 4, 5]),
         "auto_sync_time": str(payload.get("auto_sync_time", "03:00")).strip() or "03:00",
@@ -1365,20 +1361,6 @@ def create_repo():
 def trigger_sync():
     options = _merge_options()
     sync_config = _sync_config(options)
-    if bool(options.get("scheduled_live_sync", False)):
-        sync_config = SyncConfig(
-            repository=sync_config.repository,
-            branch=sync_config.branch,
-            token=sync_config.token,
-            config_root=sync_config.config_root,
-            addon_config_root=sync_config.addon_config_root,
-            dry_run=False,
-            include_media=sync_config.include_media,
-            include_share=sync_config.include_share,
-            include_ssl=sync_config.include_ssl,
-            include_backups=sync_config.include_backups,
-            include_www=sync_config.include_www,
-        )
 
     if not sync_config.repository:
         state = _save_state(

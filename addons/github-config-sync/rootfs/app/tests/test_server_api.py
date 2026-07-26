@@ -495,7 +495,6 @@ class ServerApiTests(unittest.TestCase):
                 "github_token": "gho_test",
                 "sync_interval_minutes": 60,
                 "dry_run": True,
-                "scheduled_live_sync": True,
             }
         )
 

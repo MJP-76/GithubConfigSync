@@ -459,11 +459,6 @@
             <label for="branch">Target branch</label>
             <input id="branch" placeholder="main" />
           </div>
-          <div class="field">
-            <label for="versionRetention">Keep versions on GitHub</label>
-            <input id="versionRetention" type="number" min="1" max="100" />
-            <p style="font-size: 0.8rem; color: var(--muted); margin: 2px 0 0">Number of GitHub releases to retain</p>
-          </div>
         </div>
         <details style="margin-top: 12px">
           <summary style="cursor: pointer; color: var(--muted)">Scheduled sync</summary>
@@ -509,9 +504,14 @@
                 <input id="autoSyncCreateRelease" type="checkbox" />
                 <label for="autoSyncCreateRelease">Create a dated release before each sync</label>
               </div>
-              <p style="font-size: 0.8rem; color: var(--muted); margin: 4px 0 0 0">
-                Releases are tagged with dd/mm/yy hh:mm:ss format and auto-pruned to the "Keep versions" count above.
+              <p style="font-size: 0.8rem; color: var(--muted); margin: 4px 0 10px 0">
+                Releases are tagged with dd/mm/yy hh:mm:ss format and auto-pruned to the retention count below.
               </p>
+              <div class="field">
+                <label for="versionRetention">Keep versions on GitHub</label>
+                <input id="versionRetention" type="number" min="1" max="100" />
+                <p style="font-size: 0.8rem; color: var(--muted); margin: 2px 0 0">Number of GitHub releases to retain</p>
+              </div>
             </div>
           </div>
         </details>
@@ -545,10 +545,6 @@
         <div class="row" style="margin-top: 12px">
           <input id="dryRun" type="checkbox" />
           <label for="dryRun">Dry run mode (no push)</label>
-        </div>
-        <div class="row" style="margin-top: 8px">
-          <input id="scheduledLiveSync" type="checkbox" />
-          <label for="scheduledLiveSync">Auto-sync pushes changes (ignores dry run)</label>
         </div>
         <div class="row" style="margin-top: 14px">
           <button id="syncBtn" class="secondary">Sync Now</button>
@@ -637,7 +633,6 @@
         includeBackups: document.getElementById("includeBackups"),
         includeWww: document.getElementById("includeWww"),
         dryRun: document.getElementById("dryRun"),
-        scheduledLiveSync: document.getElementById("scheduledLiveSync"),
         runtime: document.getElementById("runtime"),
         progressStatus: document.getElementById("progressStatus"),
         activityDetail: document.getElementById("activityDetail"),
@@ -899,7 +894,6 @@
         el.clientId.value = data.github_client_id || "";
         el.versionRetention.value = data.version_retention_count || 7;
         el.dryRun.checked = Boolean(data.dry_run);
-        el.scheduledLiveSync.checked = Boolean(data.scheduled_live_sync);
         el.autoSyncEnabled.checked = Boolean(data.auto_sync_enabled);
         const autoDays = data.auto_sync_days || [1, 2, 3, 4, 5];
         const autoDaysArr = Array.isArray(autoDays) ? autoDays : String(autoDays).split(",").map(Number).filter(Boolean);
@@ -1130,7 +1124,6 @@
             github_client_id: el.clientId.value.trim(),
             version_retention_count: Number(el.versionRetention.value || "7"),
             dry_run: el.dryRun.checked,
-            scheduled_live_sync: el.scheduledLiveSync.checked,
             auto_sync_enabled: el.autoSyncEnabled.checked,
             auto_sync_days: getSelectedDays(),
             auto_sync_time: el.autoSyncTime.value || "03:00",
@@ -1366,7 +1359,6 @@
         el.clientId,
         el.versionRetention,
         el.dryRun,
-        el.scheduledLiveSync,
         el.includeAddonConfigs,
         el.includeMedia,
         el.includeShare,
