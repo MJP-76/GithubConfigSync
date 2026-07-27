@@ -4,7 +4,6 @@
 [![HACS][badge-hacs]][hacs]
 [![HACS Validation][badge-hacs-validation]][workflow-hacs-validation]
 [![Hassfest][badge-hassfest]][workflow-hassfest]
-[![CI][badge-ci]][workflow-ci]
 [![Release][badge-release]][releases]
 ![Status][badge-status]
 [![Built with AI][badge-built-with-ai]][built-with-ai]
@@ -105,8 +104,6 @@ Development happens on the `dev` repo. When ready, changes are pushed to both re
 [workflow-hacs-validation]: https://github.com/MJP-76/GithubConfigSync/actions/workflows/validate.yml
 [badge-hassfest]: https://img.shields.io/github/actions/workflow/status/MJP-76/GithubConfigSync/hassfest.yml?branch=main&label=Hassfest
 [workflow-hassfest]: https://github.com/MJP-76/GithubConfigSync/actions/workflows/hassfest.yml
-[badge-ci]: https://github.com/MJP-76/GithubConfigSync/actions/workflows/validate.yml/badge.svg
-[workflow-ci]: https://github.com/MJP-76/GithubConfigSync/actions/workflows/validate.yml
 [badge-release]: https://img.shields.io/github/v/release/MJP-76/GithubConfigSync?style=flat&label=Release
 [releases]: https://github.com/MJP-76/GithubConfigSync/releases
 [badge-status]: https://img.shields.io/badge/Status-experimental-yellow
