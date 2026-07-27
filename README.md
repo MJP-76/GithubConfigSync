@@ -1,11 +1,12 @@
 # Github Config Sync
-[![CI](https://github.com/MJP-76/GithubConfigSync/actions/workflows/validate.yml/badge.svg)](https://github.com/MJP-76/GithubConfigSync/actions/workflows/validate.yml)
-[![HASSfest](https://img.shields.io/badge/HASSfest-validated-success.svg)](https://developers.home-assistant.io/docs/creating_integration_manifest/)
-[![HACS](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://github.com/hacs/integration)
-[![Home Assistant](https://img.shields.io/badge/Home%20Assistant-Compatible-03a9f4.svg)](https://www.home-assistant.io/)
-[![Python](https://img.shields.io/badge/Python-3.12+-3776AB.svg)](https://www.python.org/)
-[![Release](https://img.shields.io/github/v/tag/MJP-76/GithubConfigSync?label=release)](https://github.com/MJP-76/GithubConfigSync/releases)
-![Status](https://img.shields.io/badge/status-experimental-yellow)
+
+[![Home Assistant][badge-home-assistant]][home-assistant]
+[![HACS][badge-hacs]][hacs]
+[![CI][badge-ci]][workflow-ci]
+[![Hassfest][badge-hassfest]][hassfest]
+[![Python][badge-python]][python]
+[![Release][badge-release]][releases]
+![Status][badge-status]
 
 Home Assistant integration and add-on for syncing your config folder to GitHub. This is a config sync tool, not a backup tool.
 
@@ -94,3 +95,17 @@ Development happens on the `dev` repo. When ready, changes are pushed to both re
 
 - **[Project Guide](PROJECT.md)** — architecture, security, milestones, and release workflow.
 - **[Changelog](CHANGELOG.md)** — release history.
+
+[badge-home-assistant]: https://img.shields.io/badge/Home%20Assistant-41BDF5?style=flat-square&logo=homeassistant&logoColor=white
+[badge-hacs]: https://img.shields.io/badge/HACS-Custom-41BDF5.svg
+[badge-ci]: https://github.com/MJP-76/GithubConfigSync/actions/workflows/validate.yml/badge.svg
+[badge-hassfest]: https://img.shields.io/badge/Hassfest-validated-success.svg
+[badge-python]: https://img.shields.io/badge/Python-3.12+-3776AB.svg?logo=python&logoColor=white
+[badge-release]: https://img.shields.io/github/v/tag/MJP-76/GithubConfigSync?label=release
+[badge-status]: https://img.shields.io/badge/status-experimental-yellow
+[home-assistant]: https://www.home-assistant.io/
+[hacs]: https://github.com/hacs/integration
+[workflow-ci]: https://github.com/MJP-76/GithubConfigSync/actions/workflows/validate.yml
+[hassfest]: https://developers.home-assistant.io/docs/creating_integration_manifest/
+[python]: https://www.python.org/
+[releases]: https://github.com/MJP-76/GithubConfigSync/releases
