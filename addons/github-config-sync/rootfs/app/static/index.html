@@ -408,64 +408,8 @@
             </div>
           </div>
         </details>
-        <div class="row" style="margin-top: 14px">
-          <button id="syncBtn" class="secondary">Sync Now</button>
-          <button id="cancelSyncBtn" class="secondary">Cancel Current Upload</button>
-          <button id="refreshBtn" class="secondary">Refresh Status</button>
-        </div>
-      </div>
-
-      <div class="card">
-        <h2 class="section-title">Live sync activity</h2>
-        <div id="progressStatus" class="subtle">No upload in progress.</div>
-        <div id="activityDetail" class="subtle" style="margin-top: 4px"></div>
-        <div id="activityAge" class="subtle" style="margin-top: 4px"></div>
-        <div class="progress-grid">
-          <div class="progress-group">
-            <div class="progress-item">
-              <span class="progress-label">Upload remaining</span>
-              <span id="upsertRemaining" class="progress-value">0</span>
-            </div>
-            <div class="progress-item">
-              <span class="progress-label">Files to upload</span>
-              <span id="upsertTotal" class="progress-value">0</span>
-            </div>
-          </div>
-          <div class="progress-group">
-            <div class="progress-item">
-              <span class="progress-label">Skipped (unchanged)</span>
-              <span id="unchangedTotal" class="progress-value">0</span>
-            </div>
-          </div>
-          <div class="progress-group">
-            <div class="progress-item">
-              <span class="progress-label">Delete remaining</span>
-              <span id="removeRemaining" class="progress-value">0</span>
-            </div>
-            <div class="progress-item">
-              <span class="progress-label">Files to delete</span>
-              <span id="removeTotal" class="progress-value">0</span>
-            </div>
-          </div>
-        </div>
-        <details class="dry-run-plan" style="margin-top: 12px">
-          <summary class="section-title" style="cursor: pointer">Dry-run plan</summary>
-          <div class="dry-run-grid" style="margin-top: 10px">
-            <div class="field">
-              <label>Could be uploaded</label>
-              <pre id="dryRunUpserts">No dry-run yet.</pre>
-            </div>
-            <div class="field">
-              <label>Could be deleted</label>
-              <pre id="dryRunDeletes">No dry-run yet.</pre>
-            </div>
-          </div>
-        </details>
-      </div>
-
-      <div class="card">
-        <details style="margin-top: 0">
-          <summary style="cursor: pointer; color: var(--muted)">Scheduled sync <span id="schedulerStatus"></span></summary>
+        <details id="scheduledSyncSection" style="margin-top: 12px">
+          <summary style="cursor: pointer; color: var(--muted)">4. Scheduled sync <span id="schedulerStatus"></span></summary>
           <div style="margin-top: 10px; padding: 10px; border: 1px solid var(--border); border-radius: 6px;">
             <div class="row" style="margin-bottom: 10px">
               <input id="autoSyncEnabled" type="checkbox" />
@@ -519,8 +463,8 @@
             </div>
           </div>
         </details>
-        <details style="margin-top: 12px">
-          <summary style="cursor: pointer; color: var(--muted)">Mount points to sync</summary>
+        <details id="mountPointsSection" style="margin-top: 12px">
+          <summary style="cursor: pointer; color: var(--muted)">5. Mount points to sync</summary>
           <div class="grid" style="margin-top: 10px">
             <label><input id="includeAddonConfigs" type="checkbox" /> Include /addon_configs</label>
             <label><input id="includeMedia" type="checkbox" /> Include /media</label>
@@ -530,8 +474,8 @@
             <label><input id="includeWww" type="checkbox" /> Include /www</label>
           </div>
         </details>
-        <details style="margin-top: 12px">
-          <summary style="cursor: pointer; color: var(--muted)">Recommended .gitignore entries</summary>
+        <details id="gitignoreSection" style="margin-top: 12px">
+          <summary style="cursor: pointer; color: var(--muted)">6. Recommended .gitignore entries</summary>
           <p class="subtle" style="margin-bottom: 10px">
             These are safe defaults for Home Assistant. They are read from your local .gitignore and can be added with one click.
           </p>
@@ -549,10 +493,71 @@
             <button id="refreshIgnoreBtn" class="secondary">Refresh Ignore Suggestions</button>
           </div>
         </details>
-        <div class="row" style="margin-top: 12px">
-          <input id="dryRun" type="checkbox" />
-          <label for="dryRun">Dry run mode (no push)</label>
+        <details id="dryRunSection" style="margin-top: 12px">
+          <summary style="cursor: pointer; color: var(--muted)">7. Dry run mode (no push)</summary>
+          <div style="margin-top: 10px; padding: 10px; border: 1px solid var(--border); border-radius: 6px;">
+            <div class="row">
+              <input id="dryRun" type="checkbox" />
+              <label for="dryRun">Dry run mode (no push)</label>
+            </div>
+            <p style="font-size: 0.8rem; color: var(--muted); margin: 6px 0 0">
+              When enabled, the sync plan is computed and displayed but nothing is pushed to GitHub.
+            </p>
+          </div>
+        </details>
+        <div class="row" style="margin-top: 14px">
+          <button id="syncBtn" class="secondary">Sync Now</button>
+          <button id="cancelSyncBtn" class="secondary">Cancel Current Upload</button>
+          <button id="refreshBtn" class="secondary">Refresh Status</button>
         </div>
+      </div>
+
+      <div class="card">
+        <h2 class="section-title">Live sync activity</h2>
+        <div id="progressStatus" class="subtle">No upload in progress.</div>
+        <div id="activityDetail" class="subtle" style="margin-top: 4px"></div>
+        <div id="activityAge" class="subtle" style="margin-top: 4px"></div>
+        <div class="progress-grid">
+          <div class="progress-group">
+            <div class="progress-item">
+              <span class="progress-label">Upload remaining</span>
+              <span id="upsertRemaining" class="progress-value">0</span>
+            </div>
+            <div class="progress-item">
+              <span class="progress-label">Files to upload</span>
+              <span id="upsertTotal" class="progress-value">0</span>
+            </div>
+          </div>
+          <div class="progress-group">
+            <div class="progress-item">
+              <span class="progress-label">Skipped (unchanged)</span>
+              <span id="unchangedTotal" class="progress-value">0</span>
+            </div>
+          </div>
+          <div class="progress-group">
+            <div class="progress-item">
+              <span class="progress-label">Delete remaining</span>
+              <span id="removeRemaining" class="progress-value">0</span>
+            </div>
+            <div class="progress-item">
+              <span class="progress-label">Files to delete</span>
+              <span id="removeTotal" class="progress-value">0</span>
+            </div>
+          </div>
+        </div>
+        <details class="dry-run-plan" style="margin-top: 12px">
+          <summary class="section-title" style="cursor: pointer">Dry-run plan</summary>
+          <div class="dry-run-grid" style="margin-top: 10px">
+            <div class="field">
+              <label>Could be uploaded</label>
+              <pre id="dryRunUpserts">No dry-run yet.</pre>
+            </div>
+            <div class="field">
+              <label>Could be deleted</label>
+              <pre id="dryRunDeletes">No dry-run yet.</pre>
+            </div>
+          </div>
+        </details>
       </div>
 
       <div class="card danger">
@@ -658,6 +663,10 @@
         authSection: document.getElementById("authSection"),
         repoSection: document.getElementById("repoSection"),
         targetRepoSection: document.getElementById("targetRepoSection"),
+        scheduledSyncSection: document.getElementById("scheduledSyncSection"),
+        mountPointsSection: document.getElementById("mountPointsSection"),
+        gitignoreSection: document.getElementById("gitignoreSection"),
+        dryRunSection: document.getElementById("dryRunSection"),
       };
       let cachedRepos = [];
       let cachedIgnorePatterns = [];
@@ -734,6 +743,12 @@
         el.authSection.open = !tokenOk;
         el.repoSection.open = !repoOk;
         el.targetRepoSection.open = !repoOk;
+
+        const autoSyncConfigured = el.autoSyncEnabled && el.autoSyncEnabled.checked;
+        el.scheduledSyncSection.open = !autoSyncConfigured;
+        el.mountPointsSection.open = false;
+        el.gitignoreSection.open = false;
+        el.dryRunSection.open = false;
       }
 
       function updateAuthMethodHelp() {

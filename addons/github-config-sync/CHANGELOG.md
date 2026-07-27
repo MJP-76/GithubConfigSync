@@ -2,6 +2,12 @@
 
 ## Latest Releases
 
+## 1.4.1
+
+- Moved Scheduled sync, Mount points, .gitignore, and Dry run into Installation and Usage card as numbered sub-sections 4–7
+- Removed standalone Sync options card
+- Dry run mode now includes explanatory description text
+
 ## 1.4.0
 
 - Restructured UI: Installation card now contains Device Login, Repository Setup, Target Repository, and action buttons
