@@ -11,7 +11,7 @@ Containerized Home Assistant app with an ingress web UI for GitHub config sync o
 Authentication supports GitHub Device Flow or a fine-grained PAT scoped to the single target repository.
 
 
-<strong style="color:#ef4444">Danger Zone:</strong> <strong>private GitHub repositories are strongly recommended.</strong> Use caution with public repositories and with any two-way sync or other tools that can also write to the Home Assistant config tree, because they can cause local config loss or unexpected deletions. The developer and maintainer are not responsible for data loss.
+> **Warning:** Use caution with public repositories and with any two-way sync or other tools that can also write to the Home Assistant config tree, because they can cause local config loss or unexpected deletions.
 
 This documentation and code were drafted with AI assistance and then reviewed/edited by the maintainer.
 
@@ -91,10 +91,10 @@ If you find this project useful, and would like to help support its continued de
 
 ## Release checklist
 
-1. Bump the app version and sync the version tracker.
+1. Bump the version in `config.yaml` (single source of truth).
 2. Run the app unit tests.
-3. Update the changelog and migration notes.
-4. Publish the release tag.
+3. Update the changelog.
+4. Commit and push to dev, then to main for stable.
 
 ## First run
 
