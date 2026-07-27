@@ -35,4 +35,5 @@ DEFAULT_IGNORE_PATTERNS = [
     "*.sqlite3",
     "*.tmp",
     "*.swp",
+    ".ruff.toml",
 ]

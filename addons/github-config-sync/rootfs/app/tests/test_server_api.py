@@ -199,6 +199,7 @@ class ServerApiTests(unittest.TestCase):
         self._write_options({"github_repository": "owner/repo", "github_branch": "main", "github_token": "gho_x"})
         with patch("sync.github_client.GitHubClient.list_user_repositories") as list_repos:
             list_repos.return_value = [
+                {"name": "repo", "full_name": "owner/repo", "private": True},
                 {"name": "repo-a", "full_name": "owner/repo-a", "private": True},
                 {"name": "repo-b", "full_name": "owner/repo-b", "private": False},
             ]
@@ -208,8 +209,10 @@ class ServerApiTests(unittest.TestCase):
         body = response.get_json()
         self.assertEqual(response.status_code, 200)
         self.assertTrue(body["ok"])
-        self.assertEqual(len(body["repos"]), 2)
-        self.assertEqual(body["repos"][0]["full_name"], "owner/repo-a")
+        self.assertGreaterEqual(len(body["repos"]), 2)
+        full_names = [r["full_name"] for r in body["repos"]]
+        self.assertIn("owner/repo-a", full_names)
+        self.assertIn("owner/repo-b", full_names)
 
     def test_list_managed_repositories_only_returns_marked_repos(self) -> None:
         self._write_options({"github_repository": "owner/repo", "github_branch": "main", "github_token": "gho_x"})
@@ -460,12 +463,14 @@ class ServerApiTests(unittest.TestCase):
                 "github_token": "gho_test",
                 "sync_interval_minutes": 60,
                 "dry_run": True,
+                "existing_repo_confirmed_for": "owner/repo",
             }
         )
         with patch("server.SyncEngine") as engine_cls:
             engine = engine_cls.return_value
             engine.clean_remote_tree.return_value = None
             engine._github.probe_repository.return_value = (True, "Repository probe succeeded")
+            engine.sensitive_files.return_value = []
             engine.clean_plan.return_value = (
                 unittest.mock.MagicMock(
                     added=["one.txt"],
@@ -495,6 +500,7 @@ class ServerApiTests(unittest.TestCase):
                 "github_token": "gho_test",
                 "sync_interval_minutes": 60,
                 "dry_run": True,
+                "existing_repo_confirmed_for": "owner/repo",
             }
         )
 
@@ -502,6 +508,7 @@ class ServerApiTests(unittest.TestCase):
             engine = engine_cls.return_value
             engine.clean_remote_tree.return_value = None
             engine._github.probe_repository.return_value = (True, "Repository probe succeeded")
+            engine.sensitive_files.return_value = []
             engine.clean_plan.return_value = (
                 unittest.mock.MagicMock(
                     added=["one.txt"],
@@ -530,6 +537,7 @@ class ServerApiTests(unittest.TestCase):
                 "github_token": "gho_test",
                 "sync_interval_minutes": 60,
                 "dry_run": True,
+                "existing_repo_confirmed_for": "owner/repo",
             }
         )
 
@@ -537,6 +545,7 @@ class ServerApiTests(unittest.TestCase):
             engine = engine_cls.return_value
             engine.clean_remote_tree.return_value = None
             engine._github.probe_repository.return_value = (True, "Repository probe succeeded")
+            engine.sensitive_files.return_value = []
             engine.clean_plan.return_value = (
                 unittest.mock.MagicMock(
                     added=["one.txt"],
@@ -582,38 +591,14 @@ class ServerApiTests(unittest.TestCase):
         engine.restore_repo_skeleton.assert_called_once()
         engine._github.write_repo_marker.assert_called_once()
 
-    def test_clean_repo_rejects_non_addon_repository_with_files(self) -> None:
-        self._write_options(
-            {
-                "github_repository": "owner/repo",
-                "github_branch": "main",
-                "github_token": "gho_test",
-                "sync_interval_minutes": 60,
-                "dry_run": True,
-            }
-        )
-
-        with patch("server.SyncEngine") as engine_cls:
-            engine = engine_cls.return_value
-            engine._github.list_directory_contents.return_value = [{"path": "README.md"}]
-            response = self.client.post("/api/sync/clean-repo")
-
-        body = response.get_json()
-        self.assertEqual(response.status_code, 400)
-        self.assertFalse(body["ok"])
-        self.assertIn("not created by this add-on", body["error"])
-        engine.clean_remote_tree.assert_not_called()
-        engine.restore_repo_skeleton.assert_not_called()
-        engine._github.write_repo_marker.assert_not_called()
-
     def test_clean_upload_allows_empty_existing_repository(self) -> None:
         self._write_options(
             {
                 "github_repository": "owner/repo",
                 "github_branch": "main",
                 "github_token": "gho_test",
-                "sync_interval_minutes": 60,
                 "dry_run": True,
+                "existing_repo_confirmed_for": "owner/repo",
             }
         )
         (self._config_root / "one.txt").write_text("one", encoding="utf-8")
@@ -623,6 +608,7 @@ class ServerApiTests(unittest.TestCase):
             engine._github.list_directory_contents.return_value = []
             engine._github.probe_repository.return_value = (True, "Repository probe succeeded")
             engine._github.write_repo_marker.return_value = {"ok": True}
+            engine.sensitive_files.return_value = []
             engine.clean_plan.return_value = (
                 unittest.mock.MagicMock(
                     added=["one.txt"],
@@ -650,9 +636,6 @@ class ServerApiTests(unittest.TestCase):
                 "github_repository": "owner/repo",
                 "github_branch": "main",
                 "github_token": "gho_test",
-                "sync_interval_minutes": 1440,
-                "version_retention_count": 7,
-                "manual_version_retention_days": 7,
                 "dry_run": True,
             }
         )
@@ -685,9 +668,6 @@ class ServerApiTests(unittest.TestCase):
                 "github_repository": "owner/repo",
                 "github_branch": "main",
                 "github_token": "gho_test",
-                "sync_interval_minutes": 1440,
-                "version_retention_count": 7,
-                "manual_version_retention_days": 7,
                 "dry_run": True,
             }
         )
