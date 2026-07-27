@@ -7,6 +7,7 @@
 [![Python][badge-python]][python]
 [![Release][badge-release]][releases]
 ![Status][badge-status]
+[![Built with AI][badge-ai]](https://openai.com)
 
 Home Assistant integration and add-on for syncing your config folder to GitHub. This is a config sync tool, not a backup tool.
 
