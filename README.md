@@ -4,7 +4,6 @@
 [![HACS][badge-hacs]][hacs]
 [![CI][badge-ci]][workflow-ci]
 [![Hassfest][badge-hassfest]][hassfest]
-[![Python][badge-python]][python]
 [![Release][badge-release]][releases]
 ![Status][badge-status]
 [![Built with AI][badge-ai]](https://openai.com)
@@ -108,5 +107,4 @@ Development happens on the `dev` repo. When ready, changes are pushed to both re
 [hacs]: https://github.com/hacs/integration
 [workflow-ci]: https://github.com/MJP-76/GithubConfigSync/actions/workflows/validate.yml
 [hassfest]: https://developers.home-assistant.io/docs/creating_integration_manifest/
-[python]: https://www.python.org/
 [releases]: https://github.com/MJP-76/GithubConfigSync/releases
