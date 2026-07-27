@@ -23,8 +23,8 @@ Home Assistant integration and add-on for syncing your config folder to GitHub. 
 - Auto-generate a Home Assistant-friendly `.gitignore`
 - Customizable ignore patterns
 - Manual sync button in Home Assistant
-- Scheduled syncs (default: every 24 hours)
-- Customizable sync start time and repeat interval
+- Scheduled syncs (day-of-week + time-of-day selection)
+- Optional dated GitHub release creation before each sync
 - Clean Upload — force full re-upload and remove remote extras
 - Clean Repo — wipe remote repo and restore starter files in one step
 - Repository picker with safety checks to avoid accidental overwrites
@@ -78,15 +78,15 @@ You can add extra patterns in the app UI. Live uploads also write a root `SECURI
 
 ## Development Track
 
-To use the dev branch on a separate HA instance, add the repository URL with `?ref=dev`:
+To use the dev branch, add the dev repository URL in **Settings → Add-ons → Add-on Store → Repositories**:
 
 ```
-https://github.com/MJP-76/GithubConfigSync?ref=dev
+https://github.com/MJP-76/GithubConfigSync-dev
 ```
 
-Development happens on the `dev` branch. When ready, merge `dev` into `main` and tag the release.
+Development happens on the `dev` repo. When ready, changes are pushed to both repos.
 
 ## Documentation
 
-- **[Project Guide](PROJECT.md)** — architecture, security, changelog rules, release workflow, and dev milestones.
+- **[Project Guide](PROJECT.md)** — architecture, security, milestones, and release workflow.
 - **[Changelog](CHANGELOG.md)** — release history.

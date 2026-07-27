@@ -26,10 +26,9 @@ If you find this project useful, and would like to help support its continued de
 ## Version Tracker
 
 <!-- VERSION:START -->
-- Integration version: `1.0.40`
-- Add-on version: `1.0.40`
+- Add-on version: `1.4.1`
 - Channel: `stable`
-- Release tag: `v1.0.40`
+- Release tag: `v1.4.1`
 <!-- VERSION:END -->
 
 ## What it provides
@@ -38,7 +37,8 @@ If you find this project useful, and would like to help support its continued de
 - Config persistence in `/data`
 - GitHub repository connectivity checks
 - Hash-based change detection (added/changed/removed files)
-- Manual dry-run sync trigger for safe validation
+- Manual sync trigger with live progress tracking
+- Scheduled sync with day-of-week and time-of-day selection
 - Runtime status and log tail in the UI
 
 ## Architecture
@@ -47,43 +47,40 @@ If you find this project useful, and would like to help support its continued de
 - `sync/engine.py` computes the plan from the current `/config` tree and the saved hash index.
 - AppDaemon configs and apps under `/addon_configs/` are included in the normal sync scan.
 - The mount-point checklist lets you include or exclude standard Home Assistant folders, and the recommended .gitignore keeps the ignore list aligned.
-- `dry_run=true` stops after planning and returns the counts that would be applied for manual actions. A separate scheduled-sync checkbox can override dry run for automated runs.
+- `dry_run=true` stops after planning and returns the counts that would be applied for manual actions.
 - `dry_run=false` probes the GitHub repository first, then performs upserts and deletes with the GitHub Contents API. Remote deletes never remove local files.
 - **Clean Repo** always runs live, empties the remote repo with a fast git-tree reset, and restores the starter files in the same step.
 - Repository creation uses the add-on flow and defaults to `ha-github-config-sync` with private visibility, with an optional public visibility choice.
-- Live runs also write versioned snapshots under `versions/<timestamp>/...` (parallelized uploads) and keep the most recent 7 by default.
 - Runtime state is persisted in `/data/state.json`, `/data/hash_index.json`, `/data/device_flow.json`, and `/data/sync.log`.
 - The stable local API contract is `/api/health`, `/api/status`, `/api/sync`, and `/api/diagnostics`.
-- Home Assistant shows the short repo-root changelog on the update page; the in-app UI reads the full changelog from the app folder.
-- Stable and dev now use separate numeric lanes in the UI: stable `1.0.35` and dev `1.0.37`.
+- SHA conflict retries with exponential backoff (up to 3 attempts).
+- Version is auto-read from `config.yaml` at startup (single source of truth).
 - Default ignores include:
   - `.storage`, `.cloud`, `.cache`, `.venv`, `.vscode`, `.idea`, `.pytest_cache`, `.mypy_cache`, `.ruff_cache`, `tts`, `__pycache__`, `.git`
   - `home-assistant.log`, `home-assistant.log.*`, `home-assistant_v2.db`, `home-assistant_v2.db-*`, `secrets.yaml`, `ip_bans.yaml`, `known_devices.yaml`, `.ha_run.lock`, `*.db`, `*.sqlite`, `*.sqlite3`, `*.tmp`, `*.swp`, `*.pyc`, `*.log`, `.yaml_fix_backups`, `.yaml_fix_backups/*`, `.ha_fix_yaml.py`, `.smbdelete*`, `.DS_Store`, `Thumbs.db`
 - Live uploads also write a root `SECURITY_UPLOAD_WARNINGS.md` file when suspicious files are skipped.
 - The add-on writes an internal repo marker on newly created repositories so clean actions and the repo picker only target safe repos.
-- The repo-root changelog is updated on every pushed build/version so the HA update page stays current.
 
 ## Runbook
 
 ### Dry run
 
 1. Configure repository, branch, and device-flow credentials.
-2. Keep `dry_run` enabled.
+2. Enable dry run mode in the Installation card.
 3. Start a sync from the UI.
 4. Confirm the scan summary and dry-run result match expectations.
 
 ### Defaults
 
-1. Sync runs once a day by default.
-2. Version snapshots keep the last 7 copies by default.
-3. Both settings are editable in the app UI.
+1. Scheduled sync uses day-of-week + time-of-day selection (default: disabled).
+2. Both settings are editable in the Installation card.
 
 ### Live run
 
 1. Confirm the repository is reachable with the saved token.
 2. Confirm the branch name is correct for the target repo.
-3. Disable `dry_run`.
-4. Start a sync from the UI, or use **Clean Upload** to force a full re-upload plus cleanup of remote extras. **Clean Repo** empties the remote repo with a fast git-tree reset and restores the starter files in one live step. If scheduled sync should ignore dry run, enable the scheduled override checkbox first.
+3. Disable dry run mode.
+4. Start a sync from the UI, or use **Clean Upload** to force a full re-upload plus cleanup of remote extras. **Clean Repo** empties the remote repo with a fast git-tree reset and restores the starter files in one live step.
 5. Confirm the probe succeeds and the final result reports upserts, deletes, and skips.
 
 ### Diagnostics bundle
@@ -103,29 +100,25 @@ If you find this project useful, and would like to help support its continued de
 
 1. Add this repository as a Home Assistant repository.
 2. Install **Github Config Sync**.
-3. Open the app web UI and set:
-   - `github_repository` (`owner/repo`)
-   - `github_branch`
-   - `github_client_id` (defaults to the built-in app ID)
-4. Click **Start Device Login**, approve on GitHub, and wait for the login to complete automatically.
-5. Save settings and click **Run Sync Now**.
-6. Private repositories are supported, but the token must have access to the selected repo and branch.
+3. Open the app web UI from the Installation and Usage card.
+4. Complete GitHub Device Flow login (section 1).
+5. Pick an existing repository or create a new one (section 2).
+6. Confirm the target repository and branch (section 3).
+7. Run a dry run first to confirm the scan looks correct.
+8. Switch to a live run when ready.
 
 ## Notes
 
-- `dry_run` is enabled by default to avoid accidental pushes.
+- Dry run is enabled by default to avoid accidental pushes.
 - This app is designed as a polished operator UI layer and can be wired to deeper sync logic incrementally.
-- Security-focused safeguards are in place: private repositories are strongly recommended, sensitive-path filtering is active, and two-way sync warnings are visible. Follow-up work includes local API auth checks, path ancestry validation, and stronger diagnostics redaction.
-- The latest release includes the danger-zone security updates in the changelog.
+- Security-focused safeguards are in place: private repositories are strongly recommended, sensitive-path filtering is active, and two-way sync warnings are visible.
 - The add-on repository metadata is minimal and valid for Home Assistant add-on store ingestion.
-- Version snapshots now skip ignored directories like `.cache`, even inside release snapshots.
 - New repository creation defaults blank name/description fields to a humanized repository name.
-- This release carries the repo-create default behavior and the sync fixes from the last two commits.
-- Release track: stable releases on `main`, dev releases on `dev` branch.
+- Release track: stable releases on `main`, dev releases on `dev` repo.
 - Versioning rule: keep numeric `x.y.z` versions and use stable releases on `main` with dev releases on `dev`.
 
 ## Verification notes
 
 - Start with a dry run and confirm the API summary matches the expected file changes.
-- For a live run, disable `dry_run` only after the repository probe passes and the GitHub token has repo write access.
+- For a live run, disable dry run only after the repository probe passes and the GitHub token has repo write access.
 - Missing local files during an upsert are skipped; missing remote files during deletes are skipped as well.

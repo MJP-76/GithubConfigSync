@@ -2,6 +2,66 @@
 
 ## Latest Releases
 
+## 1.4.1
+
+- Moved Scheduled sync, Mount points, .gitignore, and Dry run into Installation and Usage card as numbered sub-sections 4–7
+- Removed standalone Sync options card
+- Dry run mode now includes explanatory description text
+
+## 1.4.0
+
+- Restructured UI: Installation card now contains Device Login, Repository Setup, Target Repository, and action buttons
+- Sections auto-expand when not configured, stay collapsed when configured
+- Renamed "Installation" to "Installation and Usage"
+- Moved "Keep versions on GitHub" into Scheduled sync section
+- Removed "Auto-sync pushes changes" toggle — scheduled sync always pushes when enabled
+- Removed Troubleshooting options section
+- Added Skipped (unchanged) count to sync activity display
+- SHA conflict retries with backoff (up to 3 attempts)
+- Version auto-read from config.yaml — single source of truth
+- Reworded skeleton README
+
+## 1.3.3
+
+- Merged safety notes into single block at top of config card
+- Moved .gitignore entries under Mount points section
+- Moved runtime status into Diagnostics section with download button
+- Renamed Danger Zone to collapsible red section, removed duplicate security text
+- Added Safety & Security Recommendations section
+
+## 1.3.2
+
+- Moved "Keep versions on GitHub" into the Scheduled sync section
+- Removed "Auto-sync pushes changes (ignores dry run)" — scheduled sync always pushes when enabled
+
+## 1.3.1
+
+- Removed snapshot/versioning system — replaced by GitHub releases
+- Removed sync_interval_minutes and manual_version_retention_days options
+- Renamed "Run Sync Now" to "Sync Now"
+
+## 1.3.0
+
+- Feature: scheduled sync with day-of-week and time-of-day selection
+- Feature: optional dated release creation before each scheduled sync (tagged dd/mm/yy hh:mm:ss)
+- Feature: auto-prune old sync releases based on "Keep versions on GitHub" count
+- Feature: new GitHub API methods for release management (create, list, delete)
+- Scheduler polls every 30 seconds and matches against configured days and time
+- Scheduler uses local time of the Home Assistant server
+
+## 1.2.0
+
+- Feature: auto-sync scheduler — runs sync on a configurable interval in the background
+- Scheduler re-reads settings each cycle, so interval/token/branch changes take effect immediately
+
+## 1.1.3
+
+- Fix: removed ingress header validation — breaks when HA is behind a reverse proxy that strips headers. HA ingress URL token alone is sufficient authentication.
+
+## 1.1.2
+
+- Fix: removed ingress requirement from device auth endpoints. Device flow was blocked by the security hardening in 1.1.1, preventing GitHub login from completing.
+
 ## 1.1.1
 
 - Security hardening: ingress header validation on mutating API endpoints.
@@ -10,6 +70,10 @@
 - Consolidated project documentation into single PROJECT.md.
 - Rewrote README for user-facing clarity.
 - Added experimental status badge and My Home Assistant install button.
+
+---
+
+## Older Releases
 
 ## 1.0.50
 

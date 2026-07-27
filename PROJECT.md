@@ -6,13 +6,13 @@ Single source of truth for project status, architecture, security, and workflow.
 
 ## Current Status
 
-- **Version:** `1.1.1`
-- **Last updated:** 2026-07-26
+- **Version:** `1.4.1`
+- **Last updated:** 2026-07-27
 - **Repo:** `MJP-76/GithubConfigSync` (single repo, `main` = stable, `dev` = development)
 - **Add-on path:** `addons/github-config-sync/`
 - **Integration path:** `custom_components/github_config_sync/`
 - **App source:** `addons/github-config-sync/rootfs/app/`
-- **Version script:** `scripts/sync_versions.py`
+- **Version auto-read from:** `config.yaml` (single source of truth)
 
 ---
 
@@ -54,7 +54,7 @@ Home Assistant add-on with ingress web UI. Runs a Flask server that handles:
 
 ### Open security items
 
-- [x] Lock down local API endpoints with Supervisor/Ingress header checks — `_require_ingress` decorator checks `X-Home-Assistant-Instance-ID` on all mutating endpoints (dev mode bypass via `FLASK_DEBUG`).
+- [x] ~~Lock down local API endpoints with Supervisor/Ingress header checks~~ — `_require_ingress` decorator was implemented in v1.1.1 but **removed in v1.1.3** because HA reverse proxy strips the `X-Home-Assistant-Instance-ID` header. HA ingress URL token alone is sufficient authentication.
 - [x] Revisit mount-point path resolution and path ancestry checks — `_local_path_for` validates resolved path stays within allowed root map before returning.
 - [x] Tighten diagnostics redaction — `_sanitized_log_tail` applies `_redact_line` to strip `ghp_`, `github_pat_`, `gho_`, bearer tokens, key-value secrets, and credential URLs.
 - [ ] Review whether any additional secret-scanning or blocklist patterns should be added later.
@@ -89,12 +89,11 @@ Home Assistant add-on with ingress web UI. Runs a Flask server that handles:
 ## Release Workflow
 
 1. Update code.
-2. Bump versions in `config.yaml`, `manifest.json`, `server.py`, `hacs.json`.
-3. Update changelog (last 5 releases at top).
-4. Run existing tests.
+2. Bump version in `config.yaml` (single source of truth — `server.py` auto-reads it at startup).
+3. Bump version in `manifest.json` and `hacs.json`.
+4. Update changelog (last 5 releases at top).
 5. Commit and push to dev.
-6. Create GitHub release.
-7. When stable, push to stable repo and create release.
+6. When stable, push to main and create GitHub release.
 
 ---
 
@@ -135,7 +134,7 @@ Home Assistant add-on with ingress web UI. Runs a Flask server that handles:
 - Default ignore rules for HA runtime files
 - Sensitive-file scanning and reporting
 
-### v1.1.1 — Current
+### v1.1.1 — Security Hardening
 
 - Security hardening: ingress header validation on mutating API endpoints
 - Security hardening: path ancestry checks on filesystem operations
@@ -144,33 +143,50 @@ Home Assistant add-on with ingress web UI. Runs a Flask server that handles:
 - Rewrote README for user-facing clarity
 - Added experimental status badge and My Home Assistant install button
 
-### v1.1.0
+### v1.1.2–v1.1.3 — Ingress Fix
 
-- Managed repos always verified against live GitHub marker file
-- Stale cache no longer keeps unmanaged repos in the list
-- Clean-repo no longer blocked by missing markers
-- Cancel support for clean-repo
-- Atomic-operation warnings on Clean Upload/Repo dialogs
-- UI loads live repos on init instead of stale cache
-- Fixed `_repo_safety_state()` missing return values
-- Updated changelog format
+- Removed `_require_ingress` — HA reverse proxy strips the header, making it unusable
+- Device flow auth endpoints unblocked
+
+### v1.2.0 — Background Scheduler
+
+- Background scheduler with interval-based sync
+- Scheduler re-reads settings each cycle
+
+### v1.3.0–v1.3.3 — Scheduled Sync + UI Overhaul
+
+- Day-of-week and time-of-day scheduled sync
+- Optional dated release creation before each sync
+- Auto-prune old sync releases
+- Removed snapshot/versioning system (replaced by GitHub releases)
+- Removed `sync_interval_minutes` and `manual_version_retention_days` options
+- UI restructured: Installation and Usage card with collapsible sub-sections
+- Safety & Security Recommendations section
+- Diagnostics collapsible card
+
+### v1.4.0–v1.4.1 — Consolidated UI
+
+- Consolidated all settings into Installation and Usage card (sub-sections 1–7)
+- Auto-expand sections on first load when not configured, collapse once resolved
+- Version auto-read from config.yaml — single source of truth
+- SHA conflict retry with exponential backoff (3 attempts)
+- Removed Troubleshooting options section
+- Skeleton README reworded as HA add-on description
 
 ---
 
 ## Immediate Next Steps
 
-- [ ] Normalize version tracker across stable and dev release lines.
-- [x] Close remaining security hardening follow-ups (ingress checks, path ancestry, diagnostics redaction).
 - [ ] Keep this file aligned with the active release track.
 
 ---
 
 ## Release Checklist (Per Tag)
 
-- [ ] Version bumped (integration + add-on)
-- [ ] Run `python3 scripts/sync_versions.py` if applicable
+- [ ] Version bumped in `config.yaml`, `manifest.json`, `hacs.json`
+- [ ] Changelog updated (last 5 releases at top)
 - [ ] Validation/CI green
 - [ ] Docs updated
-- [ ] Tag created and pushed
+- [ ] Committed and pushed to dev
 - [ ] GitHub Release created
 - [ ] This file updated
