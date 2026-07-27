@@ -102,6 +102,7 @@ Development happens on the `dev` repo. When ready, changes are pushed to both re
 [badge-hassfest]: https://img.shields.io/github/actions/workflow/status/MJP-76/GithubConfigSync/hassfest.yml?branch=main&label=Hassfest
 [badge-release]: https://img.shields.io/github/v/tag/MJP-76/GithubConfigSync?label=release
 [badge-status]: https://img.shields.io/badge/status-experimental-yellow
+[badge-ai]: https://img.shields.io/badge/Built_with-AI-black?logo=openai&logoColor=white
 [home-assistant]: https://www.home-assistant.io/
 [hacs]: https://github.com/hacs/integration
 [workflow-ci]: https://github.com/MJP-76/GithubConfigSync/actions/workflows/validate.yml
