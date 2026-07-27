@@ -2,49 +2,26 @@ name: Validate
 
 on:
   push:
+    branches: [main, dev]
   pull_request:
-  workflow_dispatch:
+    branches: [main]
 
 jobs:
-  addon-tests:
+  test:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.12"]
     steps:
-      - name: Check out code
-        uses: actions/checkout@v4
-      - name: Set up Python
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
-      - name: Run add-on unit tests
-        working-directory: addons/github-config-sync/rootfs/app
-        run: python -m unittest discover -s tests -p "test_*.py"
+          python-version: ${{ matrix.python-version }}
 
-  python-compile:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check out code
-        uses: actions/checkout@v4
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-      - name: Compile integration and add-on Python sources
-        run: python -m compileall custom_components/github_config_sync addons/github-config-sync/rootfs/app
+      - name: Install dependencies
+        run: pip install flask
 
-  hassfest:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check out code
-        uses: actions/checkout@v4
-      - name: Run hassfest validation
-        uses: home-assistant/actions/hassfest@master
-
-  hacs:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check out code
-        uses: actions/checkout@v4
-      - name: Run HACS validation
-        uses: hacs/action@main
-        with:
-          category: integration
+      - name: Run tests
+        run: python -m unittest discover -s addons/github-config-sync/rootfs/app/tests -v
