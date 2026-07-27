@@ -37,7 +37,7 @@ Home Assistant integration and add-on for syncing your config folder to GitHub. 
 ### HACS (recommended)
 
 1. Open HACS in Home Assistant.
-2. Add `MJP-76/GithubConfigSync` as a custom repository (category: Integration).
+2. Add `https://github.com/MJP-76/GithubConfigSync` as a custom repository (category: Integration).
 3. Install **Github Config Sync** and restart Home Assistant.
 4. Go to **Settings → Devices & Services → Add Integration → Github Config Sync** and configure.
 
