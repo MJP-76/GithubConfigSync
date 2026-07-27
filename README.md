@@ -3,7 +3,7 @@
 [![Home Assistant][badge-home-assistant]][home-assistant]
 [![HACS][badge-hacs]][hacs]
 [![CI][badge-ci]][workflow-ci]
-[![Hassfest][badge-hassfest]][hassfest]
+[![Hassfest][badge-hassfest]][workflow-hassfest]
 [![Release][badge-release]][releases]
 ![Status][badge-status]
 [![Built with AI][badge-ai]](https://openai.com)
@@ -99,12 +99,11 @@ Development happens on the `dev` repo. When ready, changes are pushed to both re
 [badge-home-assistant]: https://img.shields.io/badge/Home%20Assistant-41BDF5?style=flat-square&logo=homeassistant&logoColor=white
 [badge-hacs]: https://img.shields.io/badge/HACS-Custom-41BDF5.svg
 [badge-ci]: https://github.com/MJP-76/GithubConfigSync/actions/workflows/validate.yml/badge.svg
-[badge-hassfest]: https://img.shields.io/badge/Hassfest-validated-success.svg
-[badge-python]: https://img.shields.io/badge/Python-3.12+-3776AB.svg?logo=python&logoColor=white
+[badge-hassfest]: https://img.shields.io/github/actions/workflow/status/MJP-76/GithubConfigSync/hassfest.yml?branch=main&label=Hassfest
 [badge-release]: https://img.shields.io/github/v/tag/MJP-76/GithubConfigSync?label=release
 [badge-status]: https://img.shields.io/badge/status-experimental-yellow
 [home-assistant]: https://www.home-assistant.io/
 [hacs]: https://github.com/hacs/integration
 [workflow-ci]: https://github.com/MJP-76/GithubConfigSync/actions/workflows/validate.yml
-[hassfest]: https://developers.home-assistant.io/docs/creating_integration_manifest/
+[workflow-hassfest]: https://github.com/MJP-76/GithubConfigSync/actions/workflows/hassfest.yml
 [releases]: https://github.com/MJP-76/GithubConfigSync/releases
