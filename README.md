@@ -37,15 +37,6 @@ If you find this project useful, and would like to help support its continued de
 
 ## Installation
 
-[![Add Integration](https://my.home-assistant.io/badges/integration.svg)](https://my.home-assistant.io/redirect/integration?domain=github_config_sync)
-
-### HACS (recommended)
-
-1. Open HACS in Home Assistant.
-2. Add `https://github.com/MJP-76/GithubConfigSync` as a custom repository (category: Integration).
-3. Install **Github Config Sync** and restart Home Assistant.
-4. Go to **Settings → Devices & Services → Add Integration → Github Config Sync** and configure.
-
 ### Add-on Store
 
 1. In Home Assistant, open **Settings → Add-ons → Add-on Store → Repositories**.
