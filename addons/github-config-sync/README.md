@@ -9,6 +9,8 @@ Containerized Home Assistant app with an ingress web UI for GitHub config sync o
 
 Authentication supports GitHub Device Flow or a fine-grained PAT scoped to the single target repository.
 
+> **Note:** This is a Home Assistant **add-on**. Install it from the Add-on Store (**Settings → Add-ons → Add-on Store → Repositories**). It is not a HACS integration.
+
 
 > **Warning:** Use caution with public repositories and with any two-way sync or other tools that can also write to the Home Assistant config tree, because they can cause local config loss or unexpected deletions.
 
@@ -97,7 +99,7 @@ If you find this project useful, and would like to help support its continued de
 
 ## First run
 
-1. Add this repository as a Home Assistant repository.
+1. In Home Assistant, open **Settings → Add-ons → Add-on Store → Repositories** and add this repository URL: `https://github.com/MJP-76/GithubConfigSync`.
 2. Install **Github Config Sync**.
 3. Open the app web UI from the Installation and Usage card.
 4. Complete GitHub Device Flow login (section 1).
