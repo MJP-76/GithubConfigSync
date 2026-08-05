@@ -40,7 +40,7 @@ options:
   include_share: false
   include_ssl: false
   include_backups: false
-  include_www: true
+  include_www: false
   sync_mode: "whitelist"
 schema:
   github_repository: str?
