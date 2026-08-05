@@ -13,9 +13,11 @@ class SyncConfig:
     addon_config_root: str = "/addon_configs"
     include_media: bool = False
     include_share: bool = False
-    include_ssl: bool = True
+    include_ssl: bool = False
     include_backups: bool = False
     include_www: bool = True
+    include_addon_configs: bool = False
+    sync_mode: str = "whitelist"
 
 
 @dataclass(frozen=True)

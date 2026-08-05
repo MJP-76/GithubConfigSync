@@ -20,6 +20,8 @@ IGNORE_DIRS = {
     ".git",
     "hacs_frontend",
     "node_modules",
+    "include_ssl",
+    "include_addon_configs",
 }
 IGNORE_PATTERNS = (
     "home-assistant.log",

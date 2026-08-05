@@ -145,12 +145,14 @@ def _repo_sync_config(options: dict[str, Any], repository: str) -> SyncConfig:
         token=str(options.get("github_token", "")).strip(),
         config_root=str(CONFIG_ROOT),
         dry_run=bool(options.get("dry_run", True)),
-        addon_config_root="/addon_configs" if bool(options.get("include_addon_configs", True)) else "",
+        addon_config_root="/addon_configs" if bool(options.get("include_addon_configs", False)) else "",
         include_media=bool(options.get("include_media", False)),
         include_share=bool(options.get("include_share", False)),
-        include_ssl=bool(options.get("include_ssl", True)),
+        include_ssl=bool(options.get("include_ssl", False)),
         include_backups=bool(options.get("include_backups", False)),
         include_www=bool(options.get("include_www", True)),
+        include_addon_configs=bool(options.get("include_addon_configs", False)),
+        sync_mode=str(options.get("sync_mode", "whitelist")),
     )
 
 
@@ -565,12 +567,14 @@ def _sync_config(options: dict[str, Any]) -> SyncConfig:
         token=str(options.get("github_token", "")).strip(),
         config_root=str(CONFIG_ROOT),
         dry_run=bool(options.get("dry_run", True)),
-        addon_config_root="/addon_configs" if bool(options.get("include_addon_configs", True)) else "",
+        addon_config_root="/addon_configs" if bool(options.get("include_addon_configs", False)) else "",
         include_media=bool(options.get("include_media", False)),
         include_share=bool(options.get("include_share", False)),
-        include_ssl=bool(options.get("include_ssl", True)),
+        include_ssl=bool(options.get("include_ssl", False)),
         include_backups=bool(options.get("include_backups", False)),
         include_www=bool(options.get("include_www", True)),
+        include_addon_configs=bool(options.get("include_addon_configs", False)),
+        sync_mode=str(options.get("sync_mode", "whitelist")),
     )
 
 
@@ -760,12 +764,14 @@ class _SyncScheduler:
                 token=token,
                 config_root=str(CONFIG_ROOT),
                 dry_run=dry_run,
-                addon_config_root="/addon_configs" if bool(options.get("include_addon_configs", True)) else "",
+                addon_config_root="/addon_configs" if bool(options.get("include_addon_configs", False)) else "",
                 include_media=bool(options.get("include_media", False)),
                 include_share=bool(options.get("include_share", False)),
-                include_ssl=bool(options.get("include_ssl", True)),
+                include_ssl=bool(options.get("include_ssl", False)),
                 include_backups=bool(options.get("include_backups", False)),
                 include_www=bool(options.get("include_www", True)),
+                include_addon_configs=bool(options.get("include_addon_configs", False)),
+                sync_mode=str(options.get("sync_mode", "whitelist")),
             )
             now = dt.datetime.now(dt.timezone.utc)
             local_now = now.astimezone()
@@ -941,6 +947,13 @@ def trigger_manual_sync():
             config_root=sync_config.config_root,
             addon_config_root=sync_config.addon_config_root,
             dry_run=bool(options.get("dry_run", True)),
+            include_media=sync_config.include_media,
+            include_share=sync_config.include_share,
+            include_ssl=sync_config.include_ssl,
+            include_backups=sync_config.include_backups,
+            include_www=sync_config.include_www,
+            include_addon_configs=sync_config.include_addon_configs,
+            sync_mode=sync_config.sync_mode,
         )
         engine = SyncEngine(sync_config, previous_hash_index=_load_json(HASH_INDEX_PATH, {}))
         engine.set_cancel_checker(_is_cancel_requested)
@@ -1330,12 +1343,14 @@ def create_repo():
                 token=str(options.get("github_token", "")).strip(),
                 config_root=str(CONFIG_ROOT),
                 dry_run=True,
-                addon_config_root="/addon_configs" if bool(options.get("include_addon_configs", True)) else "",
+                addon_config_root="/addon_configs" if bool(options.get("include_addon_configs", False)) else "",
                 include_media=bool(options.get("include_media", False)),
                 include_share=bool(options.get("include_share", False)),
-                include_ssl=bool(options.get("include_ssl", True)),
+                include_ssl=bool(options.get("include_ssl", False)),
                 include_backups=bool(options.get("include_backups", False)),
                 include_www=bool(options.get("include_www", True)),
+                include_addon_configs=bool(options.get("include_addon_configs", False)),
+                sync_mode=str(options.get("sync_mode", "whitelist")),
             ),
             previous_hash_index={},
         )
@@ -1520,6 +1535,8 @@ def trigger_clean_sync():
         include_ssl=sync_config.include_ssl,
         include_backups=sync_config.include_backups,
         include_www=sync_config.include_www,
+        include_addon_configs=sync_config.include_addon_configs,
+        sync_mode=sync_config.sync_mode,
     )
     started = dt.datetime.now(dt.timezone.utc).isoformat()
     _save_state({"status": "running", "last_run": started, "last_error": None, **_clear_sync_progress_state()})

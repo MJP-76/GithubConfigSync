@@ -104,7 +104,7 @@ class ServerApiTests(unittest.TestCase):
         self.assertEqual(body["summary"]["synced_count"], 1)
         self.assertEqual(body["summary"]["deleted_count"], 0)
 
-    def test_options_round_trip_include_addon_configs_default_true(self) -> None:
+    def test_options_round_trip_include_addon_configs_explicit_true(self) -> None:
         self._write_options(
             {
                 "github_repository": "owner/repo",

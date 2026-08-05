@@ -468,7 +468,7 @@ class SyncEngine:
         if name == "":
             return True
         if name == "addon_configs":
-            return True
+            return self._config.include_addon_configs
         if name == "media":
             return self._config.include_media
         if name == "share":

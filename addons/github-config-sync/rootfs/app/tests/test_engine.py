@@ -31,6 +31,7 @@ class SyncEngineTests(unittest.TestCase):
                 config_root=str(root),
                 addon_config_root=str(addon_root),
                 dry_run=True,
+                include_addon_configs=True,
             )
 
             previous = {
@@ -55,6 +56,7 @@ class SyncEngineTests(unittest.TestCase):
             config_root=".",
             addon_config_root="/addon_configs",
             dry_run=True,
+            include_addon_configs=True,
         )
         plan = SyncPlan(added=["a.yaml"], changed=["b.yaml"], removed=["c.yaml"], total_files=2)
 
@@ -82,6 +84,7 @@ class SyncEngineTests(unittest.TestCase):
                 config_root=str(root),
                 addon_config_root="/addon_configs",
                 dry_run=False,
+                include_addon_configs=True,
             )
             plan = SyncPlan(
                 added=["added.yaml", "missing.yaml"],
@@ -121,6 +124,7 @@ class SyncEngineTests(unittest.TestCase):
                 config_root=str(root),
                 addon_config_root="/addon_configs",
                 dry_run=False,
+                include_addon_configs=True,
             )
             plan = SyncPlan(added=["a.yaml"], changed=[], removed=[], total_files=1)
 
@@ -177,6 +181,7 @@ class SyncEngineTests(unittest.TestCase):
                 config_root=str(root),
                 addon_config_root="/addon_configs",
                 dry_run=False,
+                include_addon_configs=True,
             )
             plan = SyncPlan(added=["one.yaml", "two.yaml"], changed=[], removed=[], total_files=2)
             fake_client = MagicMock()
@@ -208,6 +213,7 @@ class SyncEngineTests(unittest.TestCase):
                 config_root=str(root),
                 addon_config_root="/addon_configs",
                 dry_run=False,
+                include_addon_configs=True,
             )
             plan = SyncPlan(added=["one.yaml"], changed=[], removed=[], total_files=1)
             fake_client = MagicMock()
@@ -235,6 +241,7 @@ class SyncEngineTests(unittest.TestCase):
             config_root=".",
             addon_config_root="/addon_configs",
             dry_run=False,
+            include_addon_configs=True,
         )
         fake_client = MagicMock()
         fake_client.list_directory_contents.side_effect = [
@@ -271,6 +278,7 @@ class SyncEngineTests(unittest.TestCase):
             config_root=".",
             addon_config_root="/addon_configs",
             dry_run=False,
+            include_addon_configs=True,
         )
         fake_client = MagicMock()
         fake_client.get_branch_head_sha.return_value = "headsha"
@@ -307,6 +315,7 @@ class SyncEngineTests(unittest.TestCase):
             config_root=".",
             addon_config_root="/addon_configs",
             dry_run=False,
+            include_addon_configs=True,
         )
         fake_client = MagicMock()
         fake_client.list_directory_contents.return_value = []
