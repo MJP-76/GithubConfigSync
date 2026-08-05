@@ -1115,6 +1115,15 @@ def save_ignore_recommendations():
     return jsonify({"ok": True, "count": len(patterns)})
 
 
+@app.post("/api/ignore/recommendations/reset")
+def reset_ignore_recommendations():
+    gitignore_path = CONFIG_ROOT / ".gitignore"
+    if gitignore_path.exists():
+        gitignore_path.unlink()
+        _append_log("Reset local .gitignore to defaults")
+    return jsonify({"ok": True, "message": "Reset to defaults"})
+
+
 @app.get("/api/diagnostics")
 def get_diagnostics():
     return jsonify(_diagnostics_bundle())

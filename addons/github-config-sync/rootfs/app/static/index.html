@@ -490,6 +490,7 @@
           <div class="row" style="margin-top: 12px">
             <button id="addIgnoreDefaultsBtn" class="secondary">Update local .gitignore Defaults</button>
             <button id="saveIgnoreBtn" class="secondary">Write Selected Entries to .gitignore</button>
+            <button id="resetIgnoreBtn" class="secondary" style="margin-left: 8px;">Reset to Defaults</button>
             <button id="refreshIgnoreBtn" class="secondary">Refresh Ignore Suggestions</button>
           </div>
         </details>
@@ -1116,6 +1117,17 @@
         await loadIgnoreRecommendations();
       }
 
+      async function resetIgnoreToDefaults() {
+        if (!confirm("This will delete your local .gitignore and reset all patterns to defaults. Continue?")) {
+          return;
+        }
+        await fetchJson(apiUrl("/api/ignore/recommendations/reset"), {
+          method: "POST",
+        });
+        setStatus("Reset to defaults");
+        await loadIgnoreRecommendations();
+      }
+
       async function downloadDiagnostics() {
         const data = await fetchJson(apiUrl("/api/diagnostics"));
         const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
@@ -1438,6 +1450,14 @@
           addIgnoreDefaults()
             .catch((error) => setStatus(error.message, false))
             .finally(() => setButtonBusy(el.addIgnoreDefaultsBtn, false));
+        }
+      );
+      el.resetIgnoreBtn.addEventListener("click", () =>
+        {
+          setButtonBusy(el.resetIgnoreBtn, true, "Resetting...");
+          resetIgnoreToDefaults()
+            .catch((error) => setStatus(error.message, false))
+            .finally(() => setButtonBusy(el.resetIgnoreBtn, false));
         }
       );
       el.selectAllIgnore.addEventListener("change", () => toggleAllIgnoreEntries(el.selectAllIgnore.checked));
