@@ -115,6 +115,7 @@ DEFAULT_OPTIONS: dict[str, Any] = {
     "auto_sync_days": [1, 2, 3, 4, 5],
     "auto_sync_time": "03:00",
     "auto_sync_create_release": true,
+    "sync_interval_minutes": 1440,
     "include_addon_configs": false,
     "include_media": false,
     "include_share": false,

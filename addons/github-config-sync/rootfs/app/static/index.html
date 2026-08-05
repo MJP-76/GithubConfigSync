@@ -460,6 +460,11 @@
                 <input id="versionRetention" type="number" min="1" max="100" />
                 <p style="font-size: 0.8rem; color: var(--muted); margin: 2px 0 0">Number of GitHub releases to retain</p>
               </div>
+              <div class="field">
+                <label for="syncInterval">Scheduled sync interval (minutes)</label>
+                <input id="syncInterval" type="number" min="5" max="10080" />
+                <p style="font-size: 0.8rem; color: var(--muted); margin: 2px 0 0">How often to run scheduled sync (default 1440 = daily)</p>
+              </div>
             </div>
           </div>
         </details>
@@ -611,6 +616,7 @@
         authMethodHelp: document.getElementById("authMethodHelp"),
         branch: document.getElementById("branch"),
         versionRetention: document.getElementById("versionRetention"),
+        syncInterval: document.getElementById("syncInterval"),
         autoSyncEnabled: document.getElementById("autoSyncEnabled"),
         autoSyncOptions: document.getElementById("autoSyncOptions"),
         autoSyncTime: document.getElementById("autoSyncTime"),
@@ -930,6 +936,7 @@
         el.authMethod.value = data.auth_method || "device_flow";
         el.branch.value = data.github_branch || "main";
         el.versionRetention.value = data.version_retention_count || 7;
+        el.syncInterval.value = data.sync_interval_minutes || 1440;
         el.dryRun.checked = Boolean(data.dry_run);
         el.autoSyncEnabled.checked = Boolean(data.auto_sync_enabled);
         updateSchedulerStatus(Boolean(data.auto_sync_enabled));
@@ -1167,6 +1174,7 @@
             auth_method: el.authMethod.value,
             github_branch: el.branch.value.trim() || "main",
             version_retention_count: Number(el.versionRetention.value || "7"),
+            sync_interval_minutes: Number(el.syncInterval.value || "1440"),
             dry_run: el.dryRun.checked,
             auto_sync_enabled: el.autoSyncEnabled.checked,
             auto_sync_days: getSelectedDays(),
