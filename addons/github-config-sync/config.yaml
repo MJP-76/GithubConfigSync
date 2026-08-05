@@ -36,3 +36,13 @@ schema:
   github_repository: str?
   github_branch: str
   github_token: password?
+  sync_interval_minutes: int(5,1440)?
+  version_retention_count: int(1,100)?
+  dry_run: bool?
+  include_addon_configs: bool?
+  include_media: bool?
+  include_share: bool?
+  include_ssl: bool?
+  include_backups: bool?
+  include_www: bool?
+  sync_mode: list("whitelist","blacklist")?
