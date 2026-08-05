@@ -35,13 +35,6 @@ options:
   sync_interval_minutes: 1440
   version_retention_count: 7
   dry_run: true
-  include_addon_configs: false
-  include_media: false
-  include_share: false
-  include_ssl: false
-  include_backups: false
-  include_www: false
-  sync_mode: "whitelist"
 schema:
   github_repository: str?
   github_branch: str
@@ -49,10 +42,3 @@ schema:
   sync_interval_minutes: int(5,1440)
   version_retention_count: int(1,100)
   dry_run: bool
-  include_addon_configs: bool
-  include_media: bool
-  include_share: bool
-  include_ssl: bool
-  include_backups: bool
-  include_www: bool
-  sync_mode: list("whitelist","blacklist")
