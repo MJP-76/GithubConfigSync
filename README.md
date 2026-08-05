@@ -1,14 +1,12 @@
 # Github Config Sync
 
 [![Home Assistant][badge-home-assistant]][home-assistant]
-[![HACS][badge-hacs]][hacs]
-[![HACS Validation][badge-hacs-validation]][workflow-hacs-validation]
 [![Hassfest][badge-hassfest]][workflow-hassfest]
 [![CI][badge-ci]][workflow-ci]
 [![Release][badge-release]][releases]
 [![Built with AI][badge-built-with-ai]][built-with-ai]
 
-Home Assistant integration and add-on for syncing your config folder to GitHub. This is a config sync tool, not a backup tool.
+Home Assistant **add-on** for syncing your config folder to GitHub. This is a config sync tool, not a backup tool.
 
 **Private repositories are strongly recommended.** Use caution with public repos and any two-way sync tools that also write to your Home Assistant config tree — they can cause local config loss or unexpected deletions.
 
@@ -37,16 +35,7 @@ If you find this project useful, and would like to help support its continued de
 
 ## Installation
 
-[![Add Integration](https://my.home-assistant.io/badges/integration.svg)](https://my.home-assistant.io/redirect/integration?domain=github_config_sync)
-
-### HACS (recommended)
-
-1. Open HACS in Home Assistant.
-2. Add `https://github.com/MJP-76/GithubConfigSync` as a custom repository (category: Integration).
-3. Install **Github Config Sync** and restart Home Assistant.
-4. Go to **Settings → Devices & Services → Add Integration → Github Config Sync** and configure.
-
-### Add-on Store
+> **This is a Home Assistant add-on, not a HACS integration.** Install it from the Add-on Store.
 
 1. In Home Assistant, open **Settings → Add-ons → Add-on Store → Repositories**.
 2. Add this repository URL: `https://github.com/MJP-76/GithubConfigSync`.
@@ -74,12 +63,11 @@ You can add extra patterns in the app UI. Live uploads also write a root `SECURI
 
 ## Notes
 
-- This is not a zip-backup integration — files are synced individually as repository contents.
+- This is not a zip-backup tool — files are synced individually as repository contents.
 - The Home Assistant config folder is used automatically.
 - A managed `.gitignore` is created with HA defaults and your extra patterns.
 - Keep the repository private if your config contains sensitive data.
 - After a release, Home Assistant may need a rebuild/reinstall to pick up UI changes from the add-on image.
-- If `GITHUB_OAUTH_CLIENT_ID` is set in `custom_components/github_config_sync/const.py`, the flow uses it directly.
 
 ## Development Track
 
@@ -98,10 +86,6 @@ Development happens on the `dev` repo. When ready, changes are pushed to both re
 
 [badge-home-assistant]: https://img.shields.io/badge/Home%20Assistant-41BDF5?style=flat-square&logo=homeassistant&logoColor=white
 [home-assistant]: https://www.home-assistant.io/
-[badge-hacs]: https://img.shields.io/badge/HACS-Custom-41BDF5.svg
-[hacs]: https://github.com/hacs/integration
-[badge-hacs-validation]: https://img.shields.io/badge/HACS%20Validation-passing-brightgreen
-[workflow-hacs-validation]: https://github.com/MJP-76/GithubConfigSync/actions/workflows/validate.yml
 [badge-hassfest]: https://img.shields.io/github/actions/workflow/status/MJP-76/GithubConfigSync/hassfest.yml?branch=main&label=Hassfest
 [workflow-hassfest]: https://github.com/MJP-76/GithubConfigSync/actions/workflows/hassfest.yml
 [badge-ci]: https://github.com/MJP-76/GithubConfigSync/actions/workflows/ci.yml/badge.svg

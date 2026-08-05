@@ -66,7 +66,7 @@ Home Assistant add-on with ingress web UI. Runs a Flask server that handles:
 - Device Flow is the default auth path for both integration and add-on UX.
 - Token/client ID should not be front-and-center for normal users.
 - Repository selection is guided (picker/create) instead of manual-only typing.
-- Both Hassfest and HACS validation are in place while integration distribution continues.
+- The Add-on Store is the supported distribution path; the legacy HACS integration is kept only to redirect installs to the add-on.
 - Stable / dev version lines are explicit so the repo ships the right track from the right repository.
 
 ---

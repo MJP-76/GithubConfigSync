@@ -22,6 +22,9 @@
         "description": "Enter the GitHub repository name in owner/repo format."
       }
     },
+    "abort": {
+      "addon_only": "This is a Home Assistant add-on, not a HACS integration. Install it from Settings → Add-ons → Add-on Store (add repository https://github.com/MJP-76/GithubConfigSync)."
+    },
     "error": {
       "invalid_auth": "GitHub authentication failed.",
       "cannot_create": "Could not create the repository.",
