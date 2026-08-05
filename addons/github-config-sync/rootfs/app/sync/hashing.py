@@ -47,6 +47,8 @@ IGNORE_PATTERNS = (
     ".smbdelete*",
     ".DS_Store",
     "Thumbs.db",
+    "core.config_entries",
+    ".env",
 )
 SENSITIVE_PATTERNS = (
     ".storage/",
