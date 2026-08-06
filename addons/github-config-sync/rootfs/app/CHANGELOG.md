@@ -2,6 +2,11 @@
 
 ## Latest Releases
 
+## 1.5.11
+
+- **Fix**: Token health check now caches results (5 min valid / 30s errors), distinguishes rate limits from auth failures, and returns a `rate_limited` state instead of collapsing into `expired`
+- **Fix**: Frontend handles `rate_limited` state — shows "Rate limited" badge, doesn't auto-collapse auth section, pauses polling when tab/iframe hidden (visibilitychange), resumes on visibility restore
+
 ## 1.5.10
 
 - **Fix**: Removed failing Supervisor API sync call (403 Forbidden) — token persists via webui_options.json which _merge_options() already reads
