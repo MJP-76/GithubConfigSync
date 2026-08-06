@@ -6,7 +6,12 @@ Single source of truth for project status, architecture, security, and workflow.
 
 ## Current Status
 
-- **Version:** `1.5.5`
+<!-- VERSION:START -->
+- Integration version: `1.5.6`
+- Add-on version: `1.5.6`
+- Channel: `stable`
+- Release tag: `v1.5.6`
+<!-- VERSION:END -->
 - **Last updated:** 2026-08-06
 - **Repo:** `MJP-76/GithubConfigSync` (single repo, `main` = stable, `dev` = development)
 - **Add-on path:** `addons/github-config-sync/`

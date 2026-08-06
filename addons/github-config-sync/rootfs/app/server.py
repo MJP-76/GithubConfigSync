@@ -5,6 +5,7 @@ import json
 import logging
 import os
 import re
+import socket
 import threading
 from pathlib import Path
 from typing import Any
@@ -60,13 +61,33 @@ logging.getLogger("werkzeug").setLevel(logging.ERROR)
 ALLOWED_SYNC_ROOTS = {"/config", "/media", "/share", "/ssl", "/backups", "/www", "/addon_configs"}
 
 
+def _via_ingress_proxy() -> bool:
+    """Return True when the request arrived through the Supervisor ingress proxy.
+
+    The Supervisor's ingress proxy forwards Home Assistant authenticated
+    requests to the add-on directly, so the TCP peer is always the Supervisor
+    container itself. Header values (including the legacy ``IngressSession``
+    header) cannot be trusted on a mapped port, but the peer address cannot be
+    spoofed, so only requests whose source is the Supervisor are treated as
+    ingress-authenticated.
+    """
+    try:
+        supervisor_ip = socket.gethostbyname("supervisor")
+    except OSError:
+        return False
+    return request.remote_addr == supervisor_ip
+
+
 def _require_auth() -> bool:
     """Return True if request is authenticated.
 
-    Via ingress: HA's ingress session token is sufficient.
+    Via ingress: the request must have been proxied by the Supervisor (i.e. it
+    already passed Home Assistant authentication and an ingress session check).
     Via raw port 8099: must supply the configured github_token as Bearer.
     """
-    if request.headers.get("IngressSession"):
+    if os.environ.get("FLASK_DEBUG") == "1":
+        return True
+    if _via_ingress_proxy():
         return True
     auth = request.headers.get("Authorization", "")
     if auth.startswith("Bearer "):
@@ -74,7 +95,7 @@ def _require_auth() -> bool:
         configured = str(_merge_options().get("github_token", "")).strip()
         if configured and token == configured:
             return True
-    return os.environ.get("FLASK_DEBUG") == "1"
+    return False
 
 
 def _assert_safe_path(path: Path, allowed_roots: set[str]) -> None:
@@ -1014,6 +1035,8 @@ def trigger_manual_sync():
 
 @app.get("/api/options")
 def get_options():
+    if not _require_auth():
+        return jsonify({"ok": False, "error": "Unauthorized"}), 401
     return jsonify(_mask_token(_merge_options()))
 
 
@@ -1065,6 +1088,8 @@ def set_options():
 
 @app.get("/api/status")
 def get_status():
+    if not _require_auth():
+        return jsonify({"ok": False, "error": "Unauthorized"}), 401
     state = _load_state()
     options = _merge_options()
     return jsonify(
@@ -1088,6 +1113,8 @@ def get_status():
 
 @app.get("/api/ignore/recommendations")
 def get_ignore_recommendations():
+    if not _require_auth():
+        return jsonify({"ok": False, "error": "Unauthorized"}), 401
     gitignore_path = CONFIG_ROOT / ".gitignore"
     current = set()
     local_exists = gitignore_path.exists()
@@ -1142,16 +1169,22 @@ def reset_ignore_recommendations():
 
 @app.get("/api/diagnostics")
 def get_diagnostics():
+    if not _require_auth():
+        return jsonify({"ok": False, "error": "Unauthorized"}), 401
     return jsonify(_diagnostics_bundle())
 
 
 @app.get("/api/changelog")
 def get_changelog():
+    if not _require_auth():
+        return jsonify({"ok": False, "error": "Unauthorized"}), 401
     return jsonify({"ok": True, "entries": _read_changelog_entries(5)})
 
 
 @app.get("/api/auth/device")
 def get_device_auth_status():
+    if not _require_auth():
+        return jsonify({"ok": False, "error": "Unauthorized"}), 401
     flow = _load_device_flow()
     if not flow:
         return jsonify({"ok": True, "active": False})
@@ -1260,6 +1293,8 @@ def complete_device_auth():
 
 @app.get("/api/repos")
 def list_repos():
+    if not _require_auth():
+        return jsonify({"ok": False, "error": "Unauthorized"}), 401
     options = _merge_options()
     query = request.args.get("q", "", type=str)
     try:
@@ -1272,6 +1307,8 @@ def list_repos():
 
 @app.get("/api/repos/managed")
 def list_managed_repos():
+    if not _require_auth():
+        return jsonify({"ok": False, "error": "Unauthorized"}), 401
     options = _merge_options()
     query = request.args.get("q", "", type=str)
     try:
@@ -1284,6 +1321,8 @@ def list_managed_repos():
 
 @app.get("/api/repos/cached")
 def list_cached_managed_repos():
+    if not _require_auth():
+        return jsonify({"ok": False, "error": "Unauthorized"}), 401
     return jsonify({"ok": True, "repos": _load_managed_repos()})
 
 

@@ -9,12 +9,13 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
 MANIFEST_PATH = REPO_ROOT / "custom_components/github_config_sync/manifest.json"
+HACS_PATH = REPO_ROOT / "hacs.json"
 ADDON_CONFIG_PATH = REPO_ROOT / "addons/github-config-sync/config.yaml"
 SERVER_PATH = REPO_ROOT / "addons/github-config-sync/rootfs/app/server.py"
 DOC_PATHS = [
     REPO_ROOT / "README.md",
     REPO_ROOT / "addons/github-config-sync/README.md",
-    REPO_ROOT / "PROJECT_PLAN.md",
+    REPO_ROOT / "PROJECT.md",
 ]
 
 VERSION_BLOCK_PATTERN = re.compile(
@@ -64,6 +65,12 @@ def _replace_manifest_version(content: str, integration_version: str) -> str:
     return json.dumps(data, indent=2) + "\n"
 
 
+def _replace_hacs_json_version(content: str, integration_version: str) -> str:
+    data = json.loads(content)
+    data["version"] = integration_version
+    return json.dumps(data, indent=2) + "\n"
+
+
 def _replace_yaml_version(content: str, addon_version: str) -> str:
     updated, count = re.subn(
         r'(?m)^version:\s*"[^"]+"$',
@@ -77,15 +84,12 @@ def _replace_yaml_version(content: str, addon_version: str) -> str:
 
 
 def _replace_server_version(content: str, addon_version: str) -> str:
-    updated, count = re.subn(
-        r'(?m)^APP_VERSION\s*=\s*"[^"]+"$',
-        f'APP_VERSION = "{addon_version}"',
-        content,
-        count=1,
-    )
-    if count != 1:
-        raise ValueError("Could not find APP_VERSION line in server.py")
-    return updated
+    """Verify the add-on app no longer hardcodes a version (it reads config.yaml)."""
+    if "APP_VERSION = \"" in content or "APP_VERSION='" in content:
+        raise ValueError(
+            "server.py must not hardcode APP_VERSION; the add-on reads version from config.yaml"
+        )
+    return content
 
 
 def _replace_doc_block(content: str, integration_version: str, addon_version: str, channel: str) -> str:
@@ -133,6 +137,7 @@ def main() -> int:
 
     planned_updates: dict[Path, str] = {}
     planned_updates[MANIFEST_PATH] = _replace_manifest_version(_read(MANIFEST_PATH), integration_version)
+    planned_updates[HACS_PATH] = _replace_hacs_json_version(_read(HACS_PATH), integration_version)
     planned_updates[ADDON_CONFIG_PATH] = _replace_yaml_version(_read(ADDON_CONFIG_PATH), addon_version)
     planned_updates[SERVER_PATH] = _replace_server_version(_read(SERVER_PATH), addon_version)
     for path in DOC_PATHS:

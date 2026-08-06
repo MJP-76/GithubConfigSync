@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import sys
 import tempfile
 import unittest
@@ -20,6 +21,7 @@ import server
 
 class ServerApiTests(unittest.TestCase):
     def setUp(self) -> None:
+        os.environ["FLASK_DEBUG"] = "1"
         self._tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self._tmp.cleanup)
         self._data_dir = Path(self._tmp.name) / "data"
@@ -222,7 +224,11 @@ class ServerApiTests(unittest.TestCase):
                 {"name": "repo-b", "full_name": "owner/repo-b", "private": False, "default_branch": "main"},
             ]
             with patch("sync.github_client.GitHubClient.list_directory_contents") as list_contents:
-                list_contents.side_effect = [[{"path": server.ADDON_REPO_MARKER_PATH}], [{"path": "README.md"}]]
+                list_contents.side_effect = [
+                    [{"path": server.ADDON_REPO_MARKER_PATH}],  # repo-a: managed
+                    [{"path": "README.md"}],                   # repo-b: not managed
+                    [{"path": "other.txt"}],                   # current_repo (owner/repo): not managed
+                ]
                 response = self.client.get("/api/repos/managed")
 
         body = response.get_json()
@@ -737,6 +743,124 @@ class ServerApiTests(unittest.TestCase):
                 getattr(sync_config, flag),
                 f"{flag} must default to false unless explicitly selected",
             )
+
+
+class AuthBehaviorTests(unittest.TestCase):
+    """Tests for the new _require_auth() behavior."""
+
+    def setUp(self) -> None:
+        # Clear FLASK_DEBUG to test real auth behavior
+        os.environ.pop("FLASK_DEBUG", None)
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self._data_dir = Path(self._tmp.name) / "data"
+        self._config_root = Path(self._tmp.name) / "config"
+        self._data_dir.mkdir(parents=True, exist_ok=True)
+        self._config_root.mkdir(parents=True, exist_ok=True)
+
+        self._orig_data_dir = server.DATA_DIR
+        self._orig_supervisor_options = server.SUPERVISOR_OPTIONS_PATH
+        self._orig_webui_options = server.WEBUI_OPTIONS_PATH
+        self._orig_state = server.STATE_PATH
+        self._orig_log = server.LOG_PATH
+        self._orig_hash_index = server.HASH_INDEX_PATH
+        self._orig_managed_repos = server.MANAGED_REPOS_PATH
+        self._orig_device_flow = server.DEVICE_FLOW_PATH
+        self._orig_config_root = server.CONFIG_ROOT
+
+        server.DATA_DIR = self._data_dir
+        server.SUPERVISOR_OPTIONS_PATH = self._data_dir / "options.json"
+        server.WEBUI_OPTIONS_PATH = self._data_dir / "webui_options.json"
+        server.STATE_PATH = self._data_dir / "state.json"
+        server.LOG_PATH = self._data_dir / "sync.log"
+        server.HASH_INDEX_PATH = self._data_dir / "hash_index.json"
+        server.MANAGED_REPOS_PATH = self._data_dir / "managed_repos.json"
+        server.DEVICE_FLOW_PATH = self._data_dir / "device_flow.json"
+        server.CONFIG_ROOT = self._config_root
+
+        self.addCleanup(self._restore_paths)
+        self.client = server.app.test_client()
+
+    def _restore_paths(self) -> None:
+        server.DATA_DIR = self._orig_data_dir
+        server.SUPERVISOR_OPTIONS_PATH = self._orig_supervisor_options
+        server.WEBUI_OPTIONS_PATH = self._orig_webui_options
+        server.STATE_PATH = self._orig_state
+        server.LOG_PATH = self._orig_log
+        server.HASH_INDEX_PATH = self._orig_hash_index
+        server.MANAGED_REPOS_PATH = self._orig_managed_repos
+        server.DEVICE_FLOW_PATH = self._orig_device_flow
+        server.CONFIG_ROOT = self._orig_config_root
+
+    def _write_options(self, payload: dict[str, object]) -> None:
+        server.WEBUI_OPTIONS_PATH.write_text(json.dumps(payload), encoding="utf-8")
+
+    def test_get_without_auth_returns_401(self) -> None:
+        self._write_options({"github_token": "secret-token"})
+        for endpoint in (
+            "/api/options",
+            "/api/status",
+            "/api/repos",
+            "/api/repos/managed",
+            "/api/repos/cached",
+            "/api/diagnostics",
+            "/api/changelog",
+            "/api/auth/device",
+            "/api/ignore/recommendations",
+        ):
+            response = self.client.get(endpoint)
+            self.assertEqual(response.status_code, 401, f"{endpoint} should require auth")
+
+    def test_post_without_auth_returns_401(self) -> None:
+        self._write_options({"github_token": "secret-token"})
+        for endpoint in (
+            "/api/sync/manual",
+            "/api/options",
+            "/api/ignore/recommendations",
+            "/api/ignore/recommendations/reset",
+            "/api/auth/device/start",
+            "/api/auth/device/complete",
+            "/api/repos/adopt",
+            "/api/repos/create",
+            "/api/sync",
+            "/api/sync/cancel",
+            "/api/sync/clean",
+            "/api/sync/clean-repo",
+        ):
+            response = self.client.post(endpoint, json={})
+            self.assertEqual(response.status_code, 401, f"{endpoint} should require auth")
+
+    def test_get_with_valid_bearer_token_succeeds(self) -> None:
+        self._write_options({"github_token": "my-secret-token"})
+        response = self.client.get(
+            "/api/options",
+            headers={"Authorization": "Bearer my-secret-token"},
+        )
+        self.assertEqual(response.status_code, 200)
+        body = response.get_json()
+        self.assertIn("github_token", body)
+
+    def test_get_with_invalid_bearer_token_fails(self) -> None:
+        self._write_options({"github_token": "my-secret-token"})
+        response = self.client.get(
+            "/api/options",
+            headers={"Authorization": "Bearer wrong-token"},
+        )
+        self.assertEqual(response.status_code, 401)
+
+    def test_get_with_malformed_auth_header_fails(self) -> None:
+        self._write_options({"github_token": "my-secret-token"})
+        response = self.client.get(
+            "/api/options",
+            headers={"Authorization": "NotBearer token"},
+        )
+        self.assertEqual(response.status_code, 401)
+
+    def test_health_and_root_remain_open(self) -> None:
+        # /api/health should not require auth
+        response = self.client.get("/api/health")
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.get_json()["ok"])
 
 
 if __name__ == "__main__":

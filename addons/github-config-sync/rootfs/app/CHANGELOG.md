@@ -2,12 +2,20 @@
 
 ## Latest Releases
 
+## 1.5.6
+
+- **Security fix**: API authentication now works. Requests are trusted as ingress-authenticated only when they originate from the Supervisor proxy (peer-address check) — the legacy IngressSession header check, which no Home Assistant version sets, was removed
+- All GET API endpoints now require authentication (via ingress or Bearer github_token); previously only POST endpoints were guarded
+- Fixed sync_versions.py: now updates hacs.json and PROJECT.md, and no longer rewrites a stale APP_VERSION constant in server.py (version is auto-read from config.yaml)
+- Removed duplicated 1.5.4 entries from this changelog
+
 ## 1.5.5
 
 - **Security fix**: Sensitive file scanning now actually blocks uploads (was previously report-only after sync)
 - Added is_sensitive_candidate() name-pattern check to is_ignored() in build_hash_index
 - Added content scanning (_is_file_sensitive) to build_hash_index to detect embedded secrets in file contents
 - Fixed misleading SECURITY_UPLOAD_WARNINGS.md message (now accurate since files are actually skipped)
+- scan_sensitive_files() now finds all sensitive files regardless of ignore status (for warning purposes)
 - Removed dead code: _require_ingress decorator and SyncEngine._delete_remote_tree_except
 - Added _require_auth guard on all POST endpoints (ingress token or configured github_token Bearer)
 - Path safety checks now use is_relative_to instead of string prefix matching
@@ -15,14 +23,6 @@
 - Pinned base image to ghcr.io/home-assistant/base:3.24-2026.06.1 (reproducible builds)
 - Version read failure now logs a warning instead of silently falling back to 0.0.0
 - Legacy custom_components stripped to redirect-only (no parallel sync implementation)
-
-## 1.5.4
-
-- **Security fix**: Sensitive file scanning now actually blocks uploads (was previously report-only after sync)
-- Added is_sensitive_candidate() name-pattern check to is_ignored() in build_hash_index
-- Added content scanning (_is_file_sensitive) to build_hash_index to detect embedded secrets in file contents
-- Fixed misleading SECURITY_UPLOAD_WARNINGS.md message (now accurate since files are actually skipped)
-- scan_sensitive_files() now finds all sensitive files regardless of ignore status (for warning purposes)
 
 ## 1.5.3
 
