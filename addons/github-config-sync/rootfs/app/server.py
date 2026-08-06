@@ -401,6 +401,9 @@ def _validate_payload(payload: dict[str, Any]) -> tuple[bool, str | None]:
 
     if str(payload.get("auth_method", "device_flow")) not in ("device_flow", "fine_grained_pat"):
         return False, "auth_method must be device_flow or fine_grained_pat"
+    sync_mode = str(payload.get("sync_mode", "whitelist")).strip()
+    if sync_mode not in ("whitelist", "blacklist"):
+        return False, "sync_mode must be whitelist or blacklist"
 
     for key in (
         "include_addon_configs",

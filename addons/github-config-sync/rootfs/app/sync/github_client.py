@@ -52,6 +52,8 @@ class GitHubClient:
     ) -> str:
         deadline = time.monotonic() + timeout
         poll_interval = max(1, interval)
+        slow_down_count = 0
+        MAX_SLOW_DOWN = 10
         while True:
             payload = self._oauth_request(
                 "POST",
@@ -73,6 +75,11 @@ class GitHubClient:
                 time.sleep(poll_interval)
                 continue
             if error == "slow_down":
+                slow_down_count += 1
+                if slow_down_count > MAX_SLOW_DOWN:
+                    raise SyncError("GitHub device flow returned too many slow_down responses")
+                if time.monotonic() >= deadline:
+                    raise SyncError("Timed out waiting for GitHub device authorization")
                 poll_interval += 5
                 time.sleep(poll_interval)
                 continue
