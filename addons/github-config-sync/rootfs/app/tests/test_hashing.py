@@ -10,7 +10,7 @@ APP_ROOT = Path(__file__).resolve().parents[1]
 if str(APP_ROOT) not in sys.path:
     sys.path.insert(0, str(APP_ROOT))
 
-from sync.hashing import build_hash_index, diff_hash_indexes
+from sync.hashing import build_hash_index, diff_hash_indexes, _is_file_sensitive
 
 CONST_PATH = Path(__file__).resolve().parents[5] / "custom_components/github_config_sync/const.py"
 CONST_SPEC = importlib.util.spec_from_file_location("github_config_sync_const", CONST_PATH)
@@ -62,6 +62,43 @@ class HashingTests(unittest.TestCase):
             self.assertNotIn("secrets.yaml", index)
             self.assertNotIn("my-secret-notes.yaml", index)
             self.assertNotIn(".storage/core.config", index)
+
+    def test_build_hash_index_ignores_sensitive_name_patterns(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "password.txt").write_text("hello", encoding="utf-8")
+            (root / "api_key.yaml").write_text("key: 123", encoding="utf-8")
+            (root / "oauth_token.json").write_text("token: abc", encoding="utf-8")
+            (root / "safe.yaml").write_text("value: 1", encoding="utf-8")
+
+            index = build_hash_index(root)
+
+            self.assertNotIn("password.txt", index)
+            self.assertNotIn("api_key.yaml", index)
+            self.assertNotIn("oauth_token.json", index)
+            self.assertIn("safe.yaml", index)
+
+    def test_build_hash_index_ignores_sensitive_content(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "config.yaml").write_text("bearer ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyz", encoding="utf-8")
+            (root / "safe.yaml").write_text("value: 1", encoding="utf-8")
+
+            index = build_hash_index(root)
+
+            self.assertNotIn("config.yaml", index)
+            self.assertIn("safe.yaml", index)
+
+    def test_is_file_sensitive_checks_content(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            sensitive = root / "config.yaml"
+            sensitive.write_text("password=secret123", encoding="utf-8")
+            safe = root / "safe.yaml"
+            safe.write_text("value: 1", encoding="utf-8")
+
+            self.assertTrue(_is_file_sensitive(root, sensitive))
+            self.assertFalse(_is_file_sensitive(root, safe))
 
     def test_default_ignore_patterns_cover_common_home_assistant_files(self) -> None:
         self.assertIn("secrets.yaml", DEFAULT_IGNORE_PATTERNS)

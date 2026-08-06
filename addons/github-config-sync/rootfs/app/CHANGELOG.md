@@ -2,6 +2,51 @@
 
 ## Latest Releases
 
+## 1.5.4
+
+- **Security fix**: Sensitive file scanning now actually blocks uploads (was previously report-only after sync)
+- Added is_sensitive_candidate() name-pattern check to is_ignored() in build_hash_index
+- Added content scanning (_is_file_sensitive) to build_hash_index to detect embedded secrets in file contents
+- Fixed misleading SECURITY_UPLOAD_WARNINGS.md message (now accurate since files are actually skipped)
+- scan_sensitive_files() now finds all sensitive files regardless of ignore status (for warning purposes)
+
+## 1.5.3
+
+- Security hardening: all include_* options (include_ssl, include_addon_configs, etc.) now default to false
+- Added include_ssl and include_addon_configs to built-in ignore directories
+- Added core.config_entries and .env to built-in ignore patterns
+- Token now syncs from HA config entry to add-on via Supervisor API (fixes auth persistence issue)
+- Version auto-read from config.yaml via regex — single source of truth
+- Reset to Defaults button for .gitignore patterns in web UI
+
+## 1.5.2
+
+- Moved sync mode to its own separate section in web UI (between scheduled sync and mount points)
+- All settings moved to web UI (config page only has github_repository/branch/token)
+- Dry run mode now default ON with explanatory description text
+- SHA conflict retries with backoff (up to 3 attempts)
+
+## 1.5.1
+
+- Security fix: removed token from URL query params, use Authorization header only
+- Added path ancestry checks on filesystem operations
+- Diagnostics log redaction strips tokens, secrets, and URLs
+- Fixed add-on marker file path for non-root config dirs
+
+## 1.5.0
+
+- Feature: whitelist/blacklist sync mode selection
+- Feature: optional include_* directory flags for fine-grained sync control
+- Restructured config.yaml: only github_repository/branch/token in options
+- All settings moved to web UI config page
+- Updated SyncConfig with new sync_mode and include_* fields
+
+## 1.4.2
+
+- Security hardening: ingress header validation on mutating API endpoints
+- Path ancestry checks on filesystem operations
+- Sensitive file scanning reports skipped files in SECURITY_UPLOAD_WARNINGS.md
+
 ## 1.4.1
 
 - Moved Scheduled sync, Mount points, .gitignore, and Dry run into Installation and Usage card as numbered sub-sections 4–7

@@ -71,6 +71,8 @@ def is_ignored(relative_path: str) -> bool:
         return True
     if any(pattern in normalized for pattern in SENSITIVE_PATTERNS):
         return True
+    if is_sensitive_candidate(relative_path):
+        return True
     return any(fnmatch.fnmatch(relative_path, pattern) for pattern in IGNORE_PATTERNS)
 
 
@@ -88,8 +90,6 @@ def scan_sensitive_files(root: Path) -> list[str]:
         if not path.is_file():
             continue
         relative = path.relative_to(root).as_posix()
-        if is_ignored(relative):
-            continue
         reasons = []
         if is_sensitive_candidate(relative):
             reasons.append("name")
@@ -102,6 +102,22 @@ def scan_sensitive_files(root: Path) -> list[str]:
         if reasons:
             flagged.append(relative)
     return sorted(set(flagged))
+
+
+def _is_file_sensitive(root: Path, path: Path) -> bool:
+    """Check if a file should be excluded based on content scanning."""
+    relative = path.relative_to(root).as_posix()
+    if is_ignored(relative):
+        return True
+    if is_sensitive_candidate(relative):
+        return True
+    try:
+        text = path.read_text(encoding="utf-8", errors="ignore")
+    except OSError:
+        text = ""
+    if text and any(pattern.search(text) for pattern in SENSITIVE_CONTENT_PATTERNS):
+        return True
+    return False
 
 
 def sha256_file(path: Path) -> str:
@@ -124,7 +140,7 @@ def build_hash_index(root: Path) -> dict[str, str]:
         if not path.is_file():
             continue
         relative = path.relative_to(root).as_posix()
-        if is_ignored(relative):
+        if _is_file_sensitive(root, path):
             continue
         index[relative] = sha256_file(path)
     return index

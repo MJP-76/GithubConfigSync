@@ -6,8 +6,8 @@ Single source of truth for project status, architecture, security, and workflow.
 
 ## Current Status
 
-- **Version:** `1.4.1`
-- **Last updated:** 2026-07-27
+- **Version:** `1.5.4`
+- **Last updated:** 2026-08-06
 - **Repo:** `MJP-76/GithubConfigSync` (single repo, `main` = stable, `dev` = development)
 - **Add-on path:** `addons/github-config-sync/`
 - **Integration path:** `custom_components/github_config_sync/`
@@ -163,6 +163,16 @@ Home Assistant add-on with ingress web UI. Runs a Flask server that handles:
 - UI restructured: Installation and Usage card with collapsible sub-sections
 - Safety & Security Recommendations section
 - Diagnostics collapsible card
+
+### v1.5.0–v1.5.4 — Security Hardening & Token Sync Fix
+
+- Security fix: Sensitive file scanning now actually blocks uploads (was report-only)
+- Token syncs from HA config entry to add-on via Supervisor API (fixes auth persistence)
+- All include_* options default to false; added core.config_entries and .env to ignore patterns
+- Whitelist/blacklist sync mode selection in separate web UI section
+- SHA conflict retries with exponential backoff (3 attempts)
+- Reset to Defaults button for .gitignore patterns
+- Version auto-read from config.yaml via regex
 
 ### v1.4.0–v1.4.1 — Consolidated UI
 
