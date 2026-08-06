@@ -7,7 +7,6 @@ import os
 import re
 import socket
 import threading
-import urllib.request
 from pathlib import Path
 from typing import Any
 from urllib.parse import quote
@@ -351,39 +350,6 @@ def _clear_sync_progress_state() -> dict[str, Any]:
 def _persist_options(payload: dict[str, Any]) -> None:
     _save_json(SUPERVISOR_OPTIONS_PATH, payload)
     _save_json(WEBUI_OPTIONS_PATH, payload)
-
-
-def _sync_options_to_supervisor(payload: dict[str, Any]) -> None:
-    """Push options to Supervisor so they persist across add-on restarts."""
-    supervisor_token = os.environ.get("SUPERVISOR_TOKEN")
-    logger = logging.getLogger(__name__)
-    if not supervisor_token:
-        logger.warning("SUPERVISOR_TOKEN not set; cannot sync options to Supervisor")
-        return
-    addon_slug = os.environ.get("ADDON_SLUG", "github_config_sync_web")
-    logger.info("Syncing options to Supervisor for addon: %s", addon_slug)
-    url = f"http://supervisor/addons/{addon_slug}/options"
-    data = json.dumps(payload).encode("utf-8")
-    req = urllib.request.Request(
-        url,
-        data=data,
-        headers={
-            "Authorization": f"Bearer {supervisor_token}",
-            "Content-Type": "application/json",
-        },
-        method="POST",
-    )
-    try:
-        with urllib.request.urlopen(req, timeout=10) as resp:
-            resp_body = resp.read().decode("utf-8")
-            if resp.status >= 400:
-                logger.warning(
-                    "Failed to sync options to Supervisor: HTTP %s - %s", resp.status, resp_body
-                )
-            else:
-                logger.info("Successfully synced options to Supervisor")
-    except Exception as err:
-        logger.warning("Failed to sync options to Supervisor: %s", err)
 
 
 def _append_log(message: str) -> None:
@@ -1324,7 +1290,6 @@ def complete_device_auth():
     merged["github_token"] = token
     merged["github_client_id"] = str(flow.get("client_id", "")).strip() or DEFAULT_OAUTH_CLIENT_ID
     _persist_options(merged)
-    _sync_options_to_supervisor(merged)
     _clear_device_flow()
     _append_log("GitHub token obtained via device flow")
     return jsonify({"ok": True, "options": _mask_token(_merge_options())})
