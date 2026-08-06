@@ -2,6 +2,10 @@
 
 ## Latest Releases
 
+## 1.5.9
+
+- **Debug**: Added detailed logging for Supervisor option sync and ingress auth checks to diagnose token persistence issues
+
 ## 1.5.8
 
 - **Fix**: Token from device flow now synced to Supervisor — persists across add-on restarts and UI navigation

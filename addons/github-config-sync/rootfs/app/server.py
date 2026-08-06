@@ -74,9 +74,16 @@ def _via_ingress_proxy() -> bool:
     """
     try:
         supervisor_ip = socket.gethostbyname("supervisor")
-    except OSError:
+    except OSError as err:
+        logging.getLogger(__name__).debug("Could not resolve supervisor hostname: %s", err)
         return False
-    return request.remote_addr == supervisor_ip
+    client_ip = request.remote_addr
+    is_supervisor = client_ip == supervisor_ip
+    if not is_supervisor:
+        logging.getLogger(__name__).debug(
+            "Ingress check failed: client_ip=%s supervisor_ip=%s", client_ip, supervisor_ip
+        )
+    return is_supervisor
 
 
 def _require_auth() -> bool:
@@ -349,10 +356,12 @@ def _persist_options(payload: dict[str, Any]) -> None:
 def _sync_options_to_supervisor(payload: dict[str, Any]) -> None:
     """Push options to Supervisor so they persist across add-on restarts."""
     supervisor_token = os.environ.get("SUPERVISOR_TOKEN")
+    logger = logging.getLogger(__name__)
     if not supervisor_token:
-        logging.getLogger(__name__).warning("SUPERVISOR_TOKEN not set; cannot sync options to Supervisor")
+        logger.warning("SUPERVISOR_TOKEN not set; cannot sync options to Supervisor")
         return
     addon_slug = os.environ.get("ADDON_SLUG", "github_config_sync_web")
+    logger.info("Syncing options to Supervisor for addon: %s", addon_slug)
     url = f"http://supervisor/addons/{addon_slug}/options"
     data = json.dumps(payload).encode("utf-8")
     req = urllib.request.Request(
@@ -366,12 +375,15 @@ def _sync_options_to_supervisor(payload: dict[str, Any]) -> None:
     )
     try:
         with urllib.request.urlopen(req, timeout=10) as resp:
+            resp_body = resp.read().decode("utf-8")
             if resp.status >= 400:
-                logging.getLogger(__name__).warning(
-                    "Failed to sync options to Supervisor: HTTP %s", resp.status
+                logger.warning(
+                    "Failed to sync options to Supervisor: HTTP %s - %s", resp.status, resp_body
                 )
+            else:
+                logger.info("Successfully synced options to Supervisor")
     except Exception as err:
-        logging.getLogger(__name__).warning("Failed to sync options to Supervisor: %s", err)
+        logger.warning("Failed to sync options to Supervisor: %s", err)
 
 
 def _append_log(message: str) -> None:
