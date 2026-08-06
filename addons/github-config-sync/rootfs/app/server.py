@@ -61,28 +61,60 @@ logging.getLogger("werkzeug").setLevel(logging.ERROR)
 ALLOWED_SYNC_ROOTS = {"/config", "/media", "/share", "/ssl", "/backups", "/www", "/addon_configs"}
 
 
+def _is_private_ip(ip: str) -> bool:
+    """Return True if IP is in private ranges (RFC 1918)."""
+    try:
+        parts = ip.split(".")
+        if len(parts) != 4:
+            return False
+        a, b = int(parts[0]), int(parts[1])
+        return (
+            a == 10
+            or (a == 172 and 16 <= b <= 31)
+            or (a == 192 and b == 168)
+            or a == 127
+        )
+    except (ValueError, IndexError):
+        return False
+
+
 def _via_ingress_proxy() -> bool:
     """Return True when the request arrived through the Supervisor ingress proxy.
 
     The Supervisor's ingress proxy forwards Home Assistant authenticated
-    requests to the add-on directly, so the TCP peer is always the Supervisor
-    container itself. Header values (including the legacy ``IngressSession``
-    header) cannot be trusted on a mapped port, but the peer address cannot be
-    spoofed, so only requests whose source is the Supervisor are treated as
-    ingress-authenticated.
+    requests to the add-on directly, so the TCP peer is usually the Supervisor
+    container. As a fallback, we also trust requests that carry the
+    ``X-Hass-Source: core.ingress`` header set by HA Core, provided the peer
+    is on a private network (HA Core/Supervisor always are).
     """
+    logger = logging.getLogger(__name__)
     try:
         supervisor_ip = socket.gethostbyname("supervisor")
     except OSError as err:
-        logging.getLogger(__name__).debug("Could not resolve supervisor hostname: %s", err)
-        return False
+        logger.debug("Could not resolve supervisor hostname: %s", err)
+        supervisor_ip = None
+
     client_ip = request.remote_addr
-    is_supervisor = client_ip == supervisor_ip
-    if not is_supervisor:
-        logging.getLogger(__name__).debug(
-            "Ingress check failed: client_ip=%s supervisor_ip=%s", client_ip, supervisor_ip
+
+    # Primary check: direct Supervisor peer
+    if supervisor_ip and client_ip == supervisor_ip:
+        return True
+
+    # Fallback: HA Core ingress header + private network peer
+    if request.headers.get("X-Hass-Source") == "core.ingress" and _is_private_ip(client_ip):
+        logger.debug(
+            "Ingress auth via X-Hass-Source fallback: client_ip=%s", client_ip
         )
-    return is_supervisor
+        return True
+
+    if supervisor_ip:
+        logger.debug(
+            "Ingress check failed: client_ip=%s supervisor_ip=%s hass_source=%s",
+            client_ip,
+            supervisor_ip,
+            request.headers.get("X-Hass-Source"),
+        )
+    return False
 
 
 def _require_auth() -> bool:
