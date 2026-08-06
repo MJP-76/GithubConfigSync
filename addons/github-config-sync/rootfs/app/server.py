@@ -6,7 +6,6 @@ import logging
 import os
 import re
 import threading
-from functools import wraps
 from pathlib import Path
 from typing import Any
 from urllib.parse import quote
@@ -58,18 +57,21 @@ logging.getLogger("werkzeug").setLevel(logging.ERROR)
 ALLOWED_SYNC_ROOTS = {"/config", "/media", "/share", "/ssl", "/backups", "/www", "/addon_configs"}
 
 
-def _require_ingress(f):
-    """Reject requests that did not come through the Home Assistant ingress proxy."""
+def _require_auth() -> bool:
+    """Return True if request is authenticated.
 
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        if os.environ.get("FLASK_DEBUG"):
-            return f(*args, **kwargs)
-        if not request.headers.get("X-Home-Assistant-Instance-ID"):
-            return jsonify({"ok": False, "error": "Request must come through Home Assistant ingress"}), 403
-        return f(*args, **kwargs)
-
-    return decorated
+    Via ingress: HA's ingress session token is sufficient.
+    Via raw port 8099: must supply the configured github_token as Bearer.
+    """
+    if request.headers.get("IngressSession"):
+        return True
+    auth = request.headers.get("Authorization", "")
+    if auth.startswith("Bearer "):
+        token = auth[7:].strip()
+        configured = str(_merge_options().get("github_token", "")).strip()
+        if configured and token == configured:
+            return True
+    return os.environ.get("FLASK_DEBUG") == "1"
 
 
 def _assert_safe_path(path: Path, allowed_roots: set[str]) -> None:
@@ -885,6 +887,8 @@ def health():
 
 @app.post("/api/sync/manual")
 def trigger_manual_sync():
+    if not _require_auth():
+        return jsonify({"ok": False, "error": "Unauthorized"}), 401
     options = _merge_options()
     sync_config = _sync_config(options)
     if not sync_config.repository:
@@ -1012,6 +1016,8 @@ def get_options():
 
 @app.post("/api/options")
 def set_options():
+    if not _require_auth():
+        return jsonify({"ok": False, "error": "Unauthorized"}), 401
     payload = request.get_json(silent=True)
     if not isinstance(payload, dict):
         return jsonify({"ok": False, "error": "Invalid JSON body"}), 400
@@ -1098,6 +1104,8 @@ def get_ignore_recommendations():
 
 @app.post("/api/ignore/recommendations")
 def save_ignore_recommendations():
+    if not _require_auth():
+        return jsonify({"ok": False, "error": "Unauthorized"}), 401
     payload = request.get_json(silent=True)
     if not isinstance(payload, dict):
         return jsonify({"ok": False, "error": "Invalid JSON body"}), 400
@@ -1120,6 +1128,8 @@ def save_ignore_recommendations():
 
 @app.post("/api/ignore/recommendations/reset")
 def reset_ignore_recommendations():
+    if not _require_auth():
+        return jsonify({"ok": False, "error": "Unauthorized"}), 401
     gitignore_path = CONFIG_ROOT / ".gitignore"
     if gitignore_path.exists():
         gitignore_path.unlink()
@@ -1156,6 +1166,8 @@ def get_device_auth_status():
 
 @app.post("/api/auth/device/start")
 def start_device_auth():
+    if not _require_auth():
+        return jsonify({"ok": False, "error": "Unauthorized"}), 401
     payload = request.get_json(silent=True)
     if payload is not None and not isinstance(payload, dict):
         return jsonify({"ok": False, "error": "Invalid JSON body"}), 400
@@ -1211,6 +1223,8 @@ def start_device_auth():
 
 @app.post("/api/auth/device/complete")
 def complete_device_auth():
+    if not _require_auth():
+        return jsonify({"ok": False, "error": "Unauthorized"}), 401
     flow = _load_device_flow()
     if not flow:
         return jsonify({"ok": False, "error": "No active device flow. Start authorization first."}), 400
@@ -1272,6 +1286,8 @@ def list_cached_managed_repos():
 
 @app.post("/api/repos/adopt")
 def adopt_repo():
+    if not _require_auth():
+        return jsonify({"ok": False, "error": "Unauthorized"}), 401
     payload = request.get_json(silent=True)
     if payload is not None and not isinstance(payload, dict):
         return jsonify({"ok": False, "error": "Invalid JSON body"}), 400
@@ -1327,6 +1343,8 @@ def adopt_repo():
 
 @app.post("/api/repos/create")
 def create_repo():
+    if not _require_auth():
+        return jsonify({"ok": False, "error": "Unauthorized"}), 401
     payload = request.get_json(silent=True)
     if not isinstance(payload, dict):
         return jsonify({"ok": False, "error": "Invalid JSON body"}), 400
@@ -1402,6 +1420,8 @@ def create_repo():
 
 @app.post("/api/sync")
 def trigger_sync():
+    if not _require_auth():
+        return jsonify({"ok": False, "error": "Unauthorized"}), 401
     options = _merge_options()
     sync_config = _sync_config(options)
 
@@ -1521,6 +1541,8 @@ def trigger_sync():
 
 @app.post("/api/sync/cancel")
 def cancel_sync():
+    if not _require_auth():
+        return jsonify({"ok": False, "error": "Unauthorized"}), 401
     _set_cancel_requested(True)
     _append_log("Cancel requested for current sync/upload")
     return jsonify({"ok": True, "cancel_sync": True})
@@ -1528,6 +1550,8 @@ def cancel_sync():
 
 @app.post("/api/sync/clean")
 def trigger_clean_sync():
+    if not _require_auth():
+        return jsonify({"ok": False, "error": "Unauthorized"}), 401
     options = _merge_options()
     sync_config = _sync_config(options)
     if not sync_config.repository:
@@ -1653,6 +1677,8 @@ def trigger_clean_sync():
 
 @app.post("/api/sync/clean-repo")
 def trigger_clean_repo():
+    if not _require_auth():
+        return jsonify({"ok": False, "error": "Unauthorized"}), 401
     options = _merge_options()
     sync_config = _sync_config(options)
 
