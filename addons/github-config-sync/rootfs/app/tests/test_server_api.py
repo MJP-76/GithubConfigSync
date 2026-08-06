@@ -799,7 +799,6 @@ class AuthBehaviorTests(unittest.TestCase):
         self._write_options({"github_token": "secret-token"})
         for endpoint in (
             "/api/options",
-            "/api/status",
             "/api/repos",
             "/api/repos/managed",
             "/api/repos/cached",

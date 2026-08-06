@@ -1199,8 +1199,6 @@ def set_options():
 
 @app.get("/api/status")
 def get_status():
-    if not _require_auth():
-        return jsonify({"ok": False, "error": "Unauthorized"}), 401
     state = _load_state()
     options = _merge_options()
     return jsonify(
