@@ -3,14 +3,12 @@
   "name": "Github Config Sync",
   "version": "1.5.4",
   "config_flow": true,
-  "dependencies": [
-    "http"
-  ],
+  "dependencies": [],
   "codeowners": [
     "@MJP-76"
   ],
   "documentation": "https://github.com/MJP-76/GithubConfigSync#readme",
   "issue_tracker": "https://github.com/MJP-76/GithubConfigSync/issues",
-  "iot_class": "cloud_push",
+  "iot_class": "local_push",
   "requirements": []
 }
