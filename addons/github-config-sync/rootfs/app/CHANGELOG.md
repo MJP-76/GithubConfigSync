@@ -2,6 +2,10 @@
 
 ## Latest Releases
 
+## 1.5.17
+
+- **Fix**: `/api/status` is public (no auth) — returns version info so versions display on UI load before authentication
+
 ## 1.5.16
 
 - **Fix**: `/api/status` is now public (no auth required) — returns version info, repo versions, and token_health so versions display before user authenticates
