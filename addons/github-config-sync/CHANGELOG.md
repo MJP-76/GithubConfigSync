@@ -2,6 +2,10 @@
 
 ## Latest Releases
 
+## 1.5.8
+
+- **Fix**: Token from device flow now synced to Supervisor — persists across add-on restarts and UI navigation
+
 ## 1.5.7
 
 - **Fix**: Device flow endpoints (`/api/auth/device*`) no longer require authentication — they bootstrap the GitHub token (regression in 1.5.6 where device login was broken)
