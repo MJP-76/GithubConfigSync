@@ -2,6 +2,12 @@
 
 ## Latest Releases
 
+## 1.5.12
+
+- **Fix**: Token health check cache key uses hash(token) to avoid issues with short tokens
+- **Fix**: Improved rate limit detection in token health check — checks for multiple keywords (rate limit, secondary rate limit, abuse detection, x-ratelimit-remaining, x-ratelimit-reset) in error body
+- **Fix**: Added warning log for failed token health checks to aid debugging
+
 ## 1.5.11
 
 - **Fix**: Token health check now caches results (5 min valid / 30s errors), distinguishes rate limits from auth failures, and returns a `rate_limited` state instead of collapsing into `expired`
