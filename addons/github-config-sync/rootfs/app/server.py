@@ -157,7 +157,7 @@ def _repo_sync_config(options: dict[str, Any], repository: str) -> SyncConfig:
         include_share=bool(options.get("include_share", False)),
         include_ssl=bool(options.get("include_ssl", False)),
         include_backups=bool(options.get("include_backups", False)),
-        include_www=bool(options.get("include_www", True)),
+        include_www=bool(options.get("include_www", False)),
         include_addon_configs=bool(options.get("include_addon_configs", False)),
         sync_mode=str(options.get("sync_mode", "whitelist")),
     )
@@ -579,7 +579,7 @@ def _sync_config(options: dict[str, Any]) -> SyncConfig:
         include_share=bool(options.get("include_share", False)),
         include_ssl=bool(options.get("include_ssl", False)),
         include_backups=bool(options.get("include_backups", False)),
-        include_www=bool(options.get("include_www", True)),
+        include_www=bool(options.get("include_www", False)),
         include_addon_configs=bool(options.get("include_addon_configs", False)),
         sync_mode=str(options.get("sync_mode", "whitelist")),
     )
@@ -776,7 +776,7 @@ class _SyncScheduler:
                 include_share=bool(options.get("include_share", False)),
                 include_ssl=bool(options.get("include_ssl", False)),
                 include_backups=bool(options.get("include_backups", False)),
-                include_www=bool(options.get("include_www", True)),
+                include_www=bool(options.get("include_www", False)),
                 include_addon_configs=bool(options.get("include_addon_configs", False)),
                 sync_mode=str(options.get("sync_mode", "whitelist")),
             )
@@ -1381,7 +1381,7 @@ def create_repo():
                 include_share=bool(options.get("include_share", False)),
                 include_ssl=bool(options.get("include_ssl", False)),
                 include_backups=bool(options.get("include_backups", False)),
-                include_www=bool(options.get("include_www", True)),
+                include_www=bool(options.get("include_www", False)),
                 include_addon_configs=bool(options.get("include_addon_configs", False)),
                 sync_mode=str(options.get("sync_mode", "whitelist")),
             ),

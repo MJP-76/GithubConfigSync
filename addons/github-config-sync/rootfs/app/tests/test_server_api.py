@@ -713,6 +713,31 @@ class ServerApiTests(unittest.TestCase):
         self.assertIn("gho_persisted", server.SUPERVISOR_OPTIONS_PATH.read_text(encoding="utf-8"))
         self.assertIn("gho_persisted", server.WEBUI_OPTIONS_PATH.read_text(encoding="utf-8"))
 
+    def test_all_include_flags_default_to_false_when_keys_missing(self) -> None:
+        self._write_options(
+            {
+                "github_repository": "owner/repo",
+                "github_branch": "main",
+                "github_token": "token",
+                "dry_run": True,
+            }
+        )
+
+        sync_config = server._sync_config(server._merge_options())
+
+        for flag in (
+            "include_www",
+            "include_media",
+            "include_share",
+            "include_ssl",
+            "include_backups",
+            "include_addon_configs",
+        ):
+            self.assertFalse(
+                getattr(sync_config, flag),
+                f"{flag} must default to false unless explicitly selected",
+            )
+
 
 if __name__ == "__main__":
     unittest.main()
