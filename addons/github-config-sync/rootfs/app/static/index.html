@@ -468,16 +468,8 @@
             </div>
           </div>
         </details>
-        <details id="mountPointsSection" style="margin-top: 12px">
-          <summary style="cursor: pointer; color: var(--muted)">5. Mount points to sync</summary>
-          <div class="grid" style="margin-top: 10px">
-            <label><input id="includeAddonConfigs" type="checkbox" /> Include /addon_configs</label>
-            <label><input id="includeMedia" type="checkbox" /> Include /media</label>
-            <label><input id="includeShare" type="checkbox" /> Include /share</label>
-            <label><input id="includeSsl" type="checkbox" /> Include /ssl</label>
-            <label><input id="includeBackups" type="checkbox" /> Include /backup or /backups</label>
-            <label><input id="includeWww" type="checkbox" /> Include /www</label>
-          </div>
+        <details id="syncModeSection" style="margin-top: 12px">
+          <summary style="cursor: pointer; color: var(--muted)">5. Sync mode</summary>
           <div style="margin-top: 10px;">
             <label style="display: flex; align-items: center; gap: 8px;">
               <span>Sync mode:</span>
@@ -492,8 +484,19 @@
             </p>
           </div>
         </details>
+        <details id="mountPointsSection" style="margin-top: 12px">
+          <summary style="cursor: pointer; color: var(--muted)">6. Mount points to sync</summary>
+          <div class="grid" style="margin-top: 10px">
+            <label><input id="includeAddonConfigs" type="checkbox" /> Include /addon_configs</label>
+            <label><input id="includeMedia" type="checkbox" /> Include /media</label>
+            <label><input id="includeShare" type="checkbox" /> Include /share</label>
+            <label><input id="includeSsl" type="checkbox" /> Include /ssl</label>
+            <label><input id="includeBackups" type="checkbox" /> Include /backup or /backups</label>
+            <label><input id="includeWww" type="checkbox" /> Include /www</label>
+          </div>
+        </details>
         <details id="gitignoreSection" style="margin-top: 12px">
-          <summary style="cursor: pointer; color: var(--muted)">6. Recommended .gitignore entries</summary>
+          <summary style="cursor: pointer; color: var(--muted)">7. Recommended .gitignore entries</summary>
           <p class="subtle" style="margin-bottom: 10px">
             These are safe defaults for Home Assistant. They are read from your local .gitignore and can be added with one click.
           </p>
@@ -513,7 +516,7 @@
           </div>
         </details>
         <details id="dryRunSection" style="margin-top: 12px">
-          <summary style="cursor: pointer; color: var(--muted)">7. Dry run mode (no push)</summary>
+          <summary style="cursor: pointer; color: var(--muted)">8. Dry run mode (no push)</summary>
           <div style="margin-top: 10px; padding: 10px; border: 1px solid var(--border); border-radius: 6px;">
             <div class="row">
               <input id="dryRun" type="checkbox" />
