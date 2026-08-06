@@ -6,7 +6,7 @@ Single source of truth for project status, architecture, security, and workflow.
 
 ## Current Status
 
-- **Version:** `1.5.4`
+- **Version:** `1.5.5`
 - **Last updated:** 2026-08-06
 - **Repo:** `MJP-76/GithubConfigSync` (single repo, `main` = stable, `dev` = development)
 - **Add-on path:** `addons/github-config-sync/`
@@ -163,6 +163,14 @@ Home Assistant add-on with ingress web UI. Runs a Flask server that handles:
 - UI restructured: Installation and Usage card with collapsible sub-sections
 - Safety & Security Recommendations section
 - Diagnostics collapsible card
+
+### v1.5.5 — Security & Hardening Release
+
+- Sensitive file scanning now actually blocks uploads (was report-only)
+- Auth guard on all POST endpoints (ingress token or github_token Bearer)
+- Path safety via is_relative_to; retry on transient 5xx; pinned base image
+- Legacy custom_components stripped to redirect-only
+- Removed dead code (_require_ingress, _delete_remote_tree_except)
 
 ### v1.5.0–v1.5.4 — Security Hardening & Token Sync Fix
 

@@ -2,6 +2,20 @@
 
 ## Latest Releases
 
+## 1.5.5
+
+- **Security fix**: Sensitive file scanning now actually blocks uploads (was previously report-only after sync)
+- Added is_sensitive_candidate() name-pattern check to is_ignored() in build_hash_index
+- Added content scanning (_is_file_sensitive) to build_hash_index to detect embedded secrets in file contents
+- Fixed misleading SECURITY_UPLOAD_WARNINGS.md message (now accurate since files are actually skipped)
+- Removed dead code: _require_ingress decorator and SyncEngine._delete_remote_tree_except
+- Added _require_auth guard on all POST endpoints (ingress token or configured github_token Bearer)
+- Path safety checks now use is_relative_to instead of string prefix matching
+- Retry with exponential backoff on transient GitHub 5xx errors (500/502/503/504)
+- Pinned base image to ghcr.io/home-assistant/base:3.24-2026.06.1 (reproducible builds)
+- Version read failure now logs a warning instead of silently falling back to 0.0.0
+- Legacy custom_components stripped to redirect-only (no parallel sync implementation)
+
 ## 1.5.4
 
 - **Security fix**: Sensitive file scanning now actually blocks uploads (was previously report-only after sync)
