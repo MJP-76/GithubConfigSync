@@ -2,5 +2,5 @@
   "name": "Github Config Sync",
   "render_readme": true,
   "homeassistant": "2024.1.0",
-  "version": "1.5.13"
+  "version": "1.5.14"
 }

@@ -2,6 +2,11 @@
 
 ## Latest Releases
 
+## 1.5.14
+
+- **Fix**: Re-added Supervisor option sync with graceful error handling — token now synced to Supervisor config store after device flow completion and settings update, surviving add-on restarts
+- **Fix**: Graceful Supervisor API error handling (logs warning on 403/other errors, doesn't crash)
+
 ## 1.5.13
 
 - **Fix**: Token health check cache key now uses stable SHA256 (not Python's randomized hash()) — cache now persists across restarts, stopping 2s polling from hitting GitHub rate limits after the first successful check
