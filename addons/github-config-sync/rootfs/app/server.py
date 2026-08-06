@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import datetime as dt
+import hashlib
 import json
 import logging
 import os
@@ -484,8 +485,8 @@ def _token_health(options: dict[str, Any]) -> dict[str, Any]:
     if not token:
         return {"state": "missing", "message": "No token saved"}
 
-    # Check cache first (5 minute TTL for valid, 30s for errors)
-    cache_key = f"_token_health_cache_{hash(token)}"
+    # Stable cache key using SHA256 (not Python's randomized hash())
+    cache_key = f"_token_health_cache_{hashlib.sha256(token.encode()).hexdigest()[:16]}"
     cached = _load_state().get(cache_key)
     if cached and time.time() - cached.get("timestamp", 0) < 300:
         logging.getLogger(__name__).debug("Token health cache hit: %s", cached["result"]["state"])
@@ -515,8 +516,12 @@ def _token_health(options: dict[str, Any]) -> dict[str, Any]:
         else:
             result = {"state": "error", "message": message}
         # Cache the negative result for 30 seconds to avoid hammering on repeated failures
-        _save_state({f"_token_health_cache_{hash(token)}": {"timestamp": time.time(), "result": result}})
+        _save_state({f"_token_health_cache_{hashlib.sha256(token.encode()).hexdigest()[:16]}": {"timestamp": time.time(), "result": result}})
         return result
+
+    result = {"state": "valid", "message": "GitHub accepted the token"}
+    _save_state({f"_token_health_cache_{hashlib.sha256(token.encode()).hexdigest()[:16]}": {"timestamp": time.time(), "result": result}})
+    return result
 
     result = {"state": "valid", "message": "GitHub accepted the token"}
     _save_state({f"_token_health_cache_{hash(token)}": {"timestamp": time.time(), "result": result}})
