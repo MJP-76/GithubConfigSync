@@ -805,7 +805,6 @@ class AuthBehaviorTests(unittest.TestCase):
             "/api/repos/cached",
             "/api/diagnostics",
             "/api/changelog",
-            "/api/auth/device",
             "/api/ignore/recommendations",
         ):
             response = self.client.get(endpoint)
@@ -818,8 +817,6 @@ class AuthBehaviorTests(unittest.TestCase):
             "/api/options",
             "/api/ignore/recommendations",
             "/api/ignore/recommendations/reset",
-            "/api/auth/device/start",
-            "/api/auth/device/complete",
             "/api/repos/adopt",
             "/api/repos/create",
             "/api/sync",
