@@ -7,6 +7,7 @@ import os
 import re
 import socket
 import threading
+import time
 from pathlib import Path
 from typing import Any
 from urllib.parse import quote
@@ -482,6 +483,13 @@ def _token_health(options: dict[str, Any]) -> dict[str, Any]:
     token = str(options.get("github_token", "")).strip()
     if not token:
         return {"state": "missing", "message": "No token saved"}
+
+    # Check cache first (5 minute TTL)
+    cache_key = f"_token_health_cache_{token[:8]}"
+    cached = _load_state().get(cache_key)
+    if cached and time.time() - cached.get("timestamp", 0) < 300:
+        return cached["result"]
+
     client = GitHubClient(
         repository=str(options.get("github_repository", "")).strip(),
         branch=str(options.get("github_branch", "main")).strip() or "main",
@@ -491,10 +499,23 @@ def _token_health(options: dict[str, Any]) -> dict[str, Any]:
         client._request_json("GET", "https://api.github.com/user")  # pylint: disable=protected-access
     except SyncError as err:
         message = str(err)
-        if "HTTP 401" in message or "HTTP 403" in message:
-            return {"state": "expired", "message": "GitHub rejected the token"}
-        return {"state": "error", "message": message}
-    return {"state": "valid", "message": "GitHub accepted the token"}
+        # Distinguish rate limit (403 with rate limit context) from auth failure
+        if "HTTP 401" in message:
+            result = {"state": "expired", "message": "GitHub rejected the token"}
+        elif "HTTP 403" in message and ("rate limit" in message.lower() or "rate limit" in message.lower()):
+            result = {"state": "rate_limited", "message": "GitHub rate limit exceeded"}
+        elif "HTTP 403" in message:
+            # 403 could be rate limit (if body mentions it) or other forbidden
+            result = {"state": "rate_limited", "message": "GitHub rate limit likely exceeded"}
+        else:
+            result = {"state": "error", "message": message}
+        # Cache the negative result for 30 seconds to avoid hammering on repeated failures
+        _save_state({cache_key: {"timestamp": time.time(), "result": result}})
+        return result
+
+    result = {"state": "valid", "message": "GitHub accepted the token"}
+    _save_state({cache_key: {"timestamp": time.time(), "result": result}})
+    return result
 
 
 def _sanitized_log_tail(limit: int = 4000) -> str:

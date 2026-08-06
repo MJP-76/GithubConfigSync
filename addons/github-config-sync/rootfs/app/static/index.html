@@ -742,17 +742,22 @@
       function updateTokenBadge(tokenHealth) {
         const state = (tokenHealth && tokenHealth.state) || "missing";
         const isGood = state === "valid" || state === "configured";
+        const isRateLimited = state === "rate_limited";
         const isChecking = state === "checking";
         const label =
           state === "valid"
             ? "Token saved"
             : state === "checking"
               ? "Checking token..."
-              : state === "expired"
-                ? "Token expired"
-                : "Token missing";
+              : state === "rate_limited"
+                ? "Rate limited"
+                : state === "expired"
+                  ? "Token expired"
+                  : "Token missing";
         el.tokenBadge.textContent = label;
-        el.tokenBadge.className = `status ${isChecking ? "" : isGood ? "ok" : "err"}`.trim();
+        // rate_limited is neutral (not good, not expired) - show as warning
+        const isBad = state === "expired" || state === "missing" || state === "error";
+        el.tokenBadge.className = `status ${isChecking ? "" : isGood ? "ok" : isRateLimited ? "warn" : "err"}`.trim();
       }
 
       function updateRepoBadge(repo) {
@@ -763,8 +768,10 @@
 
       function collapseResolvedSections() {
         const tokenOk = el.tokenBadge.classList.contains("ok");
+        const isRateLimited = el.tokenBadge.classList.contains("warn");
         const repoOk = el.repoBadge.classList.contains("ok");
-        el.authSection.open = !tokenOk;
+        // Only auto-collapse auth section if token is genuinely OK (not rate limited)
+        el.authSection.open = !tokenOk || isRateLimited;
         el.repoSection.open = !repoOk;
         el.targetRepoSection.open = !repoOk;
 
@@ -1064,9 +1071,20 @@
         if (statusPollTimer) {
           return;
         }
-        statusPollTimer = window.setInterval(() => {
+        function tick() {
+          // Pause polling when the page/iframe is not visible (e.g., user switched tabs/ingress panels)
+          if (document.visibilityState === "hidden") {
+            return;
+          }
           loadStatus().catch(() => {});
-        }, 2000);
+        }
+        statusPollTimer = window.setInterval(tick, 2000);
+        // Also re-check immediately when visibility changes back to visible
+        document.addEventListener("visibilitychange", () => {
+          if (document.visibilityState === "visible") {
+            loadStatus().catch(() => {});
+          }
+        });
       }
 
       async function loadIgnoreRecommendations() {
