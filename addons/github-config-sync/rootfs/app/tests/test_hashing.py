@@ -10,7 +10,7 @@ APP_ROOT = Path(__file__).resolve().parents[1]
 if str(APP_ROOT) not in sys.path:
     sys.path.insert(0, str(APP_ROOT))
 
-from sync.hashing import build_hash_index, diff_hash_indexes, _is_file_sensitive
+from sync.hashing import build_hash_index, diff_hash_indexes, _is_file_sensitive, scan_sensitive_files
 
 CONST_PATH = Path(__file__).resolve().parents[5] / "custom_components/github_config_sync/const.py"
 CONST_SPEC = importlib.util.spec_from_file_location("github_config_sync_const", CONST_PATH)
@@ -99,6 +99,42 @@ class HashingTests(unittest.TestCase):
 
             self.assertTrue(_is_file_sensitive(root, sensitive))
             self.assertFalse(_is_file_sensitive(root, safe))
+
+    def test_ignore_patterns_match_case_insensitively(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "HOME-ASSISTANT.LOG").write_text("log", encoding="utf-8")
+            (root / "Database.DB").write_bytes(b"data")
+            (root / "safe.yaml").write_text("value: 1", encoding="utf-8")
+
+            index = build_hash_index(root)
+
+            self.assertNotIn("HOME-ASSISTANT.LOG", index)
+            self.assertNotIn("Database.DB", index)
+            self.assertIn("safe.yaml", index)
+
+    def test_scan_sensitive_files_skips_hard_ignored_files(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "big.db").write_text("password=secret123", encoding="utf-8")
+            (root / "token.txt").write_text("abc", encoding="utf-8")
+            (root / "safe.yaml").write_text("value: 1", encoding="utf-8")
+
+            flagged = scan_sensitive_files(root)
+
+            self.assertNotIn("big.db", flagged)
+            self.assertIn("token.txt", flagged)
+            self.assertNotIn("safe.yaml", flagged)
+
+    def test_scan_sensitive_files_bounds_content_read(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            path = root / "notes.txt"
+            path.write_text("a" * (2 * 1024 * 1024) + "bearer ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz", encoding="utf-8")
+
+            flagged = scan_sensitive_files(root)
+
+            self.assertEqual(flagged, [])
 
     def test_default_ignore_patterns_cover_common_home_assistant_files(self) -> None:
         self.assertIn("secrets.yaml", DEFAULT_IGNORE_PATTERNS)

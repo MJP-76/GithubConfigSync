@@ -64,22 +64,43 @@ SENSITIVE_CONTENT_PATTERNS = (
     re.compile(r"(?i)\bsk-[A-Za-z0-9]{20,}"),
 )
 
+MAX_CONTENT_SCAN_BYTES = 2 * 1024 * 1024
 
-def is_ignored(relative_path: str) -> bool:
+
+def _is_hard_ignored(relative_path: str) -> bool:
+    """Ignore based on ignore dirs/patterns/sensitive substrings only.
+
+    Deliberately excludes is_sensitive_candidate() so that files caught by
+    the name-pattern scan still appear in the sensitive-file warning list.
+    """
     normalized = relative_path.replace("\\", "/").lower()
     if any(part in IGNORE_DIRS for part in Path(relative_path).parts):
         return True
     if any(pattern in normalized for pattern in SENSITIVE_PATTERNS):
         return True
-    if is_sensitive_candidate(relative_path):
+    return any(fnmatch.fnmatch(normalized, pattern) for pattern in IGNORE_PATTERNS)
+
+
+def is_ignored(relative_path: str) -> bool:
+    if _is_hard_ignored(relative_path):
         return True
-    return any(fnmatch.fnmatch(relative_path, pattern) for pattern in IGNORE_PATTERNS)
+    return is_sensitive_candidate(relative_path)
 
 
 def is_sensitive_candidate(relative_path: str) -> bool:
     normalized = relative_path.replace("\\", "/")
     name = Path(relative_path).name
     return any(pattern.search(normalized) or pattern.search(name) for pattern in SENSITIVE_NAME_PATTERNS)
+
+
+def _file_contains_sensitive_content(path: Path) -> bool:
+    try:
+        with path.open("rb") as handle:
+            sample = handle.read(MAX_CONTENT_SCAN_BYTES)
+    except OSError:
+        return False
+    text = sample.decode("utf-8", errors="ignore")
+    return any(pattern.search(text) for pattern in SENSITIVE_CONTENT_PATTERNS)
 
 
 def scan_sensitive_files(root: Path) -> list[str]:
@@ -90,14 +111,12 @@ def scan_sensitive_files(root: Path) -> list[str]:
         if not path.is_file():
             continue
         relative = path.relative_to(root).as_posix()
+        if _is_hard_ignored(relative):
+            continue
         reasons = []
         if is_sensitive_candidate(relative):
             reasons.append("name")
-        try:
-            text = path.read_text(encoding="utf-8", errors="ignore")
-        except OSError:
-            text = ""
-        if text and any(pattern.search(text) for pattern in SENSITIVE_CONTENT_PATTERNS):
+        if _file_contains_sensitive_content(path):
             reasons.append("content")
         if reasons:
             flagged.append(relative)
@@ -105,19 +124,11 @@ def scan_sensitive_files(root: Path) -> list[str]:
 
 
 def _is_file_sensitive(root: Path, path: Path) -> bool:
-    """Check if a file should be excluded based on content scanning."""
+    """Check if a file should be excluded from upload."""
     relative = path.relative_to(root).as_posix()
     if is_ignored(relative):
         return True
-    if is_sensitive_candidate(relative):
-        return True
-    try:
-        text = path.read_text(encoding="utf-8", errors="ignore")
-    except OSError:
-        text = ""
-    if text and any(pattern.search(text) for pattern in SENSITIVE_CONTENT_PATTERNS):
-        return True
-    return False
+    return _file_contains_sensitive_content(path)
 
 
 def sha256_file(path: Path) -> str:
