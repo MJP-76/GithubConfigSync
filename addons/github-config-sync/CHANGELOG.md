@@ -2,6 +2,44 @@
 
 ## Latest Releases
 
+## 1.5.3
+
+- Added SHA conflict retry with exponential backoff (up to 3 attempts) for GitHub API push operations
+- Token sync: HA config flow now writes github_token to webui_options.json so add-on reads it
+- Version auto-read from config.yaml via regex — single source of truth
+- Added core.config_entries and .env to built-in ignore patterns
+- Fixed CI badge to point to validate.yml for repos without ci.yml
+
+## 1.5.2
+
+- Security hardening: all include_* options (include_ssl, include_addon_configs, include_media, include_share, include_backups, include_www) now default to false
+- Added include_ssl and include_addon_configs to IGNORE_DIRS
+- Moved sync mode into its own section in web UI between scheduled sync and mount points
+- Added Reset to Defaults button for .gitignore patterns
+
+## 1.5.1
+
+- All settings moved to web UI (config page only has github_repository/branch/token)
+- Removed sync_interval, folder selection, dry_run, version_retention, and sync_mode from config.yaml options
+- Kept optional schema entries for backward compatibility
+- Dry run mode now default ON
+- Web UI checkboxes all default unchecked
+
+## 1.5.0
+
+- Feature: whitelist/blacklist sync mode selection
+- Feature: optional include_* directory flags for fine-grained sync control
+- Restructured config.yaml: only github_repository/branch/token in options
+- Added _repo_sync_config and _sync_config updates for new fields
+- Updated all SyncConfig creation sites with new defaults
+
+## 1.4.2
+
+- Security fix: removed token from URL query params, use Authorization header only
+- Fixed add-on marker file path for non-root config dirs
+- Updated web UI to use Bearer token auth header
+- Added safety check: refuse to sync if token is empty
+
 ## 1.4.1
 
 - Moved Scheduled sync, Mount points, .gitignore, and Dry run into Installation and Usage card as numbered sub-sections 4–7

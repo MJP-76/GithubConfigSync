@@ -1,12 +1,10 @@
 from __future__ import annotations
 
 import datetime as dt
-import json
-from pathlib import Path
+from typing import Any
 
-from aiohttp import web
 import voluptuous as vol
-
+from aiohttp import web
 from homeassistant import config_entries
 from homeassistant.components.http import HomeAssistantView
 
@@ -26,7 +24,7 @@ from .const import (
     GITHUB_OAUTH_CLIENT_ID,
 )
 
-WEBUI_OPTIONS_PATH = Path("/data/webui_options.json")
+ADDON_SLUG = "github_config_sync_web"
 
 DEFAULT_REPOSITORY_NAME = "ha-config"
 AUTH_VIEW_KEY = "auth_view_registered"
@@ -153,20 +151,28 @@ class GitHubConfigSyncFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                 else {}
             ),
         }
-        _sync_token_to_addon(self._token)
+        if self._token:
+            _sync_token_to_addon(self.hass, self._token)
         return entry_data
 
 
-def _sync_token_to_addon(token: str) -> None:
-    """Sync GitHub token to add-on's webui_options.json."""
-    try:
-        options = {}
-        if WEBUI_OPTIONS_PATH.exists():
-            options = json.loads(WEBUI_OPTIONS_PATH.read_text())
-        options["github_token"] = token
-        WEBUI_OPTIONS_PATH.write_text(json.dumps(options, indent=2))
-    except Exception:
-        pass
+def _sync_token_to_addon(hass: Any, token: str) -> None:
+    """Sync GitHub token to add-on's options via Supervisor API.
+
+    Uses the Supervisor REST API to update the add-on's options.json,
+    which persists the token for the add-on container.
+    """
+
+    async def _do_sync() -> None:
+        try:
+            addon_info = await hass.hassio.addon_info(ADDON_SLUG)
+            current_options = dict(addon_info.get("data", {}).get("options", {}))
+            current_options["github_token"] = token
+            await hass.hassio.addon_options(ADDON_SLUG, current_options)
+        except Exception:
+            pass
+
+    hass.async_create_task(_do_sync())
 
 
 def _is_valid_hh_mm(value: str) -> bool:
