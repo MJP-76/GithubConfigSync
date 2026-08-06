@@ -460,7 +460,7 @@ class SyncEngine:
         allowed_prefixes = tuple(
             root.resolve() for _, root in self._root_map if root.exists()
         )
-        if not any(str(resolved).startswith(str(p)) for p in allowed_prefixes):
+        if not any(resolved.is_relative_to(p) for p in allowed_prefixes):
             raise SyncError(f"Path escapes allowed sync roots: {relative}")
         return candidate
 
