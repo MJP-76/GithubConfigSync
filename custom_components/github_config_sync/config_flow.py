@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import datetime as dt
+import json
+from pathlib import Path
 
 from aiohttp import web
 import voluptuous as vol
@@ -23,6 +25,8 @@ from .const import (
     DOMAIN,
     GITHUB_OAUTH_CLIENT_ID,
 )
+
+WEBUI_OPTIONS_PATH = Path("/data/webui_options.json")
 
 DEFAULT_REPOSITORY_NAME = "ha-config"
 AUTH_VIEW_KEY = "auth_view_registered"
@@ -132,7 +136,7 @@ class GitHubConfigSyncFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         )
 
     def _build_entry_data(self, repository: str) -> dict[str, object]:
-        return {
+        entry_data = {
             CONF_GITHUB_TOKEN: self._token,
             CONF_REPOSITORY: repository,
             CONF_BACKUP_INTERVAL_HOURS: self._interval_hours,
@@ -149,6 +153,20 @@ class GitHubConfigSyncFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                 else {}
             ),
         }
+        _sync_token_to_addon(self._token)
+        return entry_data
+
+
+def _sync_token_to_addon(token: str) -> None:
+    """Sync GitHub token to add-on's webui_options.json."""
+    try:
+        options = {}
+        if WEBUI_OPTIONS_PATH.exists():
+            options = json.loads(WEBUI_OPTIONS_PATH.read_text())
+        options["github_token"] = token
+        WEBUI_OPTIONS_PATH.write_text(json.dumps(options, indent=2))
+    except Exception:
+        pass
 
 
 def _is_valid_hh_mm(value: str) -> bool:
