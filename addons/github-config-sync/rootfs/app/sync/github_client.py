@@ -301,6 +301,17 @@ class GitHubClient:
                     )
                     time.sleep(retry_after)
                     continue
+                if err.code in (500, 502, 503, 504) and attempt < max_retries - 1:
+                    wait = min(2 ** attempt, 8)
+                    _LOGGER.warning(
+                        "GitHub transient error HTTP %d (attempt %d/%d), retrying in %ds",
+                        err.code,
+                        attempt + 1,
+                        max_retries,
+                        wait,
+                    )
+                    time.sleep(wait)
+                    continue
                 raise SyncError(f"GitHub API error HTTP {err.code} for {method} {url}: {body}") from err
             except urllib.error.URLError as err:
                 raise SyncError(f"GitHub API request failed for {method} {url}: {err.reason}") from err

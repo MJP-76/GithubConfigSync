@@ -255,27 +255,6 @@ class SyncEngine:
             deletions.append({"path": item_path, "mode": "100644", "type": "blob", "sha": None})
         return deletions
 
-    def _delete_remote_tree_except(self, root: str, excluded_names: set[str]) -> None:
-        for item in self._github.list_directory_contents(root):
-            item_type = item.get("type")
-            item_name = item.get("name")
-            item_path = item.get("path")
-            if not isinstance(item_name, str) or not isinstance(item_path, str):
-                continue
-            if root == "" and item_name in excluded_names:
-                continue
-            if item_type == "dir":
-                self._delete_remote_tree_except(item_path, excluded_names)
-                continue
-            sha = item.get("sha")
-            if not isinstance(sha, str):
-                continue
-            self._github.delete_content(
-                path=item_path,
-                sha=sha,
-                message=f"sync: delete {item_path}",
-            )
-
     def _apply_upserts(self, upsert_paths: list[str], removed_paths: list[str]) -> tuple[int, int, bool]:
         if not upsert_paths:
             return 0, 0, False

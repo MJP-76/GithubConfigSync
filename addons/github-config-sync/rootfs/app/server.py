@@ -26,8 +26,11 @@ def _read_addon_version() -> str:
             match = re.search(r'^version:\s*["\']?([^"\']+)["\']?\s*$', text, re.MULTILINE)
             if match:
                 return match.group(1).strip()
-        except Exception:
-            pass
+        except Exception as err:
+            logging.getLogger(__name__).warning("Could not read version from %s: %s", candidate, err)
+    logging.getLogger(__name__).warning(
+        "Could not determine add-on version from config.yaml, falling back to 0.0.0"
+    )
     return "0.0.0"
 
 

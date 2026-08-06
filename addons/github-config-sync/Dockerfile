@@ -1,4 +1,4 @@
-ARG BUILD_FROM=ghcr.io/home-assistant/base:latest
+ARG BUILD_FROM=ghcr.io/home-assistant/base:3.24-2026.06.1
 FROM ${BUILD_FROM}
 
 WORKDIR /app
