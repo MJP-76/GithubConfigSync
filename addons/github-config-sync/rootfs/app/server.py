@@ -484,10 +484,11 @@ def _token_health(options: dict[str, Any]) -> dict[str, Any]:
     if not token:
         return {"state": "missing", "message": "No token saved"}
 
-    # Check cache first (5 minute TTL)
-    cache_key = f"_token_health_cache_{token[:8]}"
+    # Check cache first (5 minute TTL for valid, 30s for errors)
+    cache_key = f"_token_health_cache_{hash(token)}"
     cached = _load_state().get(cache_key)
     if cached and time.time() - cached.get("timestamp", 0) < 300:
+        logging.getLogger(__name__).debug("Token health cache hit: %s", cached["result"]["state"])
         return cached["result"]
 
     client = GitHubClient(
@@ -499,19 +500,27 @@ def _token_health(options: dict[str, Any]) -> dict[str, Any]:
         client._request_json("GET", "https://api.github.com/user")  # pylint: disable=protected-access
     except SyncError as err:
         message = str(err)
+        logger = logging.getLogger(__name__)
+        logger.warning("Token health check failed: %s", message)
         # Distinguish rate limit (403 with rate limit context) from auth failure
         if "HTTP 401" in message:
             result = {"state": "expired", "message": "GitHub rejected the token"}
-        elif "HTTP 403" in message and ("rate limit" in message.lower() or "rate limit" in message.lower()):
-            result = {"state": "rate_limited", "message": "GitHub rate limit exceeded"}
         elif "HTTP 403" in message:
-            # 403 could be rate limit (if body mentions it) or other forbidden
-            result = {"state": "rate_limited", "message": "GitHub rate limit likely exceeded"}
+            # Check if error body mentions rate limit
+            body_lower = message.lower()
+            if any(kw in body_lower for kw in ("rate limit", "secondary rate limit", "abuse detection", "x-ratelimit-remaining", "x-ratelimit-reset")):
+                result = {"state": "rate_limited", "message": "GitHub rate limit exceeded"}
+            else:
+                result = {"state": "rate_limited", "message": "GitHub rate limit likely exceeded"}
         else:
             result = {"state": "error", "message": message}
         # Cache the negative result for 30 seconds to avoid hammering on repeated failures
-        _save_state({cache_key: {"timestamp": time.time(), "result": result}})
+        _save_state({f"_token_health_cache_{hash(token)}": {"timestamp": time.time(), "result": result}})
         return result
+
+    result = {"state": "valid", "message": "GitHub accepted the token"}
+    _save_state({f"_token_health_cache_{hash(token)}": {"timestamp": time.time(), "result": result}})
+    return result
 
     result = {"state": "valid", "message": "GitHub accepted the token"}
     _save_state({cache_key: {"timestamp": time.time(), "result": result}})
