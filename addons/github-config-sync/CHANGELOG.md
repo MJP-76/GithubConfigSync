@@ -2,6 +2,12 @@
 
 ## Latest Releases
 
+## 1.5.7
+
+- **Fix**: Device flow endpoints (`/api/auth/device*`) no longer require authentication — they bootstrap the GitHub token (regression in 1.5.6 where device login was broken)
+- **Fix**: `sync_mode` validation in payload (must be `whitelist` or `blacklist`)
+- **Fix**: Device flow token exchange caps `slow_down` retries at 10 (previously unbounded)
+
 ## 1.5.6
 
 - **Security fix**: API authentication now works. Requests are trusted as ingress-authenticated only when they originate from the Supervisor proxy (peer-address check) — the legacy IngressSession header check, which no Home Assistant version sets, was removed
