@@ -2,6 +2,10 @@
 
 ## Latest Releases
 
+## 1.5.13
+
+- **Fix**: Token health check cache key now uses stable SHA256 (not Python's randomized hash()) — cache now persists across restarts, stopping 2s polling from hitting GitHub rate limits after the first successful check
+
 ## 1.5.12
 
 - **Fix**: Token health check cache key uses hash(token) to avoid issues with short tokens
