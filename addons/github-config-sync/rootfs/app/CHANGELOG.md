@@ -2,6 +2,10 @@
 
 ## Latest Releases
 
+## 1.5.16
+
+- **Fix**: `/api/status` is now public (no auth required) — returns version info, repo versions, and token_health so versions display before user authenticates
+
 ## 1.5.15
 
 - **Fix**: Removed duplicate `_persist_options` function definition (second definition was overwriting the first)
