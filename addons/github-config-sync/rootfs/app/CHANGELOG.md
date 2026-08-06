@@ -2,6 +2,10 @@
 
 ## Latest Releases
 
+## 1.5.10
+
+- **Fix**: Removed failing Supervisor API sync call (403 Forbidden) — token persists via webui_options.json which _merge_options() already reads
+
 ## 1.5.9
 
 - **Debug**: Added detailed logging for Supervisor option sync and ingress auth checks to diagnose token persistence issues
