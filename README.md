@@ -11,10 +11,10 @@ Home Assistant **add-on** for syncing your config folder to GitHub. This is a co
 **Private repositories are strongly recommended.** Use caution with public repos and any two-way sync tools that also write to your Home Assistant config tree — they can cause local config loss or unexpected deletions.
 
 <!-- VERSION:START -->
-- Integration version: `1.5.14`
-- Add-on version: `1.5.14`
+- Integration version: `1.5.15`
+- Add-on version: `1.5.15`
 - Channel: `stable`
-- Release tag: `v1.5.14`
+- Release tag: `v1.5.15`
 <!-- VERSION:END -->
 
 ## Support me

@@ -2,6 +2,11 @@
 
 ## Latest Releases
 
+## 1.5.15
+
+- **Fix**: Removed duplicate `_persist_options` function definition (second definition was overwriting the first)
+- **Fix**: Token now persists across restarts via both Supervisor config store and webui_options.json
+
 ## 1.5.14
 
 - **Fix**: Re-added Supervisor option sync with graceful error handling — token now synced to Supervisor config store after device flow completion and settings update, surviving add-on restarts

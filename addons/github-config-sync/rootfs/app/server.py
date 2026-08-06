@@ -387,11 +387,6 @@ def _persist_options(payload: dict[str, Any]) -> None:
     _save_json(WEBUI_OPTIONS_PATH, payload)
 
 
-def _persist_options(payload: dict[str, Any]) -> None:
-    _save_json(SUPERVISOR_OPTIONS_PATH, payload)
-    _save_json(WEBUI_OPTIONS_PATH, payload)
-
-
 def _sync_options_to_supervisor(payload: dict[str, Any]) -> None:
     """Push options to Supervisor so they persist across add-on restarts."""
     supervisor_token = os.environ.get("SUPERVISOR_TOKEN")
