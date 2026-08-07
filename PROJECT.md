@@ -7,10 +7,10 @@ Single source of truth for project status, architecture, security, and workflow.
 ## Current Status
 
 <!-- VERSION:START -->
-- Integration version: `1.5.18`
-- Add-on version: `1.5.18`
+- Integration version: `1.5.19`
+- Add-on version: `1.5.19`
 - Channel: `stable`
-- Release tag: `v1.5.18`
+- Release tag: `v1.5.19`
 <!-- VERSION:END -->
 - **Last updated:** 2026-08-06
 - **Repo:** `MJP-76/GithubConfigSync` (single repo, `main` = stable, `dev` = development)

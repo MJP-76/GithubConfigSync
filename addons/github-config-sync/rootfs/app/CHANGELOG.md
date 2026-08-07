@@ -2,6 +2,13 @@
 
 ## Latest Releases
 
+## 1.5.19
+
+- **Fix**: `_via_ingress_proxy()` now checks `X-Hass-Source: core.ingress` + private IP FIRST (primary), Supervisor IP fallback — works regardless of Docker networking changes
+- **Fix**: Frontend fetches version from `/api/health` BEFORE Promise.allSettled — version shows instantly, no waiting for GitHub API call in `/api/status`
+- **Fix**: `/api/health` now returns `repo_versions` for early fetch
+- **Fix**: Removed dead code in `_token_health()`, IPv6 support in `_is_private_ip()`, visibility change loads both status + options
+
 ## 1.5.18
 
 - **Fix**: Removed dead code in `_token_health()` (three unreachable return blocks from merge conflict)
