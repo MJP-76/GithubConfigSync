@@ -399,15 +399,20 @@ def _persist_options(payload: dict[str, Any]) -> None:
 
 
 def _sync_options_to_supervisor(payload: dict[str, Any]) -> None:
-    """Push options to Supervisor so they persist across add-on restarts."""
+    """Push options to Supervisor so they persist across add-on restarts.
+
+    Uses the /addons/self/options alias (the documented path for an add-on to
+    update its own options; allowed for any hassio_role) and the documented
+    {"options": ...} payload shape. Requires hassio_api: true in config.yaml so
+    SUPERVISOR_TOKEN is injected into the container.
+    """
     supervisor_token = os.environ.get("SUPERVISOR_TOKEN")
     logger = logging.getLogger(__name__)
     if not supervisor_token:
         logger.debug("SUPERVISOR_TOKEN not set; skipping Supervisor sync")
         return
-    addon_slug = os.environ.get("ADDON_SLUG", "github_config_sync_web")
-    url = f"http://supervisor/addons/{addon_slug}/options"
-    data = json.dumps(payload).encode("utf-8")
+    url = "http://supervisor/addons/self/options"
+    data = json.dumps({"options": payload}).encode("utf-8")
     req = urllib.request.Request(
         url,
         data=data,
@@ -1180,6 +1185,19 @@ def get_options():
     return jsonify(_mask_token(_merge_options()))
 
 
+def _apply_token_update(raw: object, current: Any) -> str:
+    """Accept a token update unless blank or the masked placeholder.
+
+    The web UI never sends the token back (saveOptions omits it), but guard
+    against a future client echoing the masked "********" value from /api/options,
+    which would otherwise overwrite the real saved token.
+    """
+    value = str(raw or "").strip()
+    if not value or value == "********":
+        return str(current or "")
+    return value
+
+
 @app.post("/api/options")
 def set_options():
     if not _require_auth():
@@ -1196,7 +1214,7 @@ def set_options():
         "existing_repo_confirmed_for": str(payload.get("existing_repo_confirmed_for", "")).strip(),
         "github_repository": str(payload.get("github_repository", "")).strip(),
         "github_branch": str(payload.get("github_branch", "main")).strip() or "main",
-        "github_token": str(payload.get("github_token", "")).strip() or _merge_options().get("github_token", ""),
+        "github_token": _apply_token_update(payload.get("github_token"), _merge_options().get("github_token", "")),
         "github_client_id": str(
             payload.get("github_client_id", _merge_options().get("github_client_id", DEFAULT_OAUTH_CLIENT_ID))
         ).strip()

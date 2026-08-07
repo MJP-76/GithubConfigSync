@@ -22,6 +22,7 @@ import server
 class ServerApiTests(unittest.TestCase):
     def setUp(self) -> None:
         os.environ["FLASK_DEBUG"] = "1"
+        self._orig_supervisor_token = os.environ.pop("SUPERVISOR_TOKEN", None)
         self._tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self._tmp.cleanup)
         self._data_dir = Path(self._tmp.name) / "data"
@@ -62,6 +63,8 @@ class ServerApiTests(unittest.TestCase):
         server.MANAGED_REPOS_PATH = self._orig_managed_repos
         server.DEVICE_FLOW_PATH = self._orig_device_flow
         server.CONFIG_ROOT = self._orig_config_root
+        if self._orig_supervisor_token is not None:
+            os.environ["SUPERVISOR_TOKEN"] = self._orig_supervisor_token
 
     def _write_options(self, payload: dict[str, object]) -> None:
         server.WEBUI_OPTIONS_PATH.write_text(json.dumps(payload), encoding="utf-8")
@@ -456,6 +459,70 @@ class ServerApiTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(body["token_health"]["state"], "checking")
 
+    def test_sync_options_to_supervisor_uses_self_endpoint_with_wrapped_payload(self) -> None:
+        captured = {}
+
+        class FakeResponse:
+            status = 200
+
+            def read(self) -> bytes:
+                return b'{"result": "ok"}'
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *exc):
+                return False
+
+        def fake_urlopen(request, timeout=10):
+            captured["url"] = request.full_url
+            captured["method"] = request.get_method()
+            captured["data"] = json.loads(request.data.decode())
+            captured["authorization"] = request.headers.get("Authorization")
+            return FakeResponse()
+
+        os.environ["SUPERVISOR_TOKEN"] = "supervisor-test-token"
+        self.addCleanup(lambda: os.environ.pop("SUPERVISOR_TOKEN", None))
+        with patch("server.urllib.request.urlopen", side_effect=fake_urlopen):
+            server._sync_options_to_supervisor(
+                {"github_repository": "owner/repo", "github_token": "secret-token"}
+            )
+
+        self.assertEqual(captured["url"], "http://supervisor/addons/self/options")
+        self.assertEqual(captured["method"], "POST")
+        self.assertEqual(
+            captured["data"],
+            {"options": {"github_repository": "owner/repo", "github_token": "secret-token"}},
+        )
+        self.assertEqual(captured["authorization"], "Bearer supervisor-test-token")
+
+    def test_set_options_ignores_masked_token_placeholder(self) -> None:
+        self._write_options(
+            {
+                "github_repository": "owner/repo",
+                "github_branch": "main",
+                "github_token": "real-token",
+                "sync_interval_minutes": 60,
+                "dry_run": True,
+            }
+        )
+        response = self.client.post(
+            "/api/options",
+            json={
+                "github_repository": "owner/repo",
+                "github_branch": "main",
+                "github_token": "********",
+                "sync_interval_minutes": 60,
+                "dry_run": True,
+            },
+        )
+        body = response.get_json()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(body["ok"])
+        self.assertEqual(body["options"]["github_token"], "********")
+        self.assertEqual(server._merge_options()["github_token"], "real-token")
+
     def test_diagnostics_bundle_masks_token(self) -> None:
         self._write_options(
             {
@@ -801,6 +868,7 @@ class AuthBehaviorTests(unittest.TestCase):
     def setUp(self) -> None:
         # Clear FLASK_DEBUG to test real auth behavior
         os.environ.pop("FLASK_DEBUG", None)
+        self._orig_supervisor_token = os.environ.pop("SUPERVISOR_TOKEN", None)
         self._tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self._tmp.cleanup)
         self._data_dir = Path(self._tmp.name) / "data"
@@ -841,6 +909,8 @@ class AuthBehaviorTests(unittest.TestCase):
         server.MANAGED_REPOS_PATH = self._orig_managed_repos
         server.DEVICE_FLOW_PATH = self._orig_device_flow
         server.CONFIG_ROOT = self._orig_config_root
+        if self._orig_supervisor_token is not None:
+            os.environ["SUPERVISOR_TOKEN"] = self._orig_supervisor_token
 
     def _write_options(self, payload: dict[str, object]) -> None:
         server.WEBUI_OPTIONS_PATH.write_text(json.dumps(payload), encoding="utf-8")

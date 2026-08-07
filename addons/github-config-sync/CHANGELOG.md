@@ -2,6 +2,12 @@
 
 ## Latest Releases
 
+## 1.5.21
+
+- **Fix**: Options now actually persist across add-on restarts — Supervisor sync POSTs `{"options": ...}` to `/addons/self/options` (self-alias, no slug needed) so it works for any `hassio_role`, fixing the previously wrong slug (`github_config_sync_web`) and unwrapped payload shape
+- **Fix**: `hassio_api: true` added to `config.yaml` so `SUPERVISOR_TOKEN` is injected into the container — without it the Supervisor sync silently skipped and the token was lost on reboot
+- **Fix**: `set_options()` guards against a client echoing the masked `********` token placeholder, so a settings save can never overwrite the real saved token with the mask
+
 ## 1.5.20
 
 - **Fix**: `/api/status` no longer performs a live GitHub call — it reads token health only from the state cache, so the 2-second status poll (and page-load render) can never be blocked by a slow or failing GitHub API request
