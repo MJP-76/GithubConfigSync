@@ -4,6 +4,7 @@ import json
 import os
 import sys
 import tempfile
+import time
 import unittest
 import importlib.util
 from pathlib import Path
@@ -458,6 +459,80 @@ class ServerApiTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(body["token_health"]["state"], "checking")
+
+    def test_token_health_error_is_short_lived_and_status_degrades_to_checking(self) -> None:
+        self._write_options(
+            {
+                "github_repository": "owner/repo",
+                "github_branch": "main",
+                "github_token": "gho_test",
+                "sync_interval_minutes": 60,
+                "dry_run": True,
+            }
+        )
+        network_error = server.SyncError(
+            "GitHub API request failed for GET https://api.github.com/user: timed out"
+        )
+        with patch("server.GitHubClient._request_json", side_effect=network_error):
+            response = self.client.get("/api/token/health")
+        body = response.get_json()
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(body["token_health"]["state"], "error")
+
+        # /api/status must never report a transient failure as "missing"
+        status_body = self.client.get("/api/status").get_json()
+        self.assertEqual(status_body["token_health"]["state"], "checking")
+
+        # Expire the error cache (30s TTL) and confirm the next live check clears it
+        cache_key = server._token_health_cache_key("gho_test")
+        state = json.loads(server.STATE_PATH.read_text(encoding="utf-8"))
+        state[cache_key]["timestamp"] = time.time() - 60
+        server.STATE_PATH.write_text(json.dumps(state), encoding="utf-8")
+
+        with patch("server.GitHubClient._request_json", return_value={"login": "octocat"}):
+            response = self.client.get("/api/token/health")
+        body = response.get_json()
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(body["token_health"]["state"], "valid")
+
+    def test_token_health_uses_bounded_timeout_for_github_call(self) -> None:
+        self._write_options(
+            {
+                "github_repository": "owner/repo",
+                "github_branch": "main",
+                "github_token": "gho_test",
+                "sync_interval_minutes": 60,
+                "dry_run": True,
+            }
+        )
+        captured = {}
+
+        def fake_request_json(self, method, url, payload=None, timeout=60):
+            captured["timeout"] = timeout
+            return {"login": "octocat"}
+
+        with patch("server.GitHubClient._request_json", new=fake_request_json):
+            response = self.client.get("/api/token/health")
+        body = response.get_json()
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(body["token_health"]["state"], "valid")
+        self.assertEqual(captured["timeout"], 20)
+
+    def test_token_health_non_syncerror_becomes_error_not_500(self) -> None:
+        self._write_options(
+            {
+                "github_repository": "owner/repo",
+                "github_branch": "main",
+                "github_token": "gho_test",
+                "sync_interval_minutes": 60,
+                "dry_run": True,
+            }
+        )
+        with patch("server.GitHubClient._request_json", side_effect=ValueError("boom")):
+            response = self.client.get("/api/token/health")
+        body = response.get_json()
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(body["token_health"]["state"], "error")
 
     def test_sync_options_to_supervisor_uses_self_endpoint_with_wrapped_payload(self) -> None:
         captured = {}

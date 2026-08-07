@@ -2,6 +2,15 @@
 
 ## Latest Releases
 
+## 1.5.22
+
+- **Fix**: "Token missing" badge no longer appears when the token is actually fine — a transient GitHub check failure (`error` state) now shows as an amber "Token check failed" badge instead of the red "Token missing", and `/api/status` degrades it back to "Checking token..." so the status poll can never misreport a lost token
+- **Fix**: One slow or timed-out GitHub call no longer poisons the token badge for 5 minutes — transient `error` health results are cached for 30s (stable states keep the 5-minute cache), so the badge self-corrects quickly
+- **Fix**: Device Flow completion no longer reports "request timed out" mid-authorization — the UI now waits up to 130s for the exchange (server polls GitHub up to 120s) instead of aborting at 10s while the token was still being saved in the background
+- **Fix**: Live token health check now uses a bounded 20s GitHub call with a 30s client timeout, so the real result reaches the UI instead of being aborted client-side at 10s
+- **Fix**: Auth section no longer expands/collapses confusingly after login — it collapses once a token is present (rate-limited/check-error included), and only stays open for a genuinely missing or expired token
+- **Fix**: `_save_state()` is now serialized with a lock so concurrent status polls / sync-progress writes can no longer race and drop the token-health cache entry
+
 ## 1.5.21
 
 - **Fix**: Options now actually persist across add-on restarts — Supervisor sync POSTs `{"options": ...}` to `/addons/self/options` (self-alias, no slug needed) so it works for any `hassio_role`, fixing the previously wrong slug (`github_config_sync_web`) and unwrapped payload shape

@@ -378,11 +378,15 @@ def _is_cancel_requested() -> bool:
     return bool(_load_state().get("cancel_sync", False))
 
 
+_STATE_LOCK = threading.Lock()
+
+
 def _save_state(updates: dict[str, Any]) -> dict[str, Any]:
-    state = _load_state()
-    state.update(updates)
-    _save_json(STATE_PATH, state)
-    return state
+    with _STATE_LOCK:
+        state = _load_state()
+        state.update(updates)
+        _save_json(STATE_PATH, state)
+        return state
 
 
 def _clear_sync_progress_state() -> dict[str, Any]:
@@ -529,17 +533,41 @@ def _auth_diagnostics(options: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _token_health_cache_key(token: str) -> str:
+    return f"_token_health_cache_{hashlib.sha256(token.encode()).hexdigest()[:16]}"
+
+
+def _token_health_cache_ttl(result: dict[str, Any]) -> float:
+    # Transient failures must expire quickly so a single slow/timed-out GitHub
+    # call cannot poison the badge for minutes; stable states may live longer.
+    if result.get("state") == "error":
+        return 30.0
+    return 300.0
+
+
+def _read_token_health_cache(cache_key: str) -> dict[str, Any] | None:
+    cached = _load_state().get(cache_key)
+    if not isinstance(cached, dict):
+        return None
+    result = cached.get("result")
+    if not isinstance(result, dict):
+        return None
+    if time.time() - cached.get("timestamp", 0) >= _token_health_cache_ttl(result):
+        return None
+    return result
+
+
 def _token_health(options: dict[str, Any]) -> dict[str, Any]:
     token = str(options.get("github_token", "")).strip()
     if not token:
         return {"state": "missing", "message": "No token saved"}
 
     # Stable cache key using SHA256 (not Python's randomized hash())
-    cache_key = f"_token_health_cache_{hashlib.sha256(token.encode()).hexdigest()[:16]}"
-    cached = _load_state().get(cache_key)
-    if cached and time.time() - cached.get("timestamp", 0) < 300:
-        logging.getLogger(__name__).debug("Token health cache hit: %s", cached["result"]["state"])
-        return cached["result"]
+    cache_key = _token_health_cache_key(token)
+    cached_result = _read_token_health_cache(cache_key)
+    if cached_result is not None:
+        logging.getLogger(__name__).debug("Token health cache hit: %s", cached_result["state"])
+        return cached_result
 
     client = GitHubClient(
         repository=str(options.get("github_repository", "")).strip(),
@@ -547,7 +575,7 @@ def _token_health(options: dict[str, Any]) -> dict[str, Any]:
         token=token,
     )
     try:
-        client._request_json("GET", "https://api.github.com/user")  # pylint: disable=protected-access
+        client._request_json("GET", "https://api.github.com/user", timeout=20)  # pylint: disable=protected-access
     except SyncError as err:
         message = str(err)
         logger = logging.getLogger(__name__)
@@ -564,12 +592,19 @@ def _token_health(options: dict[str, Any]) -> dict[str, Any]:
                 result = {"state": "rate_limited", "message": "GitHub rate limit likely exceeded"}
         else:
             result = {"state": "error", "message": message}
-        # Cache the negative result for 30 seconds to avoid hammering on repeated failures
-        _save_state({f"_token_health_cache_{hashlib.sha256(token.encode()).hexdigest()[:16]}": {"timestamp": time.time(), "result": result}})
+        # Cache the negative result with a short TTL to avoid hammering on repeated failures
+        _save_state({cache_key: {"timestamp": time.time(), "result": result}})
+        return result
+    except Exception as err:  # pylint: disable=broad-except
+        # Never let a non-SyncError (e.g. body decode) escape as a 500
+        logger = logging.getLogger(__name__)
+        logger.warning("Token health check raised: %s", err)
+        result = {"state": "error", "message": str(err)}
+        _save_state({cache_key: {"timestamp": time.time(), "result": result}})
         return result
 
     result = {"state": "valid", "message": "GitHub accepted the token"}
-    _save_state({f"_token_health_cache_{hashlib.sha256(token.encode()).hexdigest()[:16]}": {"timestamp": time.time(), "result": result}})
+    _save_state({cache_key: {"timestamp": time.time(), "result": result}})
     return result
 
 
@@ -583,11 +618,15 @@ def _cached_token_health_only(options: dict[str, Any]) -> dict[str, Any]:
     token = str(options.get("github_token", "")).strip()
     if not token:
         return {"state": "missing", "message": "No token saved"}
-    cache_key = f"_token_health_cache_{hashlib.sha256(token.encode()).hexdigest()[:16]}"
-    cached = _load_state().get(cache_key)
-    if cached and time.time() - cached.get("timestamp", 0) < 300:
-        return cached["result"]
-    return {"state": "checking", "message": "Not yet checked"}
+    cache_key = _token_health_cache_key(token)
+    cached_result = _read_token_health_cache(cache_key)
+    if cached_result is None:
+        return {"state": "checking", "message": "Not yet checked"}
+    # A transient check failure is not a stable state; report "checking" so the
+    # badge stays neutral instead of misreading as a missing token.
+    if cached_result.get("state") == "error":
+        return {"state": "checking", "message": "Not yet checked"}
+    return cached_result
 
 
 def _sanitized_log_tail(limit: int = 4000) -> str:

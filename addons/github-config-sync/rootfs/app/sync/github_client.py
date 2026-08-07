@@ -277,13 +277,15 @@ class GitHubClient:
                 return
             raise
 
-    def _request_json(self, method: str, url: str, payload: dict[str, Any] | None = None) -> dict[str, Any]:
-        decoded = self._request_any(method, url, payload=payload)
+    def _request_json(
+        self, method: str, url: str, payload: dict[str, Any] | None = None, timeout: int = 60
+    ) -> dict[str, Any]:
+        decoded = self._request_any(method, url, payload=payload, timeout=timeout)
         if not isinstance(decoded, dict):
             raise SyncError(f"GitHub API returned non-object JSON for {method} {url}")
         return decoded
 
-    def _request_any(self, method: str, url: str, payload: dict[str, Any] | None = None) -> Any:
+    def _request_any(self, method: str, url: str, payload: dict[str, Any] | None = None, timeout: int = 60) -> Any:
         max_retries = 5
         for attempt in range(max_retries):
             data = None
@@ -293,7 +295,7 @@ class GitHubClient:
                 headers["Content-Type"] = "application/json"
             request = urllib.request.Request(url, method=method, data=data, headers=headers)
             try:
-                with urllib.request.urlopen(request, timeout=60) as response:
+                with urllib.request.urlopen(request, timeout=timeout) as response:
                     body = response.read().decode("utf-8")
                     return json.loads(body) if body else {}
             except urllib.error.HTTPError as err:

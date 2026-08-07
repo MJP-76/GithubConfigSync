@@ -746,6 +746,7 @@
         const isGood = state === "valid" || state === "configured";
         const isRateLimited = state === "rate_limited";
         const isChecking = state === "checking";
+        const isError = state === "error";
         const label =
           state === "valid"
             ? "Token saved"
@@ -755,11 +756,13 @@
                 ? "Rate limited"
                 : state === "expired"
                   ? "Token expired"
-                  : "Token missing";
+                  : state === "error"
+                    ? "Token check failed"
+                    : "Token missing";
         el.tokenBadge.textContent = label;
-        // rate_limited is neutral (not good, not expired) - show as warning
-        const isBad = state === "expired" || state === "missing" || state === "error";
-        el.tokenBadge.className = `status ${isChecking ? "" : isGood ? "ok" : isRateLimited ? "warn" : "err"}`.trim();
+        // rate_limited and transient check errors are neutral (not a lost token)
+        const isBad = state === "expired" || state === "missing";
+        el.tokenBadge.className = `status ${isChecking ? "" : isGood ? "ok" : isRateLimited || isError ? "warn" : "err"}`.trim();
       }
 
       function updateRepoBadge(repo) {
@@ -769,11 +772,12 @@
       }
 
       function collapseResolvedSections() {
-        const tokenOk = el.tokenBadge.classList.contains("ok");
-        const isRateLimited = el.tokenBadge.classList.contains("warn");
+        // A token is present when the badge is "ok" (valid) or "warn"
+        // (rate_limited / transient check error). Only a missing or expired
+        // token should keep the auth section open.
+        const tokenOk = el.tokenBadge.classList.contains("ok") || el.tokenBadge.classList.contains("warn");
         const repoOk = el.repoBadge.classList.contains("ok");
-        // Only auto-collapse auth section if token is genuinely OK (not rate limited)
-        el.authSection.open = !tokenOk || isRateLimited;
+        el.authSection.open = !tokenOk;
         el.repoSection.open = !repoOk;
         el.targetRepoSection.open = !repoOk;
 
@@ -1090,7 +1094,9 @@
         }
         lastTokenHealthRefresh = now;
         try {
-          const data = await fetchJson(apiUrl("/api/token/health"));
+          // Server-side GitHub call is bounded at 20s; give it room to finish
+          // before the client aborts so the live result actually reaches the UI.
+          const data = await fetchJson(apiUrl("/api/token/health"), { timeoutMs: 30000 });
           updateTokenBadge(data.token_health);
           collapseResolvedSections();
         } catch (_error) {
@@ -1282,7 +1288,10 @@
           window.open(data.verification_uri_complete, "_blank", "noopener,noreferrer");
           setStatus("Device login started. Waiting for authorization...");
           setButtonBusy(el.startDeviceBtn, true, "Completing...");
-          await fetchJson(apiUrl("/api/auth/device/complete"), { method: "POST" });
+          // Server polls GitHub for up to 120s for the exchange; a 10s client
+          // abort makes the page report "request timed out" while the token is
+          // still being saved in the background. Allow the full exchange.
+          await fetchJson(apiUrl("/api/auth/device/complete"), { method: "POST", timeoutMs: 130000 });
           setStatus("Device login complete. Token saved.");
           await Promise.all([loadOptions(), loadStatus(), loadDeviceFlowStatus(), loadRepositories()]);
           refreshTokenHealth(true).catch(() => {});
