@@ -65,18 +65,32 @@ ALLOWED_SYNC_ROOTS = {"/config", "/media", "/share", "/ssl", "/backups", "/www",
 
 
 def _is_private_ip(ip: str) -> bool:
-    """Return True if IP is in private ranges (RFC 1918)."""
+    """Return True if IP is in private ranges (RFC 1918 / RFC 4193)."""
     try:
-        parts = ip.split(".")
-        if len(parts) != 4:
-            return False
-        a, b = int(parts[0]), int(parts[1])
-        return (
-            a == 10
-            or (a == 172 and 16 <= b <= 31)
-            or (a == 192 and b == 168)
-            or a == 127
-        )
+        # IPv4
+        if "." in ip:
+            parts = ip.split(".")
+            if len(parts) != 4:
+                return False
+            a, b = int(parts[0]), int(parts[1])
+            return (
+                a == 10
+                or (a == 172 and 16 <= b <= 31)
+                or (a == 192 and b == 168)
+                or a == 127
+            )
+        # IPv6
+        if ":" in ip:
+            # Loopback
+            if ip == "::1":
+                return True
+            # ULA (fc00::/7) - Unique Local Addresses
+            if ip.lower().startswith(("fc", "fd")):
+                return True
+            # Link-local (fe80::/10)
+            if ip.lower().startswith("fe8"):
+                return True
+        return False
     except (ValueError, IndexError):
         return False
 
@@ -554,14 +568,6 @@ def _token_health(options: dict[str, Any]) -> dict[str, Any]:
 
     result = {"state": "valid", "message": "GitHub accepted the token"}
     _save_state({f"_token_health_cache_{hashlib.sha256(token.encode()).hexdigest()[:16]}": {"timestamp": time.time(), "result": result}})
-    return result
-
-    result = {"state": "valid", "message": "GitHub accepted the token"}
-    _save_state({f"_token_health_cache_{hash(token)}": {"timestamp": time.time(), "result": result}})
-    return result
-
-    result = {"state": "valid", "message": "GitHub accepted the token"}
-    _save_state({cache_key: {"timestamp": time.time(), "result": result}})
     return result
 
 

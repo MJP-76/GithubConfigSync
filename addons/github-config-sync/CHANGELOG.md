@@ -2,6 +2,14 @@
 
 ## Latest Releases
 
+## 1.5.18
+
+- **Fix**: Removed dead code in `_token_health()` (three unreachable return blocks from merge conflict)
+- **Fix**: Page-load Promise.allSettled no longer bails on `loadOptions()` auth failure — versions now display before auth
+- **Fix**: Visibility change handler now calls both `loadStatus()` and `loadOptions()` to restore full UI state
+- **Fix**: IPv6 support in `_is_private_ip()` (ULA fc00::/7, link-local fe80::/10, loopback ::1)
+- **Fix**: Supervisor sync token persistence across restarts
+
 ## 1.5.17
 
 - **Fix**: `/api/status` is public (no auth) — returns version info so versions display on UI load before authentication

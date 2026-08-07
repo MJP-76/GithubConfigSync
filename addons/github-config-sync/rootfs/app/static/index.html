@@ -1082,7 +1082,7 @@
         // Also re-check immediately when visibility changes back to visible
         document.addEventListener("visibilitychange", () => {
           if (document.visibilityState === "visible") {
-            loadStatus().catch(() => {});
+            Promise.all([loadStatus(), loadOptions()]).catch(() => {});
           }
         });
       }
@@ -1516,15 +1516,16 @@
       applyRepoMode();
       updateTokenBadge({ state: "checking" });
       Promise.allSettled([
-        loadOptions(),
+        loadOptions().catch(() => undefined), // don't let options auth failure block UI render
         loadStatus(),
         loadDeviceFlowStatus(),
         loadManagedRepositories(true),
         loadIgnoreRecommendations(),
       ]).then((results) => {
-        const failed = results.find((result) => result.status === "rejected");
-        if (failed && failed.reason) {
-          setStatus(failed.reason.message || String(failed.reason), false);
+        // Only bail if loadStatus failed (critical for rendering)
+        const statusResult = results[1];
+        if (statusResult.status === "rejected" && statusResult.reason) {
+          setStatus(statusResult.reason.message || String(statusResult.reason), false);
           return;
         }
         collapseResolvedSections();
