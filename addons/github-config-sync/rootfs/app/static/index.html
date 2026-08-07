@@ -1515,6 +1515,18 @@
 
       applyRepoMode();
       updateTokenBadge({ state: "checking" });
+
+      // Early fetch version from /api/health (public, no auth, no GitHub call)
+      fetchJson(apiUrl("/api/health"))
+        .then((data) => {
+          el.versionBadge.textContent = `Version: ${data.version || "unknown"}`;
+          if (data.repo_versions) {
+            el.stableRepoVersion.textContent = data.repo_versions.stable || "unknown";
+            el.devRepoVersion.textContent = data.repo_versions.dev || "unknown";
+          }
+        })
+        .catch(() => {});
+
       Promise.allSettled([
         loadOptions().catch(() => undefined), // don't let options auth failure block UI render
         loadStatus(),

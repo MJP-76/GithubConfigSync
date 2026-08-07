@@ -98,39 +98,36 @@ def _is_private_ip(ip: str) -> bool:
 def _via_ingress_proxy() -> bool:
     """Return True when the request arrived through the Supervisor ingress proxy.
 
-    The Supervisor's ingress proxy forwards Home Assistant authenticated
-    requests to the add-on directly, so the TCP peer is usually the Supervisor
-    container. As a fallback, we also trust requests that carry the
-    ``X-Hass-Source: core.ingress`` header set by HA Core, provided the peer
-    is on a private network (HA Core/Supervisor always are).
+    Primary check: HA Core's ingress proxy sets X-Hass-Source: core.ingress
+    and the peer must be on a private network (Supervisor/Core always are).
+    Fallback: resolve Supervisor hostname and compare peer IP.
     """
     logger = logging.getLogger(__name__)
+    client_ip = request.remote_addr or ""
+
+    # Primary check: HA Core's ingress proxy sets X-Hass-Source: core.ingress
+    # and the peer must be on a private network (Supervisor/Core always are).
+    if request.headers.get("X-Hass-Source") == "core.ingress":
+        if _is_private_ip(client_ip):
+            logger.debug("Ingress auth via X-Hass-Source + private IP: %s", client_ip)
+            return True
+        logger.debug("X-Hass-Source present but client not private: %s", client_ip)
+
+    # Fallback: resolve Supervisor hostname and compare peer IP
     try:
         supervisor_ip = socket.gethostbyname("supervisor")
-    except OSError as err:
-        logger.debug("Could not resolve supervisor hostname: %s", err)
-        supervisor_ip = None
-
-    client_ip = request.remote_addr
-
-    # Primary check: direct Supervisor peer
-    if supervisor_ip and client_ip == supervisor_ip:
-        return True
-
-    # Fallback: HA Core ingress header + private network peer
-    if request.headers.get("X-Hass-Source") == "core.ingress" and _is_private_ip(client_ip):
-        logger.debug(
-            "Ingress auth via X-Hass-Source fallback: client_ip=%s", client_ip
-        )
-        return True
-
-    if supervisor_ip:
+        if client_ip == supervisor_ip:
+            logger.debug("Ingress auth via Supervisor IP match: %s", client_ip)
+            return True
         logger.debug(
             "Ingress check failed: client_ip=%s supervisor_ip=%s hass_source=%s",
             client_ip,
             supervisor_ip,
             request.headers.get("X-Hass-Source"),
         )
+    except OSError as err:
+        logger.debug("Could not resolve supervisor hostname: %s", err)
+
     return False
 
 
@@ -1022,7 +1019,17 @@ def index():
 
 @app.get("/api/health")
 def health():
-    return jsonify({"ok": True, "version": APP_VERSION})
+    return jsonify(
+        {
+            "ok": True,
+            "version": APP_VERSION,
+            "repo_versions": {
+                "stable": _display_repo_version(STABLE_REPO_VERSION, "n/a"),
+                "dev": _display_repo_version(DEV_REPO_VERSION, APP_VERSION),
+                "current": APP_VERSION,
+            },
+        }
+    )
 
 
 @app.post("/api/sync/manual")
