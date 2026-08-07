@@ -404,7 +404,57 @@ class ServerApiTests(unittest.TestCase):
         self.assertEqual(body["auth"]["token_state"], "configured")
         self.assertEqual(body["auth"]["repository_state"], "configured")
         self.assertEqual(body["auth"]["token_saved"], True)
-        self.assertIn(body["token_health"]["state"], ["valid", "expired", "error"])
+        # /api/status must never block on a live GitHub call; empty cache => "checking"
+        self.assertEqual(body["token_health"]["state"], "checking")
+
+    def test_token_health_endpoint_runs_live_check_and_caches(self) -> None:
+        self._write_options(
+            {
+                "github_repository": "owner/repo",
+                "github_branch": "main",
+                "github_token": "gho_test",
+                "sync_interval_minutes": 60,
+                "dry_run": True,
+            }
+        )
+
+        with patch("server.GitHubClient._request_json", return_value={"login": "octocat"}):
+            response = self.client.get("/api/token/health")
+        body = response.get_json()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(body["ok"])
+        self.assertEqual(body["token_health"]["state"], "valid")
+
+        # The live result must be cached so /api/status picks it up without a new GitHub call
+        status_body = self.client.get("/api/status").get_json()
+        self.assertEqual(status_body["token_health"]["state"], "valid")
+
+    def test_token_health_reports_missing_without_github_call(self) -> None:
+        self._write_options({"github_repository": "owner/repo", "github_branch": "main", "github_token": ""})
+        with patch("server.GitHubClient._request_json", side_effect=AssertionError("must not hit GitHub")):
+            response = self.client.get("/api/token/health")
+        body = response.get_json()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(body["token_health"]["state"], "missing")
+
+    def test_status_never_hits_github(self) -> None:
+        self._write_options(
+            {
+                "github_repository": "owner/repo",
+                "github_branch": "main",
+                "github_token": "gho_test",
+                "sync_interval_minutes": 60,
+                "dry_run": True,
+            }
+        )
+        with patch("server.GitHubClient._request_json", side_effect=AssertionError("must not hit GitHub")):
+            response = self.client.get("/api/status")
+        body = response.get_json()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(body["token_health"]["state"], "checking")
 
     def test_diagnostics_bundle_masks_token(self) -> None:
         self._write_options(

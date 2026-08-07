@@ -2,6 +2,12 @@
 
 ## Latest Releases
 
+## 1.5.20
+
+- **Fix**: `/api/status` no longer performs a live GitHub call — it reads token health only from the state cache, so the 2-second status poll (and page-load render) can never be blocked by a slow or failing GitHub API request
+- **Fix**: Added dedicated public `/api/token/health` endpoint for the live GitHub token check
+- **Fix**: Frontend calls `/api/token/health` on a 60-second throttle (page load, visibility change, settings save, device-flow completion) instead of every status poll; `fetchJson` now aborts hung requests after 10s
+
 ## 1.5.19
 
 - **Fix**: `_via_ingress_proxy()` now checks `X-Hass-Source: core.ingress` + private IP FIRST (primary), Supervisor IP fallback — works regardless of Docker networking changes

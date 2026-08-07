@@ -568,6 +568,23 @@ def _token_health(options: dict[str, Any]) -> dict[str, Any]:
     return result
 
 
+def _cached_token_health_only(options: dict[str, Any]) -> dict[str, Any]:
+    """Return token health from the state cache without ever calling the GitHub API.
+
+    /api/status must always respond in milliseconds; the live check happens only
+    on the dedicated /api/token/health endpoint so a slow or failing GitHub call
+    can never block the status poll.
+    """
+    token = str(options.get("github_token", "")).strip()
+    if not token:
+        return {"state": "missing", "message": "No token saved"}
+    cache_key = f"_token_health_cache_{hashlib.sha256(token.encode()).hexdigest()[:16]}"
+    cached = _load_state().get(cache_key)
+    if cached and time.time() - cached.get("timestamp", 0) < 300:
+        return cached["result"]
+    return {"state": "checking", "message": "Not yet checked"}
+
+
 def _sanitized_log_tail(limit: int = 4000) -> str:
     if not LOG_PATH.exists():
         return ""
@@ -1225,12 +1242,18 @@ def get_status():
                 "dev": _display_repo_version(DEV_REPO_VERSION, APP_VERSION),
                 "current": APP_VERSION,
             },
-            "token_health": _token_health(options),
+            "token_health": _cached_token_health_only(options),
             "cancel_sync": _is_cancel_requested(),
             "log_tail": _sanitized_log_tail(),
                 "scheduler": _scheduler.next_run_info,
         }
     )
+
+
+@app.get("/api/token/health")
+def get_token_health():
+    options = _merge_options()
+    return jsonify({"ok": True, "token_health": _token_health(options)})
 
 
 @app.get("/api/ignore/recommendations")
