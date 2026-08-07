@@ -7,12 +7,12 @@ Single source of truth for project status, architecture, security, and workflow.
 ## Current Status
 
 <!-- VERSION:START -->
-- Integration version: `1.5.22`
-- Add-on version: `1.5.22`
+- Integration version: `1.6.0`
+- Add-on version: `1.6.0`
 - Channel: `stable`
-- Release tag: `v1.5.22`
+- Release tag: `v1.6.0`
 <!-- VERSION:END -->
-- **Last updated:** 2026-08-06
+- **Last updated:** 2026-08-07
 - **Repo:** `MJP-76/GithubConfigSync` (single repo, `main` = stable, `dev` = development)
 - **Add-on path:** `addons/github-config-sync/`
 - **Integration path:** `custom_components/github_config_sync/`
@@ -176,6 +176,12 @@ Home Assistant add-on with ingress web UI. Runs a Flask server that handles:
 - Path safety via is_relative_to; retry on transient 5xx; pinned base image
 - Legacy custom_components stripped to redirect-only
 - Removed dead code (_require_ingress, _delete_remote_tree_except)
+
+### v1.6.0 — UI Fix & Stability
+
+- **Feature**: Reset to Defaults button for ignore patterns in web UI
+- **Fix**: Reset to Defaults button for ignore patterns was missing event handler (Uncaught TypeError)
+- **Fix**: Add-on rebuild via Supervisor API now works correctly
 
 ### v1.5.0–v1.5.4 — Security Hardening & Token Sync Fix
 
