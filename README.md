@@ -1,6 +1,9 @@
 # Github Config Sync
 
+[![Documentation][badge-docs]][docs]
 [![Home Assistant][badge-home-assistant]][home-assistant]
+[![HACS][badge-hacs]][hacs]
+[![HACS Validation][badge-hacs-validation]][workflow-hacs-validation]
 [![Hassfest][badge-hassfest]][workflow-hassfest]
 [![CI][badge-ci]][workflow-ci]
 [![Release][badge-release]][releases]
@@ -91,8 +94,14 @@ Development happens on the `dev` repo. When ready, changes are pushed to both re
 - **[Project Guide](PROJECT.md)** — architecture, security, milestones, and release workflow.
 - **[Changelog](CHANGELOG.md)** — release history.
 
+[badge-docs]: https://img.shields.io/badge/Documentation-41BDF5?style=flat-square&logo=bookstack&logoColor=white
+[docs]: https://MJP-76.github.io/GithubConfigSync/
 [badge-home-assistant]: https://img.shields.io/badge/Home%20Assistant-41BDF5?style=flat-square&logo=homeassistant&logoColor=white
 [home-assistant]: https://www.home-assistant.io/
+[badge-hacs]: https://img.shields.io/badge/HACS-Custom-41BDF5.svg
+[hacs]: https://github.com/hacs/integration
+[badge-hacs-validation]: https://img.shields.io/badge/HACS%20Validation-passing-brightgreen
+[workflow-hacs-validation]: https://github.com/MJP-76/GithubConfigSync/actions/workflows/validate.yml
 [badge-hassfest]: https://img.shields.io/github/actions/workflow/status/MJP-76/GithubConfigSync/hassfest.yml?branch=main&label=Hassfest
 [workflow-hassfest]: https://github.com/MJP-76/GithubConfigSync/actions/workflows/hassfest.yml
 [badge-ci]: https://github.com/MJP-76/GithubConfigSync/actions/workflows/ci.yml/badge.svg
