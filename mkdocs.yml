@@ -1,0 +1,52 @@
+site_name: Github Config Sync
+site_description: Home Assistant add-on for syncing your config folder to GitHub
+site_url: https://MJP-76.github.io/GithubConfigSync/
+repo_url: https://github.com/MJP-76/GithubConfigSync
+repo_name: MJP-76/GithubConfigSync
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  palette:
+    - scheme: default
+      primary: teal
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: teal
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.top
+    - navigation.footer
+    - content.code.copy
+    - search.suggest
+    - search.highlight
+  icon:
+    repo: fontawesome/brands/github
+
+plugins:
+  - search
+
+markdown_extensions:
+  - admonition
+  - tables
+  - attr_list
+  - md_in_html
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.tabbed
+  - pymdownx.highlight
+
+nav:
+  - Home: index.md
+  - Installation: installation.md
+  - Syncing: syncing.md
+  - Project guide: project-guide.md
+  - Changelog: changelog.md
