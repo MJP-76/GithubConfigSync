@@ -1402,6 +1402,8 @@ def get_device_auth_status():
 
 @app.post("/api/auth/device/start")
 def start_device_auth():
+    if not _require_auth():
+        return jsonify({"ok": False, "error": "Unauthorized"}), 401
     payload = request.get_json(silent=True)
     if payload is not None and not isinstance(payload, dict):
         return jsonify({"ok": False, "error": "Invalid JSON body"}), 400
@@ -1457,6 +1459,8 @@ def start_device_auth():
 
 @app.post("/api/auth/device/complete")
 def complete_device_auth():
+    if not _require_auth():
+        return jsonify({"ok": False, "error": "Unauthorized"}), 401
     flow = _load_device_flow()
     if not flow:
         return jsonify({"ok": False, "error": "No active device flow. Start authorization first."}), 400

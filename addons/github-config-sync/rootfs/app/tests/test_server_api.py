@@ -1017,6 +1017,8 @@ class AuthBehaviorTests(unittest.TestCase):
             "/api/sync/cancel",
             "/api/sync/clean",
             "/api/sync/clean-repo",
+            "/api/auth/device/start",
+            "/api/auth/device/complete",
         ):
             response = self.client.post(endpoint, json={})
             self.assertEqual(response.status_code, 401, f"{endpoint} should require auth")
