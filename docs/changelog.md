@@ -6,6 +6,23 @@ The full 71-release history lives in
 [GitHub Releases](https://github.com/MJP-76/GithubConfigSync/releases)).
 The last 5 releases are kept at the top, per the project's changelog rules.
 
+## Unreleased
+
+- **Fix**: Sync no longer fails with "Path escapes allowed sync roots" when the
+  `www` mount point is excluded — `www` files are resolved from the config root
+  instead of the container's `/www` path (regression from the mount-point
+  controls)
+- **Fix**: `.gitignore` patterns in the config root are now honored during
+  scanning, so UI-managed defaults (e.g. HACS `www/community/`) are excluded
+- **Fix**: Removed the vestigial `sync_interval_minutes` option — scheduled
+  sync still uses day-of-week + time selection
+- **Fix**: Options pushed to Supervisor are filtered to the add-on schema,
+  fixing `Failed to sync options to Supervisor: HTTP Error 400`
+- **Fix**: Scheduled-sync timer can no longer double-schedule when settings are
+  saved while a poll is in flight
+- **Chore**: `include_www` now defaults consistently to off across the schema,
+  UI and engine
+
 ## 1.6.0
 
 - **Feature**: Reset to Defaults button for ignore patterns in web UI

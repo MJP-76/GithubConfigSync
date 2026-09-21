@@ -67,6 +67,78 @@ SENSITIVE_CONTENT_PATTERNS = (
 MAX_CONTENT_SCAN_BYTES = 2 * 1024 * 1024
 
 
+class GitIgnoreMatcher:
+    """Match repo-relative paths against a .gitignore file's patterns.
+
+    Implements common gitignore semantics: comments, blank lines, ``!``
+    negation, trailing-``/`` directory patterns, anchored patterns (contain a
+    ``/``), and basename patterns. Patterns are matched case-sensitively; an
+    anchored pattern that names a directory also covers everything beneath it.
+    Last matching rule wins; a path with no matching rule is kept.
+    """
+
+    def __init__(self) -> None:
+        self._rules: list[tuple[bool, bool, str]] = []
+        self._has_rules = False
+
+    @property
+    def has_rules(self) -> bool:
+        return self._has_rules
+
+    @classmethod
+    def from_file(cls, path: Path) -> GitIgnoreMatcher:
+        matcher = cls()
+        try:
+            text = path.read_text(encoding="utf-8", errors="ignore")
+        except OSError:
+            return matcher
+        matcher.add_text(text)
+        return matcher
+
+    def add_text(self, text: str) -> None:
+        for raw in text.splitlines():
+            line = raw.rstrip().lstrip()
+            if not line or line.startswith("#"):
+                continue
+            negate = line.startswith("!")
+            if negate:
+                line = line[1:].lstrip()
+            dir_only = line.endswith("/")
+            pattern = line[:-1] if dir_only else line
+            if not pattern:
+                continue
+            pattern = pattern.replace("\\", "/").lstrip("/")
+            if not pattern:
+                continue
+            self._rules.append((negate, dir_only, pattern))
+            self._has_rules = True
+
+    def match(self, relative: str) -> bool:
+        """Return True if the repo-relative path should be ignored."""
+        if not self._has_rules:
+            return False
+        relative = (relative or "").replace("\\", "/")
+        while relative.startswith("./"):
+            relative = relative[2:]
+        if not relative:
+            return False
+        ignored = False
+        for negate, dir_only, pattern in self._rules:
+            if _gitignore_rule_matches(relative, dir_only, pattern):
+                ignored = not negate
+        return ignored
+
+
+def _gitignore_rule_matches(relative: str, dir_only: bool, pattern: str) -> bool:
+    if "/" in pattern:
+        if fnmatch.fnmatchcase(relative, pattern):
+            return True
+        if dir_only:
+            return relative.startswith(pattern + "/")
+        return False
+    return any(fnmatch.fnmatchcase(part, pattern) for part in relative.split("/"))
+
+
 def _is_hard_ignored(relative_path: str) -> bool:
     """Ignore based on ignore dirs/patterns/sensitive substrings only.
 

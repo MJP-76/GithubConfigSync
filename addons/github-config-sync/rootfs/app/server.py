@@ -61,7 +61,30 @@ CHANGELOG_PATH = Path(__file__).resolve().parent / "CHANGELOG.md"
 
 logging.getLogger("werkzeug").setLevel(logging.ERROR)
 
-ALLOWED_SYNC_ROOTS = {"/config", "/media", "/share", "/ssl", "/backups", "/www", "/addon_configs"}
+SUPERVISOR_OPTION_KEYS = frozenset(
+    {
+        "auth_method",
+        "repo_mode",
+        "existing_repo_confirmed_for",
+        "github_repository",
+        "github_branch",
+        "github_token",
+        "github_client_id",
+        "version_retention_count",
+        "dry_run",
+        "auto_sync_enabled",
+        "auto_sync_days",
+        "auto_sync_time",
+        "auto_sync_create_release",
+        "include_addon_configs",
+        "include_media",
+        "include_share",
+        "include_ssl",
+        "include_backups",
+        "include_www",
+        "sync_mode",
+    }
+)
 
 
 def _is_private_ip(ip: str) -> bool:
@@ -151,19 +174,6 @@ def _require_auth() -> bool:
     return False
 
 
-def _assert_safe_path(path: Path, allowed_roots: set[str]) -> None:
-    """Ensure a resolved path is within one of the allowed root directories."""
-
-    resolved = path.resolve()
-    for root in allowed_roots:
-        try:
-            resolved.relative_to(root)
-            return
-        except ValueError:
-            continue
-    raise SyncError(f"Path escapes allowed sync roots: {path}")
-
-
 _REDACT_PATTERNS = [
     re.compile(r"ghp_[A-Za-z0-9]{36,}"),
     re.compile(r"github_pat_[A-Za-z0-9_]{80,}"),
@@ -194,7 +204,6 @@ DEFAULT_OPTIONS: dict[str, Any] = {
     "auto_sync_days": [1, 2, 3, 4, 5],
     "auto_sync_time": "03:00",
     "auto_sync_create_release": True,
-    "sync_interval_minutes": 1440,
     "include_addon_configs": False,
     "include_media": False,
     "include_share": False,
@@ -415,8 +424,9 @@ def _sync_options_to_supervisor(payload: dict[str, Any]) -> None:
     if not supervisor_token:
         logger.debug("SUPERVISOR_TOKEN not set; skipping Supervisor sync")
         return
+    filtered = {key: value for key, value in payload.items() if key in SUPERVISOR_OPTION_KEYS}
     url = "http://supervisor/addons/self/options"
-    data = json.dumps({"options": payload}).encode("utf-8")
+    data = json.dumps({"options": filtered}).encode("utf-8")
     req = urllib.request.Request(
         url,
         data=data,
@@ -698,12 +708,6 @@ def _repo_picker_entries(
 ) -> list[dict[str, Any]]:
     client = _token_client(options)
     repos = client.list_user_repositories(query=query, limit=100)
-    cached_repos = _load_managed_repos()
-    cached_by_name = {
-        str(item.get("full_name", "")).strip(): item
-        for item in cached_repos
-        if str(item.get("full_name", "")).strip()
-    }
     combined: list[dict[str, Any]] = []
     seen: set[str] = set()
     for repo in repos:
@@ -905,10 +909,12 @@ class _SyncScheduler:
         self._lock = threading.Lock()
         self._running = False
         self._last_triggered_minute: str | None = None
+        self._epoch = 0
 
     def restart(self) -> None:
         """Cancel any pending timer and start a fresh poll cycle."""
         with self._lock:
+            self._epoch += 1
             if self._timer is not None:
                 self._timer.cancel()
                 self._timer = None
@@ -917,11 +923,15 @@ class _SyncScheduler:
 
     def _schedule_next_poll(self) -> None:
         with self._lock:
+            if self._timer is not None:
+                self._timer.cancel()
             self._timer = threading.Timer(self.POLL_INTERVAL, self._poll)
             self._timer.daemon = True
             self._timer.start()
 
     def _poll(self) -> None:
+        with self._lock:
+            epoch = self._epoch
         try:
             options = _merge_options()
             if not options.get("auto_sync_enabled"):
@@ -948,7 +958,10 @@ class _SyncScheduler:
         except Exception as err:
             _append_log(f"Scheduler poll error: {err}")
         finally:
-            self._schedule_next_poll()
+            with self._lock:
+                reschedule = epoch == self._epoch
+            if reschedule:
+                self._schedule_next_poll()
 
     def _do_sync(self, options: dict[str, Any]) -> None:
         with self._lock:

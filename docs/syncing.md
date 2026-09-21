@@ -13,8 +13,14 @@ The following are excluded from sync by default:
 - **Temp/junk:** `*.tmp`, `*.swp`, `*.pyc`, `*.log`, `*.smbdelete*`, `.DS_Store`,
   `Thumbs.db`, `.ha_fix_yaml.py`
 
-You can add extra patterns in the app UI. Live uploads also write a root
+You can add extra patterns in the app UI; the resulting `.gitignore` in the
+config root is now honored during scanning, so matching files are excluded
+from the plan (not just skipped at upload). Live uploads also write a root
 `SECURITY_UPLOAD_WARNINGS.md` file when suspicious files are skipped.
+
+The `www` folder is not synced by default — enable the **Include www**
+mount-point control to include it, with `.gitignore` patterns such as the HACS
+`www/community/` subtree honored as usual.
 
 ## Clean actions
 

@@ -15,7 +15,7 @@ class SyncConfig:
     include_share: bool = False
     include_ssl: bool = False
     include_backups: bool = False
-    include_www: bool = True
+    include_www: bool = False
     include_addon_configs: bool = False
     sync_mode: str = "whitelist"
 

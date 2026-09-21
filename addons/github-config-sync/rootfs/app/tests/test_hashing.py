@@ -10,7 +10,7 @@ APP_ROOT = Path(__file__).resolve().parents[1]
 if str(APP_ROOT) not in sys.path:
     sys.path.insert(0, str(APP_ROOT))
 
-from sync.hashing import build_hash_index, diff_hash_indexes, _is_file_sensitive, scan_sensitive_files
+from sync.hashing import GitIgnoreMatcher, build_hash_index, diff_hash_indexes, _is_file_sensitive, scan_sensitive_files
 
 CONST_PATH = Path(__file__).resolve().parents[5] / "custom_components/github_config_sync/const.py"
 CONST_SPEC = importlib.util.spec_from_file_location("github_config_sync_const", CONST_PATH)
@@ -155,6 +155,50 @@ class HashingTests(unittest.TestCase):
         self.assertEqual(added, ["c.yaml"])
         self.assertEqual(changed, ["b.yaml"])
         self.assertEqual(removed, ["a.yaml"])
+
+    def test_gitignore_matcher_directory_pattern_ignores_subtree(self) -> None:
+        matcher = GitIgnoreMatcher()
+        matcher.add_text("www/community/\n")
+
+        self.assertTrue(matcher.match("www/community/Drag-And-Drop-Card/drag-and-drop-card.js.gz"))
+        self.assertTrue(matcher.match("www/community/x.js"))
+        self.assertFalse(matcher.match("www/other/file.js"))
+        self.assertFalse(matcher.match("configuration.yaml"))
+
+    def test_gitignore_matcher_basename_and_negation_rules(self) -> None:
+        matcher = GitIgnoreMatcher()
+        matcher.add_text("*.log\n!keep.log\n")
+
+        self.assertTrue(matcher.match("error.log"))
+        self.assertTrue(matcher.match("logs/error.log"))
+        self.assertFalse(matcher.match("keep.log"))
+        self.assertFalse(matcher.match("logs/keep.log"))
+
+    def test_gitignore_matcher_anchored_file_pattern_and_last_rule_wins(self) -> None:
+        matcher = GitIgnoreMatcher()
+        matcher.add_text("config/settings\nsecrets.yaml\n!config/settings\n")
+
+        self.assertFalse(matcher.match("config/settings"))
+        self.assertFalse(matcher.match("other/config/settings"))
+        self.assertTrue(matcher.match("secrets.yaml"))
+        self.assertTrue(matcher.match("nested/secrets.yaml"))
+        self.assertTrue(matcher.match("config/secrets.yaml"))
+
+    def test_gitignore_matcher_ignores_comments_and_honors_case(self) -> None:
+        matcher = GitIgnoreMatcher()
+        matcher.add_text("# comment only\nSecrets.YAML\n")
+
+        self.assertTrue(matcher.match("Secrets.YAML"))
+        self.assertFalse(matcher.match("secrets.yaml"))
+
+    def test_gitignore_matcher_empty_or_missing_file_matches_nothing(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            matcher = GitIgnoreMatcher.from_file(Path(tmp) / ".gitignore")
+            self.assertFalse(matcher.has_rules)
+            self.assertFalse(matcher.match("anything.txt"))
+        empty = GitIgnoreMatcher()
+        empty.add_text("   \n# just a comment\n")
+        self.assertFalse(empty.has_rules)
 
 
 if __name__ == "__main__":

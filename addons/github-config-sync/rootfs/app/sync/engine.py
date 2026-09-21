@@ -6,7 +6,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from .errors import SyncError
 from .github_client import GitHubClient
-from .hashing import build_hash_index, diff_hash_indexes, scan_sensitive_files
+from .hashing import GitIgnoreMatcher, build_hash_index, diff_hash_indexes, scan_sensitive_files
 from .models import SyncConfig, SyncPlan, SyncResult
 
 
@@ -24,7 +24,7 @@ class SyncEngine:
             ("share", Path("/share")),
             ("ssl", Path("/ssl")),
             ("backups", Path("/backups")),
-            ("www", Path("/www")),
+            ("www", self._config_root / "www"),
         ]
         self._root_map = [
             item
@@ -409,6 +409,7 @@ class SyncEngine:
 
     def _build_hash_index(self) -> dict[str, str]:
         self._sensitive_files = scan_sensitive_files(self._config_root)
+        ignore_matcher = GitIgnoreMatcher.from_file(self._config_root / ".gitignore")
         index: dict[str, str] = {}
         for prefix, root in self._root_map:
             if not root.exists():
@@ -416,6 +417,8 @@ class SyncEngine:
             current = build_hash_index(root)
             for relative, digest in current.items():
                 key = f"{prefix}/{relative}" if prefix else relative
+                if ignore_matcher.has_rules and ignore_matcher.match(key):
+                    continue
                 index[key] = digest
         return index
 
@@ -429,7 +432,7 @@ class SyncEngine:
         elif relative.startswith("backups/"):
             candidate = Path("/backups") / relative.removeprefix("backups/")
         elif relative.startswith("www/"):
-            candidate = Path("/www") / relative.removeprefix("www/")
+            candidate = self._config_root / relative
         elif relative.startswith("addon_configs/"):
             candidate = self._addon_config_root / relative.removeprefix("addon_configs/")
         else:

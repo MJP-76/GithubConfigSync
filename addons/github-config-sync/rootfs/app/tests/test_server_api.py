@@ -4,6 +4,7 @@ import json
 import os
 import sys
 import tempfile
+import threading
 import time
 import unittest
 import importlib.util
@@ -76,7 +77,6 @@ class ServerApiTests(unittest.TestCase):
                 "github_repository": "",
                 "github_branch": "main",
                 "github_token": "token",
-                "sync_interval_minutes": 60,
                 "dry_run": True,
             }
         )
@@ -95,7 +95,6 @@ class ServerApiTests(unittest.TestCase):
                 "github_repository": "owner/repo",
                 "github_branch": "main",
                 "github_token": "token",
-                "sync_interval_minutes": 60,
                 "dry_run": True,
             }
         )
@@ -116,7 +115,6 @@ class ServerApiTests(unittest.TestCase):
                 "github_repository": "owner/repo",
                 "github_branch": "main",
                 "github_token": "token",
-                "sync_interval_minutes": 60,
                 "dry_run": True,
                 "include_addon_configs": True,
             }
@@ -134,7 +132,6 @@ class ServerApiTests(unittest.TestCase):
                 "github_repository": "owner/repo",
                 "github_branch": "main",
                 "github_token": "token",
-                "sync_interval_minutes": 60,
                 "dry_run": True,
             }
         )
@@ -300,7 +297,6 @@ class ServerApiTests(unittest.TestCase):
                 "github_repository": "owner/repo",
                 "github_branch": "main",
                 "github_token": "gho_test",
-                "sync_interval_minutes": 60,
                 "dry_run": True,
             }
         )
@@ -395,7 +391,6 @@ class ServerApiTests(unittest.TestCase):
                 "github_repository": "owner/repo",
                 "github_branch": "main",
                 "github_token": "gho_test",
-                "sync_interval_minutes": 60,
                 "dry_run": True,
             }
         )
@@ -417,7 +412,6 @@ class ServerApiTests(unittest.TestCase):
                 "github_repository": "owner/repo",
                 "github_branch": "main",
                 "github_token": "gho_test",
-                "sync_interval_minutes": 60,
                 "dry_run": True,
             }
         )
@@ -449,7 +443,6 @@ class ServerApiTests(unittest.TestCase):
                 "github_repository": "owner/repo",
                 "github_branch": "main",
                 "github_token": "gho_test",
-                "sync_interval_minutes": 60,
                 "dry_run": True,
             }
         )
@@ -466,7 +459,6 @@ class ServerApiTests(unittest.TestCase):
                 "github_repository": "owner/repo",
                 "github_branch": "main",
                 "github_token": "gho_test",
-                "sync_interval_minutes": 60,
                 "dry_run": True,
             }
         )
@@ -501,7 +493,6 @@ class ServerApiTests(unittest.TestCase):
                 "github_repository": "owner/repo",
                 "github_branch": "main",
                 "github_token": "gho_test",
-                "sync_interval_minutes": 60,
                 "dry_run": True,
             }
         )
@@ -524,7 +515,6 @@ class ServerApiTests(unittest.TestCase):
                 "github_repository": "owner/repo",
                 "github_branch": "main",
                 "github_token": "gho_test",
-                "sync_interval_minutes": 60,
                 "dry_run": True,
             }
         )
@@ -571,13 +561,119 @@ class ServerApiTests(unittest.TestCase):
         )
         self.assertEqual(captured["authorization"], "Bearer supervisor-test-token")
 
+    def test_sync_options_to_supervisor_filters_to_schema_keys(self) -> None:
+        captured = {}
+
+        class FakeResponse:
+            status = 200
+
+            def read(self) -> bytes:
+                return b'{"result": "ok"}'
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *exc):
+                return False
+
+        def fake_urlopen(request, timeout=10):
+            captured["data"] = json.loads(request.data.decode())
+            return FakeResponse()
+
+        os.environ["SUPERVISOR_TOKEN"] = "supervisor-test-token"
+        self.addCleanup(lambda: os.environ.pop("SUPERVISOR_TOKEN", None))
+        with patch("server.urllib.request.urlopen", side_effect=fake_urlopen):
+            server._sync_options_to_supervisor(
+                {
+                    "github_repository": "owner/repo",
+                    "github_token": "secret-token",
+                    "auto_sync_enabled": True,
+                    "auto_sync_create_release": False,
+                    "sync_interval_minutes": 1440,
+                    "superfluous_key": "value",
+                }
+            )
+
+        self.assertEqual(
+            captured["data"],
+            {
+                "options": {
+                    "github_repository": "owner/repo",
+                    "github_token": "secret-token",
+                    "auto_sync_enabled": True,
+                    "auto_sync_create_release": False,
+                }
+            },
+        )
+
+    def test_default_options_no_longer_contain_vestigial_sync_interval(self) -> None:
+        self.assertNotIn("sync_interval_minutes", server.DEFAULT_OPTIONS)
+        self.assertNotIn("sync_interval_minutes", server.SUPERVISOR_OPTION_KEYS)
+
+    def test_supervisor_option_keys_cover_all_default_options(self) -> None:
+        for key in server.DEFAULT_OPTIONS:
+            self.assertIn(key, server.SUPERVISOR_OPTION_KEYS)
+
+    def test_scheduler_single_call_schedules_exactly_one_timer(self) -> None:
+        scheduler = server._SyncScheduler()
+        created = []
+        real_timer = threading.Timer
+
+        def timer_factory(interval, function):
+            timer = real_timer(interval, function)
+            created.append(timer)
+            return timer
+
+        with patch("threading.Timer", side_effect=timer_factory):
+            scheduler.restart()
+            first = scheduler._timer
+            assert first is not None
+            scheduler.restart()
+            second = scheduler._timer
+            assert second is not None
+
+        self.assertEqual(len(created), 2)
+        self.assertIs(scheduler._timer, second)
+        self.assertFalse(first.is_alive())
+        self.assertTrue(second.is_alive())
+
+    def test_scheduler_restart_during_inflight_poll_does_not_arm_second_timer(self) -> None:
+        scheduler = server._SyncScheduler()
+        poll_started = threading.Event()
+        release_poll = threading.Event()
+        created = []
+        real_timer = threading.Timer
+
+        def timer_factory(interval, function):
+            timer = real_timer(interval, function)
+            created.append(timer)
+            return timer
+
+        def blocked_merge_options():
+            poll_started.set()
+            release_poll.wait(timeout=5)
+            return {}
+
+        with patch("threading.Timer", side_effect=timer_factory):
+            with patch("server._merge_options", side_effect=blocked_merge_options):
+                poll_thread = threading.Thread(target=scheduler._poll)
+                poll_thread.start()
+                self.assertTrue(poll_started.wait(timeout=5))
+                scheduler.restart()
+                restart_timer = scheduler._timer
+                release_poll.set()
+                poll_thread.join(timeout=5)
+                self.assertFalse(poll_thread.is_alive())
+
+        self.assertEqual(len(created), 1)
+        self.assertIs(scheduler._timer, restart_timer)
+
     def test_set_options_ignores_masked_token_placeholder(self) -> None:
         self._write_options(
             {
                 "github_repository": "owner/repo",
                 "github_branch": "main",
                 "github_token": "real-token",
-                "sync_interval_minutes": 60,
                 "dry_run": True,
             }
         )
@@ -587,7 +683,6 @@ class ServerApiTests(unittest.TestCase):
                 "github_repository": "owner/repo",
                 "github_branch": "main",
                 "github_token": "********",
-                "sync_interval_minutes": 60,
                 "dry_run": True,
             },
         )
@@ -604,7 +699,6 @@ class ServerApiTests(unittest.TestCase):
                 "github_repository": "owner/repo",
                 "github_branch": "main",
                 "github_token": "gho_test",
-                "sync_interval_minutes": 60,
                 "dry_run": True,
             }
         )
@@ -659,7 +753,6 @@ class ServerApiTests(unittest.TestCase):
                 "github_repository": "owner/repo",
                 "github_branch": "main",
                 "github_token": "gho_test",
-                "sync_interval_minutes": 60,
                 "dry_run": True,
                 "existing_repo_confirmed_for": "owner/repo",
             }
@@ -696,7 +789,6 @@ class ServerApiTests(unittest.TestCase):
                 "github_repository": "owner/repo",
                 "github_branch": "main",
                 "github_token": "gho_test",
-                "sync_interval_minutes": 60,
                 "dry_run": True,
                 "existing_repo_confirmed_for": "owner/repo",
             }
@@ -733,7 +825,6 @@ class ServerApiTests(unittest.TestCase):
                 "github_repository": "owner/repo",
                 "github_branch": "main",
                 "github_token": "gho_test",
-                "sync_interval_minutes": 60,
                 "dry_run": True,
                 "existing_repo_confirmed_for": "owner/repo",
             }
@@ -770,7 +861,6 @@ class ServerApiTests(unittest.TestCase):
                 "github_repository": "owner/repo",
                 "github_branch": "main",
                 "github_token": "gho_test",
-                "sync_interval_minutes": 60,
                 "dry_run": True,
             }
         )

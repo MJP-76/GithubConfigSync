@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 import sys
-from unittest.mock import MagicMock, call, patch
+from unittest.mock import MagicMock, patch
 
 APP_ROOT = Path(__file__).resolve().parents[1]
 if str(APP_ROOT) not in sys.path:
@@ -327,6 +327,105 @@ class SyncEngineTests(unittest.TestCase):
             engine.restore_repo_skeleton()
 
         self.assertTrue(fake_client.put_content.called)
+
+
+    def test_plan_www_files_under_config_root_resolve_without_escaping_sync_roots(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            www_file = root / "www" / "community" / "Drag-And-Drop-Card" / "drag-and-drop-card.js.gz"
+            www_file.parent.mkdir(parents=True)
+            www_file.write_bytes(b"\x1f\x8b" * 10)
+            (root / "configuration.yaml").write_text("homeassistant:\n", encoding="utf-8")
+
+            for include_www in (False, True):
+                with self.subTest(include_www=include_www):
+                    config = SyncConfig(
+                        repository="owner/repo",
+                        branch="main",
+                        token="token",
+                        config_root=str(root),
+                        addon_config_root="/addon_configs",
+                        dry_run=False,
+                        include_www=include_www,
+                    )
+                    engine = SyncEngine(config, previous_hash_index={})
+                    plan, _ = engine.plan()
+
+                    www_paths = [p for p in plan.added if p.startswith("www/")]
+                    self.assertEqual(
+                        www_paths,
+                        ["www/community/Drag-And-Drop-Card/drag-and-drop-card.js.gz"],
+                    )
+                    for relative in www_paths:
+                        local = engine._local_path_for(relative)
+                        self.assertTrue(local.exists())
+
+    def test_run_live_uploads_www_files_from_config_root(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            www_file = root / "www" / "community" / "card.js.gz"
+            www_file.parent.mkdir(parents=True)
+            www_file.write_bytes(b"data")
+            (root / "configuration.yaml").write_text("homeassistant:\n", encoding="utf-8")
+
+            config = SyncConfig(
+                repository="owner/repo",
+                branch="main",
+                token="token",
+                config_root=str(root),
+                addon_config_root="/addon_configs",
+                dry_run=False,
+                include_www=False,
+            )
+            plan = SyncPlan(
+                added=[p for p, _ in _seed_index(config).items()],
+                changed=[],
+                removed=[],
+                total_files=0,
+            )
+            fake_client = MagicMock()
+            fake_client.get_content.return_value = None
+
+            with patch("sync.engine.GitHubClient", return_value=fake_client):
+                engine = SyncEngine(config, previous_hash_index={})
+                result = engine.run(plan)
+
+            self.assertIn("Sync completed", result.message)
+            self.assertEqual(fake_client.put_content.call_count, len(plan.added))
+            self.assertEqual(fake_client.delete_content.call_count, 0)
+
+    def test_plan_honors_gitignore_patterns_from_config_root(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            www_file = root / "www" / "community" / "Drag-And-Drop-Card" / "drag-and-drop-card.js.gz"
+            www_file.parent.mkdir(parents=True)
+            www_file.write_bytes(b"data")
+            (root / "configuration.yaml").write_text("homeassistant:\n", encoding="utf-8")
+            (root / ".gitignore").write_text(
+                "# --- HACS FRONTEND DOWNLOADS ---\nwww/community/\n", encoding="utf-8"
+            )
+
+            config = SyncConfig(
+                repository="owner/repo",
+                branch="main",
+                token="token",
+                config_root=str(root),
+                addon_config_root="/addon_configs",
+                dry_run=False,
+                include_www=True,
+            )
+            engine = SyncEngine(config, previous_hash_index={})
+            plan, _ = engine.plan()
+
+            self.assertEqual(sorted(plan.added), [".gitignore", "configuration.yaml"])
+            self.assertNotIn("www/community/Drag-And-Drop-Card/drag-and-drop-card.js.gz", plan.added)
+
+
+def _seed_index(config: SyncConfig) -> dict[str, str]:
+    """Return a plausible index for a temp config root so live runs have content."""
+    engine = SyncEngine(config, previous_hash_index={})
+    plan, index = engine.plan()
+    return {p: index[p] for p in plan.added}
 
 
 if __name__ == "__main__":

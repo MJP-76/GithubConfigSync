@@ -34,12 +34,19 @@ options:
   github_branch: "main"
   github_token: ""
 schema:
+  auth_method: str?
+  repo_mode: str?
+  existing_repo_confirmed_for: str?
   github_repository: str?
   github_branch: str
   github_token: password?
-  sync_interval_minutes: int(5,1440)?
+  github_client_id: str?
   version_retention_count: int(1,100)?
   dry_run: bool?
+  auto_sync_enabled: bool?
+  auto_sync_days: list?
+  auto_sync_time: str?
+  auto_sync_create_release: bool?
   include_addon_configs: bool?
   include_media: bool?
   include_share: bool?
