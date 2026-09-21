@@ -6,13 +6,13 @@ status, architecture, security, and workflow.
 ## Current status
 
 <!-- VERSION:START -->
-- Integration version: `1.6.0`
-- Add-on version: `1.6.0`
+- Integration version: `1.6.1`
+- Add-on version: `1.6.1`
 - Channel: `stable`
-- Release tag: `v1.6.0`
+- Release tag: `v1.6.1`
 <!-- VERSION:END -->
 
-- **Repo:** `MJP-76/GithubConfigSync` — `main` = stable, `dev` = development
+- **Repo:** `MJP-76/GithubConfigSync` — single version on `main` (the `-dev` repo is decommissioned)
 - **Add-on path:** `addons/github-config-sync/`
 - **Integration path:** `custom_components/github_config_sync/`
 - **App source:** `addons/github-config-sync/rootfs/app/`

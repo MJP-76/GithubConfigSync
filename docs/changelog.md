@@ -6,7 +6,7 @@ The full 71-release history lives in
 [GitHub Releases](https://github.com/MJP-76/GithubConfigSync/releases)).
 The last 5 releases are kept at the top, per the project's changelog rules.
 
-## Unreleased
+## 1.6.1
 
 - **Fix**: Sync no longer fails with "Path escapes allowed sync roots" when the
   `www` mount point is excluded — `www` files are resolved from the config root

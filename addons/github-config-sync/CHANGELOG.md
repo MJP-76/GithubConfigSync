@@ -2,7 +2,7 @@
 
 ## Latest Releases
 
-## Unreleased
+## 1.6.1
 
 - **Fix**: Sync no longer fails with "Path escapes allowed sync roots" when the `www` mount point is excluded — `www` files are resolved from the config root instead of the container's `/www` path (regression from the mount-point controls)
 - **Fix**: `.gitignore` patterns in the config root are now honored during scanning, so UI-managed defaults (e.g. HACS `www/community/`) are excluded
