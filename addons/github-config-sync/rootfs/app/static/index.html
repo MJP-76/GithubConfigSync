@@ -522,6 +522,20 @@
             </p>
           </div>
         </details>
+        <details id="updateSection" style="margin-top: 12px">
+          <summary style="cursor: pointer; color: var(--muted)">9. Add-on updates <span id="updateBadge" class="pill status">Up to date</span></summary>
+          <div style="margin-top: 10px; padding: 10px; border: 1px solid var(--border); border-radius: 6px;">
+            <div class="row">
+              <input id="includePreReleases" type="checkbox" />
+              <label for="includePreReleases"><strong>Show pre-release build updates</strong></label>
+            </div>
+            <p style="font-size: 0.8rem; color: var(--muted); margin: 6px 0 10px">
+              When enabled, the add-on also counts pre-release builds when checking for updates.
+              Updates are installed from Home Assistant &rarr; Add-ons &rarr; Github Config Sync &rarr; Update.
+            </p>
+            <div id="updateInfo" class="muted" style="font-size: 0.85rem"></div>
+          </div>
+        </details>
         <div class="row" style="margin-top: 14px">
           <button id="syncBtn" class="secondary">Sync Now</button>
           <button id="cancelSyncBtn" class="secondary">Cancel Current Upload</button>
@@ -631,6 +645,10 @@
         includeSsl: document.getElementById("includeSsl"),
         includeBackups: document.getElementById("includeBackups"),
         includeWww: document.getElementById("includeWww"),
+        includePreReleases: document.getElementById("includePreReleases"),
+        updateSection: document.getElementById("updateSection"),
+        updateBadge: document.getElementById("updateBadge"),
+        updateInfo: document.getElementById("updateInfo"),
         syncMode: document.getElementById("syncMode"),
         dryRun: document.getElementById("dryRun"),
         schedulerStatus: document.getElementById("schedulerStatus"),
@@ -981,6 +999,7 @@
         el.includeSsl.checked = Boolean(data.include_ssl);
         el.includeBackups.checked = Boolean(data.include_backups);
         el.includeWww.checked = Boolean(data.include_www);
+        el.includePreReleases.checked = Boolean(data.include_pre_releases);
         el.syncMode.value = data.sync_mode || "whitelist";
         applyRepoMode();
         updateAuthMethodHelp();
@@ -1098,6 +1117,42 @@
         }
       }
 
+      async function loadUpdateCheck() {
+        // Server-side check of the add-on's own GitHub releases (cached on the
+        // server for 5 minutes), so this is cheap after the first call.
+        try {
+          const data = await fetchJson(apiUrl("/api/update-check"), { timeoutMs: 30000 });
+          const uc = data.update_check || {};
+          if (!uc.ok) {
+            el.updateBadge.textContent = "Unavailable";
+            el.updateBadge.className = "pill status err";
+            el.updateInfo.textContent = `Update check failed: ${(uc.error || "unknown error")}`;
+            return;
+          }
+          el.updateBadge.textContent = uc.update_available ? "Update available" : "Up to date";
+          el.updateBadge.className = `pill status ${uc.update_available ? "ok" : ""}`;
+          const parts = [`Installed: v${uc.installed}`];
+          if (uc.latest_candidate) {
+            const suffix = uc.latest_candidate.prerelease ? " (pre-release)" : "";
+            parts.push(`Latest: ${uc.latest_candidate.tag}${suffix}`);
+          } else {
+            parts.push("Latest: n/a");
+          }
+          if (
+            uc.latest_stable &&
+            uc.latest_candidate &&
+            uc.latest_stable.tag !== uc.latest_candidate.tag
+          ) {
+            parts.push(`Latest stable: ${uc.latest_stable.tag}`);
+          }
+          el.updateInfo.textContent = parts.join("  ·  ");
+        } catch (_error) {
+          el.updateBadge.textContent = "Unavailable";
+          el.updateBadge.className = "pill status err";
+          el.updateInfo.textContent = "Update check unavailable.";
+        }
+      }
+
       function startStatusPolling() {
         if (statusPollTimer) {
           return;
@@ -1109,12 +1164,13 @@
           }
           loadStatus().catch(() => {});
           refreshTokenHealth().catch(() => {});
+          loadUpdateCheck().catch(() => {});
         }
         statusPollTimer = window.setInterval(tick, 2000);
         // Also re-check immediately when visibility changes back to visible
         document.addEventListener("visibilitychange", () => {
           if (document.visibilityState === "visible") {
-            Promise.all([loadStatus(), loadOptions()]).catch(() => {});
+            Promise.all([loadStatus(), loadOptions(), loadUpdateCheck()]).catch(() => {});
             refreshTokenHealth().catch(() => {});
           }
         });
@@ -1239,11 +1295,12 @@
             include_ssl: el.includeSsl.checked,
             include_backups: el.includeBackups.checked,
             include_www: el.includeWww.checked,
+            include_pre_releases: el.includePreReleases.checked,
             sync_mode: el.syncMode.value,
           };
           await fetchJson(apiUrl("/api/options"), { method: "POST", body: JSON.stringify(payload) });
           setStatus("Settings saved");
-          await Promise.all([loadStatus(), loadDeviceFlowStatus()]);
+          await Promise.all([loadStatus(), loadDeviceFlowStatus(), loadUpdateCheck()]);
           refreshTokenHealth().catch(() => {});
         } finally {
           autoSaveInFlight = false;
@@ -1496,7 +1553,7 @@
       el.refreshBtn.addEventListener("click", () =>
         {
           setButtonBusy(el.refreshBtn, true, "Refreshing...");
-          Promise.all([loadStatus(), loadDeviceFlowStatus(), loadManagedRepositories(true)])
+          Promise.all([loadStatus(), loadDeviceFlowStatus(), loadManagedRepositories(true), loadUpdateCheck()])
             .then(() => setStatus("Status refreshed"))
             .catch((error) => setStatus(error.message, false))
             .finally(() => setButtonBusy(el.refreshBtn, false));
@@ -1570,6 +1627,7 @@
         loadDeviceFlowStatus(),
         loadManagedRepositories(true),
         loadIgnoreRecommendations(),
+        loadUpdateCheck(),
       ]).then((results) => {
         // Only bail if loadStatus failed (critical for rendering)
         const statusResult = results[1];

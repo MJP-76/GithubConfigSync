@@ -46,6 +46,17 @@ Scheduled syncs run at the selected days and `HH:MM`. Times are interpreted in
 the Home Assistant host's **local timezone** (the scheduler converts UTC to host
 local time), matching what you select in the UI.
 
+## Add-on updates
+
+The add-on's web UI checks the add-on's own GitHub repository (`/api/update-check`)
+and shows when a newer build is published. Updates are installed from
+Home Assistant → Add-ons → Github Config Sync → Update, not from the web UI.
+
+The `include_pre_releases` option (default off) makes the update check also count
+pre-release builds. Installations follow the single repo on `main` — the
+candidate version simply lives in the add-on's `config.yaml`, so a pre-release
+tag is picked up the next time the Supervisor refreshes the repository.
+
 ## Security reminders
 
 - GitHub tokens are required for repository access and device-flow completion.

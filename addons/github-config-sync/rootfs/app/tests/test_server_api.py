@@ -1026,6 +1026,116 @@ class ServerApiTests(unittest.TestCase):
                 f"{flag} must default to false unless explicitly selected",
             )
 
+    def test_include_pre_releases_defaults_to_false_and_round_trips(self) -> None:
+        self.assertFalse(server.DEFAULT_OPTIONS["include_pre_releases"])
+        self.assertIn("include_pre_releases", server.SUPERVISOR_OPTION_KEYS)
+
+        response = self.client.get("/api/options")
+        body = response.get_json()
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(body["include_pre_releases"])
+
+        response = self.client.post(
+            "/api/options", json={"include_pre_releases": True, "github_branch": "main"}
+        )
+        body = response.get_json()
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(body["ok"])
+        self.assertTrue(body["options"]["include_pre_releases"])
+
+        response = self.client.get("/api/options")
+        body = response.get_json()
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(body["include_pre_releases"])
+
+    def test_parse_release_version(self) -> None:
+        self.assertEqual(server._parse_release_version("v1.6.2"), (1, 6, 2))
+        self.assertEqual(server._parse_release_version("1.6.2"), (1, 6, 2))
+        self.assertEqual(server._parse_release_version("1.7.0-beta.1"), (1, 7, 0))
+        self.assertEqual(server._parse_release_version("10.0"), (10, 0))
+        self.assertIsNone(server._parse_release_version(""))
+        self.assertIsNone(server._parse_release_version("sync-21-09-26-03-00-00"))
+        self.assertIsNone(server._parse_release_version(None))
+
+    def _fake_release(self, tag: str, prerelease: bool = False) -> dict[str, object]:
+        return {
+            "tag_name": tag,
+            "prerelease": prerelease,
+            "draft": False,
+            "created_at": "2026-09-21T00:00:00Z",
+        }
+
+    def test_update_check_ignores_prereleases_when_disabled(self) -> None:
+        releases = [
+            self._fake_release("v1.6.3", prerelease=False),
+            self._fake_release("v1.7.0-beta.1", prerelease=True),
+        ]
+        with patch("server.GitHubClient.list_releases", return_value=releases):
+            result = server._addon_update_check(server._merge_options())
+
+        self.assertTrue(result["ok"])
+        self.assertFalse(result["include_pre_releases"])
+        self.assertTrue(result["update_available"])
+        self.assertEqual(result["latest_stable"]["tag"], "v1.6.3")
+        self.assertEqual(result["latest_candidate"]["tag"], "v1.6.3")
+        self.assertFalse(result["latest_candidate"]["prerelease"])
+
+    def test_update_check_counts_prereleases_when_enabled(self) -> None:
+        self._write_options({"include_pre_releases": True})
+        releases = [
+            self._fake_release("v1.6.3", prerelease=False),
+            self._fake_release("v1.7.0-beta.1", prerelease=True),
+        ]
+        with patch("server.GitHubClient.list_releases", return_value=releases):
+            result = server._addon_update_check(server._merge_options())
+
+        self.assertTrue(result["ok"])
+        self.assertTrue(result["include_pre_releases"])
+        self.assertTrue(result["update_available"])
+        self.assertEqual(result["latest_stable"]["tag"], "v1.6.3")
+        self.assertEqual(result["latest_candidate"]["tag"], "v1.7.0-beta.1")
+        self.assertTrue(result["latest_candidate"]["prerelease"])
+
+    def test_update_check_only_newer_prerelease_needs_enable(self) -> None:
+        releases = [
+            self._fake_release("v1.6.2", prerelease=False),
+            self._fake_release("v1.7.0-beta.1", prerelease=True),
+        ]
+        with patch("server.GitHubClient.list_releases", return_value=releases):
+            disabled = server._addon_update_check(server._merge_options())
+        self.assertFalse(disabled["update_available"])
+        self.assertEqual(disabled["latest_candidate"]["tag"], "v1.6.2")
+
+        self._write_options({"include_pre_releases": True})
+        with patch("server.GitHubClient.list_releases", return_value=releases):
+            enabled = server._addon_update_check(server._merge_options())
+        self.assertTrue(enabled["update_available"])
+        self.assertEqual(enabled["latest_candidate"]["tag"], "v1.7.0-beta.1")
+
+    def test_update_check_caches_and_skips_github_second_call(self) -> None:
+        with patch(
+            "server.GitHubClient.list_releases",
+            return_value=[self._fake_release("v1.6.3", prerelease=False)],
+        ) as mock_list:
+            first = self.client.get("/api/update-check").get_json()
+            second = self.client.get("/api/update-check").get_json()
+
+        self.assertEqual(first["update_check"]["latest_candidate"]["tag"], "v1.6.3")
+        self.assertEqual(second["update_check"]["latest_candidate"]["tag"], "v1.6.3")
+        self.assertEqual(mock_list.call_count, 1)
+
+    def test_update_check_fails_soft_on_network_error(self) -> None:
+        with patch(
+            "server.GitHubClient.list_releases",
+            side_effect=server.SyncError("GitHub API request failed: timeout"),
+        ):
+            response = self.client.get("/api/update-check")
+        body = response.get_json()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(body["update_check"]["ok"])
+        self.assertIn("timeout", body["update_check"]["error"])
+
 
 class AuthBehaviorTests(unittest.TestCase):
     """Tests for the new _require_auth() behavior."""

@@ -1,6 +1,6 @@
 name: "Github Config Sync"
 description: "Home Assistant app for GitHub config sync operations, not backups. Private repositories are strongly recommended; public visibility is optional."
-version: "1.6.1"
+version: "1.6.2"
 slug: "github_config_sync_web"
 url: "https://github.com/MJP-76/GithubConfigSync"
 init: false
@@ -53,4 +53,5 @@ schema:
   include_ssl: bool?
   include_backups: bool?
   include_www: bool?
+  include_pre_releases: bool?
   sync_mode: list("whitelist","blacklist")?

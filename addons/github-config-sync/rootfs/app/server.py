@@ -45,6 +45,7 @@ APP_PORT = 8099
 DEFAULT_OAUTH_CLIENT_ID = "Ov23li2ycCraodta6WCU"
 DEFAULT_NEW_REPO_NAME = "ha-github-config-sync"
 ADDON_REPO_MARKER_PATH = ".github-config-sync-addon.json"
+ADDON_SOURCE_REPO = "MJP-76/GithubConfigSync"
 SENSITIVE_WARNING_PATH = "SECURITY_UPLOAD_WARNINGS.md"
 
 DATA_DIR = Path("/data")
@@ -82,6 +83,7 @@ SUPERVISOR_OPTION_KEYS = frozenset(
         "include_ssl",
         "include_backups",
         "include_www",
+        "include_pre_releases",
         "sync_mode",
     }
 )
@@ -210,6 +212,7 @@ DEFAULT_OPTIONS: dict[str, Any] = {
     "include_ssl": False,
     "include_backups": False,
     "include_www": False,
+    "include_pre_releases": False,
     "sync_mode": "whitelist",
 }
 
@@ -516,6 +519,7 @@ def _validate_payload(payload: dict[str, Any]) -> tuple[bool, str | None]:
         "include_ssl",
         "include_backups",
         "include_www",
+        "include_pre_releases",
     ):
         if not isinstance(payload.get(key), bool):
             return False, f"{key} must be true or false"
@@ -637,6 +641,102 @@ def _cached_token_health_only(options: dict[str, Any]) -> dict[str, Any]:
     if cached_result.get("state") == "error":
         return {"state": "checking", "message": "Not yet checked"}
     return cached_result
+
+
+def _parse_release_version(raw: Any) -> tuple[int, ...] | None:
+    text = str(raw or "").strip()
+    text = text.lstrip("vV")
+    match = re.match(r"(\d+(?:\.\d+)*)", text)
+    if not match:
+        return None
+    return tuple(int(part) for part in match.group(1).split("."))
+
+
+def _release_summary(release: dict[str, Any] | None) -> dict[str, Any] | None:
+    if not isinstance(release, dict):
+        return None
+    return {
+        "tag": str(release.get("tag_name", "") or ""),
+        "prerelease": bool(release.get("prerelease", False)),
+    }
+
+
+def _update_check_cache_key(include_pre_releases: bool) -> str:
+    return f"_update_check_{1 if include_pre_releases else 0}"
+
+
+def _read_update_check_cache(cache_key: str) -> dict[str, Any] | None:
+    cached = _load_state().get(cache_key)
+    if not isinstance(cached, dict) or not isinstance(cached.get("result"), dict):
+        return None
+    if time.time() - cached.get("timestamp", 0) >= _token_health_cache_ttl(cached["result"]):
+        return None
+    return cached["result"]
+
+
+def _addon_update_check(options: dict[str, Any]) -> dict[str, Any]:
+    """Report whether a newer add-on build exists on the add-on's source repo.
+
+    Checks the add-on's own GitHub repository (public, token-less read). When
+    include_pre_releases is on, pre-release builds count as update candidates;
+    otherwise they are ignored and only the latest stable build is reported.
+    Fails soft (never a 500) and caches the result in state.
+    """
+    installed = _parse_release_version(APP_VERSION) or (0,)
+    include_pre_releases = bool(options.get("include_pre_releases", False))
+    cache_key = _update_check_cache_key(include_pre_releases)
+    cached = _read_update_check_cache(cache_key)
+    if cached is not None:
+        logging.getLogger(__name__).debug("Update check cache hit: %s", cache_key)
+        return cached
+
+    logger = logging.getLogger(__name__)
+    try:
+        client = GitHubClient(repository=ADDON_SOURCE_REPO, branch="main", token="")
+        releases = client.list_releases(per_page=20)
+        versions: list[tuple[tuple[int, ...], dict[str, Any]]] = []
+        for release in releases:
+            if release.get("draft"):
+                continue
+            parsed = _parse_release_version(release.get("tag_name"))
+            if parsed is None:
+                continue
+            versions.append((parsed, release))
+        versions.sort(
+            key=lambda item: (item[0], str(item[1].get("created_at", "") or "")),
+            reverse=True,
+        )
+        stable = next((release for (_parsed, release) in versions if not release.get("prerelease")), None)
+        candidate = versions[0][1] if versions else None
+        if not include_pre_releases:
+            candidate = stable or None
+
+        update_available = False
+        if candidate is not None:
+            update_available = (_parse_release_version(candidate.get("tag_name")) or (0,)) > installed
+
+        result = {
+            "ok": True,
+            "installed": APP_VERSION,
+            "source_repo": ADDON_SOURCE_REPO,
+            "include_pre_releases": include_pre_releases,
+            "latest_stable": _release_summary(stable),
+            "latest_candidate": _release_summary(candidate),
+            "update_available": update_available,
+        }
+        _save_state({cache_key: {"timestamp": time.time(), "result": result}})
+        return result
+    except Exception as err:  # pylint: disable=broad-except
+        logger.warning("Update check failed: %s", err)
+        result = {
+            "ok": False,
+            "installed": APP_VERSION,
+            "source_repo": ADDON_SOURCE_REPO,
+            "include_pre_releases": include_pre_releases,
+            "error": str(err),
+        }
+        _save_state({cache_key: {"timestamp": time.time(), "result": result}})
+        return result
 
 
 def _sanitized_log_tail(limit: int = 4000) -> str:
@@ -1283,6 +1383,7 @@ def set_options():
         "include_ssl": payload.get("include_ssl", False),
         "include_backups": payload.get("include_backups", False),
         "include_www": payload.get("include_www", False),
+        "include_pre_releases": payload.get("include_pre_releases", False),
         "sync_mode": str(payload.get("sync_mode", "whitelist")).strip() or "whitelist",
     }
 
@@ -1324,6 +1425,12 @@ def get_status():
 def get_token_health():
     options = _merge_options()
     return jsonify({"ok": True, "token_health": _token_health(options)})
+
+
+@app.get("/api/update-check")
+def get_update_check():
+    options = _merge_options()
+    return jsonify({"ok": True, "update_check": _addon_update_check(options)})
 
 
 @app.get("/api/ignore/recommendations")

@@ -6,6 +6,16 @@ The full 71-release history lives in
 [GitHub Releases](https://github.com/MJP-76/GithubConfigSync/releases)).
 The last 5 releases are kept at the top, per the project's changelog rules.
 
+## 1.6.2
+
+- **Feature**: New `include_pre_releases` option — when enabled, the add-on
+  reports pre-release builds (not just stable ones) in its update check, so a
+  candidate version is visible before it reaches the stable line
+- **Feature**: Added `/api/update-check` endpoint and an "Add-on updates" section
+  in the web UI that compares the installed version against the add-on's GitHub
+  releases (server-cached for 5 minutes; fails soft) and points users to install
+  updates from Home Assistant → Add-ons
+
 ## 1.6.1
 
 - **Fix**: Sync no longer fails with "Path escapes allowed sync roots" when the
@@ -52,19 +62,3 @@ The last 5 releases are kept at the top, per the project's changelog rules.
   lost on reboot)
 - **Fix**: Settings save can never overwrite the real token with the `********`
   mask placeholder
-
-## 1.5.20
-
-- **Fix**: `/api/status` is now fully cached — no live GitHub call on the 2s
-  status poll
-- **Fix**: Added dedicated public `/api/token/health` endpoint for the live
-  GitHub token check, called on a 60s throttle
-- **Fix**: `fetchJson` aborts hung requests after 10s
-
-## 1.5.19
-
-- **Fix**: `_via_ingress_proxy()` checks `X-Hass-Source: core.ingress` +
-  private IP first, with Supervisor IP fallback (works regardless of Docker
-  networking changes)
-- **Fix**: Version fetches from `/api/health` before auth, so it shows instantly
-- **Fix**: IPv6 support in `_is_private_ip()` (ULA, link-local, loopback)

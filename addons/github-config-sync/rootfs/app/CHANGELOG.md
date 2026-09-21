@@ -2,6 +2,11 @@
 
 ## Latest Releases
 
+## 1.6.2
+
+- **Feature**: New `include_pre_releases` option — when enabled, the add-on reports pre-release builds (not just stable ones) in its update check, so a candidate version is visible before it reaches the stable line
+- **Feature**: Added `/api/update-check` endpoint and an "Add-on updates" section in the web UI that compares the installed version against the add-on's GitHub releases (server-cached for 5 minutes; fails soft) and points users to install updates from Home Assistant → Add-ons
+
 ## 1.6.1
 
 - **Fix**: Sync no longer fails with "Path escapes allowed sync roots" when the `www` mount point is excluded — `www` files are resolved from the config root instead of the container's `/www` path (regression from the mount-point controls)
