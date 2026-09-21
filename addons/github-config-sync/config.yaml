@@ -44,7 +44,7 @@ schema:
   version_retention_count: int(1,100)?
   dry_run: bool?
   auto_sync_enabled: bool?
-  auto_sync_days: list?
+  auto_sync_days: list(str)?
   auto_sync_time: str?
   auto_sync_create_release: bool?
   include_addon_configs: bool?
