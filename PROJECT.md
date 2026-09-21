@@ -13,7 +13,7 @@ Single source of truth for project status, architecture, security, and workflow.
 - Release tag: `v1.6.0`
 <!-- VERSION:END -->
 - **Last updated:** 2026-08-07
-- **Repo:** `MJP-76/GithubConfigSync` (single repo, `main` = stable, `dev` = development)
+- **Repo:** `MJP-76/GithubConfigSync` (single repo, single version on `main`; the `-dev` repo is decommissioned)
 - **Add-on path:** `addons/github-config-sync/`
 - **Integration path:** `custom_components/github_config_sync/`
 - **App source:** `addons/github-config-sync/rootfs/app/`
@@ -72,7 +72,7 @@ Home Assistant add-on with ingress web UI. Runs a Flask server that handles:
 - Token/client ID should not be front-and-center for normal users.
 - Repository selection is guided (picker/create) instead of manual-only typing.
 - The Add-on Store is the supported distribution path; the legacy HACS integration is kept only to redirect installs to the add-on.
-- Stable / dev version lines are explicit so the repo ships the right track from the right repository.
+- A single version line ships on the main repo; the legacy `-dev` line is retired.
 
 ---
 
@@ -97,8 +97,8 @@ Home Assistant add-on with ingress web UI. Runs a Flask server that handles:
 2. Bump version in `config.yaml` (single source of truth — `server.py` auto-reads it at startup).
 3. Bump version in `manifest.json` and `hacs.json`.
 4. Update changelog (last 5 releases at top).
-5. Commit and push to dev.
-6. When stable, push to main and create GitHub release.
+5. Commit and push to main (single-version workflow).
+6. Tag `vX.Y.Z` and create the GitHub release (pre-release until confirmed).
 
 ---
 
@@ -115,7 +115,8 @@ Home Assistant add-on with ingress web UI. Runs a Flask server that handles:
 
 ### Security + Auth (v0.1.3–v0.1.4)
 
-- Token never persisted/logged in plaintext
+- Token is never logged; persisted only through the Supervisor options
+  mechanism (plaintext on host storage).
 - OAuth path hardened with clear fallback/error handling
 - Integration ↔ add-on stable local API contract
 - Diagnostics export bundle
@@ -216,6 +217,6 @@ Home Assistant add-on with ingress web UI. Runs a Flask server that handles:
 - [ ] Changelog updated (last 5 releases at top)
 - [ ] Validation/CI green
 - [ ] Docs updated
-- [ ] Committed and pushed to dev
+- [ ] Committed and pushed to main
 - [ ] GitHub Release created
 - [ ] This file updated

@@ -34,7 +34,9 @@ status, architecture, security, and workflow.
 
 ## Security
 
-- Tokens are never persisted or logged in plaintext; the UI masks them.
+- Tokens are **never logged** and are always masked in the web UI and API
+  responses; they are persisted only via the standard Supervisor options
+  mechanism (plaintext on host storage), which the add-on cannot change.
 - Sensitive-file scanning **blocks** uploads (since v1.5.0) and writes
   `SECURITY_UPLOAD_WARNINGS.md`.
 - `_local_path_for` validates resolved paths stay inside the allowed root map.
@@ -44,11 +46,12 @@ status, architecture, security, and workflow.
 ## Release workflow
 
 1. Update code.
-2. Bump version in `config.yaml` (single source of truth).
+2. Bump the single version in `config.yaml` (source of truth).
 3. Bump version in `manifest.json` and `hacs.json`.
 4. Update the changelog (last 5 releases at the top).
-5. Commit and push to **dev**.
-6. When stable, push to **main** and create the GitHub release.
+5. Commit and push to `main` (single-version repo; the `-dev` repo is
+   decommissioned).
+6. Tag `vX.Y.Z` and create the GitHub release (pre-release until confirmed).
 
 The full [PROJECT.md](https://github.com/MJP-76/GithubConfigSync/blob/main/PROJECT.md) contains the milestone history and the
 per-tag release checklist.

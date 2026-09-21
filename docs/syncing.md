@@ -40,6 +40,12 @@ avoid accidentally overwriting the wrong repository.
 - A managed `.gitignore` is created with HA defaults plus your extra patterns.
 - Keep the repository **private** if your config contains sensitive data.
 
+## Scheduled sync
+
+Scheduled syncs run at the selected days and `HH:MM`. Times are interpreted in
+the Home Assistant host's **local timezone** (the scheduler converts UTC to host
+local time), matching what you select in the UI.
+
 ## Security reminders
 
 - GitHub tokens are required for repository access and device-flow completion.
