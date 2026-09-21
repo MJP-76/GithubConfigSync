@@ -6,6 +6,22 @@ The full 71-release history lives in
 [GitHub Releases](https://github.com/MJP-76/GithubConfigSync/releases)).
 The last 5 releases are kept at the top, per the project's changelog rules.
 
+## 1.6.3
+
+- **Fix**: `auto_sync_days` schema is now a nested optional integer list
+  (`["int?"]`). The earlier `list?` form was rejected by the Supervisor's
+  schema parser, dropping the add-on from the store (so no updates were
+  offered); the interim `list(str)` form silently caused
+  `Failed to sync options to Supervisor: HTTP Error 400` on every save,
+  because a flat `list(...)` schema element is an enum, not a list type
+- **Fix**: `sync_mode` schema uses pipe-separated enum values without quotes
+  (`list(whitelist|blacklist)?`); the quoted form made the whole enum a single
+  bogus option and rejected real values with an options-sync 400
+- **Fix**: Supervisor options-sync failures now log the Supervisor response
+  body instead of the generic `HTTP Error 400: Bad Request`
+- **Test**: Add-on schema values are regression-checked against the Supervisor
+  element regex and must match the option keys the app syncs
+
 ## 1.6.2
 
 - **Feature**: New `include_pre_releases` option — when enabled, the add-on
@@ -53,12 +69,4 @@ The last 5 releases are kept at the top, per the project's changelog rules.
 - **Fix**: `_save_state()` is now lock-serialized so concurrent status
   polls/sync writes can no longer drop the token-health cache entry
 
-## 1.5.21
-
-- **Fix**: Options now persist across restarts — Supervisor sync POSTs to
-  `/addons/self/options` (works for any `hassio_role`)
-- **Fix**: `hassio_api: true` added so `SUPERVISOR_TOKEN` is injected into the
-  container (without it, the Supervisor sync silently skipped and the token was
-  lost on reboot)
-- **Fix**: Settings save can never overwrite the real token with the `********`
-  mask placeholder
+_(older releases)_

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import sys
 import tempfile
 import threading
@@ -10,6 +11,11 @@ import unittest
 import importlib.util
 from pathlib import Path
 from unittest.mock import patch
+
+try:
+    import yaml
+except ImportError:
+    yaml = None
 
 APP_ROOT = Path(__file__).resolve().parents[1]
 if str(APP_ROOT) not in sys.path:
@@ -614,6 +620,79 @@ class ServerApiTests(unittest.TestCase):
         for key in server.DEFAULT_OPTIONS:
             self.assertIn(key, server.SUPERVISOR_OPTION_KEYS)
 
+    RE_SCHEMA_ELEMENT = re.compile(
+        r"^(?:"
+        r"|bool"
+        r"|email"
+        r"|url"
+        r"|port"
+        r"|device(?:\((?P<filter>subsystem=[a-z]+)\))?"
+        r"|str(?:\((?P<s_min>\d+)?,(?P<s_max>\d+)?\))?"
+        r"|password(?:\((?P<p_min>\d+)?,(?P<p_max>\d+)?\))?"
+        r"|int(?:\((?P<i_min>\d+)?,(?P<i_max>\d+)?\))?"
+        r"|float(?:\((?P<f_min>[\d\.]+)?,(?P<f_max>[\d\.]+)?\))?"
+        r"|match\((?P<match>.*)\)"
+        r"|list\((?P<list>.+)\))"
+        r"\??$"
+    )
+
+    _ADDON_CONFIG_YAML = Path(__file__).resolve().parents[3] / "config.yaml"
+
+    def _addon_schema(self) -> dict:
+        if yaml is None:
+            self.skipTest("pyyaml is required for config.yaml schema tests")
+        with self._ADDON_CONFIG_YAML.open("r", encoding="utf-8") as handle:
+            return yaml.safe_load(handle)["schema"]
+
+    def test_addon_config_schema_values_match_supervisor_element_regex(self) -> None:
+        self.assertTrue(self._ADDON_CONFIG_YAML.is_file())
+        for key, value in self._addon_schema().items():
+            if isinstance(value, str):
+                self.assertTrue(
+                    self.RE_SCHEMA_ELEMENT.match(value),
+                    f"invalid schema element for {key}: {value!r}",
+                )
+            elif isinstance(value, list):
+                self.assertGreater(len(value), 0, f"empty nested schema for {key}")
+                for item in value:
+                    self.assertTrue(
+                        self.RE_SCHEMA_ELEMENT.match(str(item)),
+                        f"invalid nested schema element for {key}: {item!r}",
+                    )
+            else:
+                self.fail(f"unexpected schema value type for {key}: {type(value)}")
+
+    def test_supervisor_option_keys_match_addon_config_schema(self) -> None:
+        self.assertEqual(set(self._addon_schema()), set(server.SUPERVISOR_OPTION_KEYS))
+
+    def test_auto_sync_days_schema_is_nested_optional_int_list(self) -> None:
+        self.assertEqual(self._addon_schema()["auto_sync_days"], ["int?"])
+
+    def test_sync_mode_schema_is_pipe_separated_enum(self) -> None:
+        self.assertEqual(self._addon_schema()["sync_mode"], "list(whitelist|blacklist)?")
+
+    def test_sync_options_to_supervisor_logs_response_body_on_http_error(self) -> None:
+        class FakeHttpError(server.urllib.error.HTTPError):
+            code = 400
+
+            def __init__(self, body: str) -> None:
+                self._body = body.encode()
+
+            def read(self) -> bytes:
+                return self._body
+
+        os.environ["SUPERVISOR_TOKEN"] = "supervisor-test-token"
+        self.addCleanup(lambda: os.environ.pop("SUPERVISOR_TOKEN", None))
+
+        def raise_http_error(request, timeout=10):
+            raise FakeHttpError('{"result":"error","message":"boom"}')
+
+        with patch("server.urllib.request.urlopen", side_effect=raise_http_error):
+            with self.assertLogs("server", level="WARNING") as captured:
+                server._sync_options_to_supervisor({"github_repository": "owner/repo"})
+
+        self.assertIn("HTTP 400 - {\"result\":\"error\",\"message\":\"boom\"}", "\n".join(captured.output))
+
     def test_scheduler_single_call_schedules_exactly_one_timer(self) -> None:
         scheduler = server._SyncScheduler()
         created = []
@@ -1065,10 +1144,16 @@ class ServerApiTests(unittest.TestCase):
             "created_at": "2026-09-21T00:00:00Z",
         }
 
+    @staticmethod
+    def _next_minor(span: int = 1) -> str:
+        major, minor, *_ = server.APP_VERSION.split(".")
+        return f"v{major}.{int(minor) + span}.0"
+
     def test_update_check_ignores_prereleases_when_disabled(self) -> None:
+        next_stable = self._next_minor()
         releases = [
-            self._fake_release("v1.6.3", prerelease=False),
-            self._fake_release("v1.7.0-beta.1", prerelease=True),
+            self._fake_release(next_stable, prerelease=False),
+            self._fake_release(f"{self._next_minor(2)}-beta.1", prerelease=True),
         ]
         with patch("server.GitHubClient.list_releases", return_value=releases):
             result = server._addon_update_check(server._merge_options())
@@ -1076,15 +1161,17 @@ class ServerApiTests(unittest.TestCase):
         self.assertTrue(result["ok"])
         self.assertFalse(result["include_pre_releases"])
         self.assertTrue(result["update_available"])
-        self.assertEqual(result["latest_stable"]["tag"], "v1.6.3")
-        self.assertEqual(result["latest_candidate"]["tag"], "v1.6.3")
+        self.assertEqual(result["latest_stable"]["tag"], next_stable)
+        self.assertEqual(result["latest_candidate"]["tag"], next_stable)
         self.assertFalse(result["latest_candidate"]["prerelease"])
 
     def test_update_check_counts_prereleases_when_enabled(self) -> None:
         self._write_options({"include_pre_releases": True})
+        next_stable = self._next_minor()
+        next_prerelease = f"{self._next_minor(2)}-beta.1"
         releases = [
-            self._fake_release("v1.6.3", prerelease=False),
-            self._fake_release("v1.7.0-beta.1", prerelease=True),
+            self._fake_release(next_stable, prerelease=False),
+            self._fake_release(next_prerelease, prerelease=True),
         ]
         with patch("server.GitHubClient.list_releases", return_value=releases):
             result = server._addon_update_check(server._merge_options())
@@ -1092,36 +1179,39 @@ class ServerApiTests(unittest.TestCase):
         self.assertTrue(result["ok"])
         self.assertTrue(result["include_pre_releases"])
         self.assertTrue(result["update_available"])
-        self.assertEqual(result["latest_stable"]["tag"], "v1.6.3")
-        self.assertEqual(result["latest_candidate"]["tag"], "v1.7.0-beta.1")
+        self.assertEqual(result["latest_stable"]["tag"], next_stable)
+        self.assertEqual(result["latest_candidate"]["tag"], next_prerelease)
         self.assertTrue(result["latest_candidate"]["prerelease"])
 
     def test_update_check_only_newer_prerelease_needs_enable(self) -> None:
+        at_installed_stable = f"v{server.APP_VERSION}"
+        next_prerelease = f"{self._next_minor(2)}-beta.1"
         releases = [
-            self._fake_release("v1.6.2", prerelease=False),
-            self._fake_release("v1.7.0-beta.1", prerelease=True),
+            self._fake_release(at_installed_stable, prerelease=False),
+            self._fake_release(next_prerelease, prerelease=True),
         ]
         with patch("server.GitHubClient.list_releases", return_value=releases):
             disabled = server._addon_update_check(server._merge_options())
         self.assertFalse(disabled["update_available"])
-        self.assertEqual(disabled["latest_candidate"]["tag"], "v1.6.2")
+        self.assertEqual(disabled["latest_candidate"]["tag"], at_installed_stable)
 
         self._write_options({"include_pre_releases": True})
         with patch("server.GitHubClient.list_releases", return_value=releases):
             enabled = server._addon_update_check(server._merge_options())
         self.assertTrue(enabled["update_available"])
-        self.assertEqual(enabled["latest_candidate"]["tag"], "v1.7.0-beta.1")
+        self.assertEqual(enabled["latest_candidate"]["tag"], next_prerelease)
 
     def test_update_check_caches_and_skips_github_second_call(self) -> None:
+        next_stable = self._next_minor()
         with patch(
             "server.GitHubClient.list_releases",
-            return_value=[self._fake_release("v1.6.3", prerelease=False)],
+            return_value=[self._fake_release(next_stable, prerelease=False)],
         ) as mock_list:
             first = self.client.get("/api/update-check").get_json()
             second = self.client.get("/api/update-check").get_json()
 
-        self.assertEqual(first["update_check"]["latest_candidate"]["tag"], "v1.6.3")
-        self.assertEqual(second["update_check"]["latest_candidate"]["tag"], "v1.6.3")
+        self.assertEqual(first["update_check"]["latest_candidate"]["tag"], next_stable)
+        self.assertEqual(second["update_check"]["latest_candidate"]["tag"], next_stable)
         self.assertEqual(mock_list.call_count, 1)
 
     def test_update_check_fails_soft_on_network_error(self) -> None:

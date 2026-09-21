@@ -9,6 +9,7 @@ import re
 import socket
 import threading
 import time
+import urllib.error
 import urllib.request
 from pathlib import Path
 from typing import Any
@@ -441,13 +442,10 @@ def _sync_options_to_supervisor(payload: dict[str, Any]) -> None:
     )
     try:
         with urllib.request.urlopen(req, timeout=10) as resp:
-            resp_body = resp.read().decode("utf-8")
-            if resp.status >= 400:
-                logger.warning(
-                    "Failed to sync options to Supervisor: HTTP %s - %s", resp.status, resp_body
-                )
-            else:
-                logger.debug("Successfully synced options to Supervisor")
+            logger.debug("Successfully synced options to Supervisor: HTTP %s", resp.status)
+    except urllib.error.HTTPError as err:
+        resp_body = err.read().decode("utf-8", "replace")
+        logger.warning("Failed to sync options to Supervisor: HTTP %s - %s", err.code, resp_body)
     except Exception as err:
         logger.warning("Failed to sync options to Supervisor: %s", err)
 

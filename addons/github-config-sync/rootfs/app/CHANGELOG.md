@@ -2,6 +2,13 @@
 
 ## Latest Releases
 
+## 1.6.3
+
+- **Fix**: `auto_sync_days` schema is now a nested optional integer list (`["int?"]`). The earlier `list?` form was rejected by the Supervisor's schema parser and dropped the add-on from the store; the interim `list(str)` form elsewhere caused `Failed to sync options to Supervisor: HTTP Error 400` on every save because a flat `list(...)` schema element is an enum
+- **Fix**: `sync_mode` schema uses pipe-separated enum values without quotes (`list(whitelist|blacklist)?`); the quoted form rejected real values with an options-sync 400
+- **Fix**: Supervisor options-sync failures now log the Supervisor response body instead of the generic `HTTP Error 400: Bad Request`
+- **Test**: Add-on schema values are regression-checked against the Supervisor element regex and must match the synced option keys
+
 ## 1.6.2
 
 - **Feature**: New `include_pre_releases` option — when enabled, the add-on reports pre-release builds (not just stable ones) in its update check, so a candidate version is visible before it reaches the stable line
