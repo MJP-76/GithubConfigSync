@@ -48,6 +48,23 @@ class SyncEngineTests(unittest.TestCase):
             self.assertEqual(plan.removed, ["addon_configs/apps/old.yaml", "removed.yaml"])
             self.assertIn("addon_configs/apps/kitchen.yaml", plan.added)
 
+    def test_backups_root_scans_the_backup_mount(self) -> None:
+        config = SyncConfig(
+            repository="owner/repo",
+            branch="main",
+            token="token",
+            config_root="/config",
+            dry_run=True,
+            include_backups=True,
+        )
+        engine = SyncEngine(config, previous_hash_index={})
+        self.assertIn(("backups", Path("/backup")), engine._root_map)
+        with patch.object(Path, "exists", return_value=True):
+            self.assertEqual(
+                engine._local_path_for("backups/snapshot.tar"),
+                Path("/backup/snapshot.tar"),
+            )
+
     def test_run_dry_run_returns_counts_without_github_calls(self) -> None:
         config = SyncConfig(
             repository="owner/repo",

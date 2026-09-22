@@ -6,6 +6,22 @@ The full 71-release history lives in
 [GitHub Releases](https://github.com/MJP-76/GithubConfigSync/releases)).
 The last 5 releases are kept at the top, per the project's changelog rules.
 
+## 1.6.5
+
+- **Fix**: Add-on `map` entries are now valid Supervisor mount types. The
+  Supervisor logged store warnings for the invalid `addon_configs:rw`,
+  `backups:rw` and `www:rw` entries and for the deprecated `config` type, so
+  those folders were never actually mounted. `config` becomes
+  `homeassistant_config` pinned to `/config`, `addon_configs` becomes
+  `all_addon_configs` (mounted at `/addon_configs`), `backups` becomes the
+  valid `backup` type (mounted at `/backup`), and `www` is dropped (www files
+  are already resolved from the config root)
+- **Fix**: `include_backups` now scans `/backup` instead of the never-mounted
+  `/backups`
+- **Chore**: Removed deprecated 32-bit `arch` values (`armhf`, `armv7`,
+  `i386`); the add-on builds for `aarch64` and `amd64`
+- **Test**: `map` and `arch` regression checks plus the backup-root scan test
+
 ## 1.6.4
 
 - **Fix**: The repository marker is rewritten before every sync without the
@@ -59,11 +75,5 @@ The last 5 releases are kept at the top, per the project's changelog rules.
   saved while a poll is in flight
 - **Chore**: `include_www` now defaults consistently to off across the schema,
   UI and engine
-
-## 1.6.0
-
-- **Feature**: Reset to Defaults button for ignore patterns in web UI
-- **Fix**: Reset to Defaults button was missing its event handler (Uncaught TypeError)
-- **Fix**: Add-on rebuild via Supervisor API now works correctly
 
 _(older releases)_

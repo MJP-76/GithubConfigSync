@@ -2,6 +2,13 @@
 
 ## Latest Releases
 
+## 1.6.5
+
+- **Fix**: The add-on `map` is now valid Supervisor mount types. The Supervisor (2026.09+) logged store warnings for the invalid entries `addon_configs:rw`, `backups:rw` and `www:rw` and for the deprecated `config` type — those folders were never actually mounted. `config` becomes `homeassistant_config` pinned to `/config` (`path`), `addon_configs` becomes `all_addon_configs` (mounted at `/addon_configs`), `backups` becomes the valid `backup` type (mounted at `/backup`), and `www` is dropped (www files are already resolved from the config root)
+- **Fix**: `include_backups` now reaches the backups it was meant to sync — the engine scanned `/backups`, but the valid Supervisor `backup` mount lands at `/backup`, so the toggle never synced anything
+- **Chore**: Removed the deprecated 32-bit `arch` values (`armhf`, `armv7`, `i386`) — the add-on now builds for `aarch64` and `amd64` only
+- **Test**: Add-on `map` entries are regression-checked against the Supervisor volume regex (no deprecated `config` type, no bogus type, `homeassistant_config` pinned to `/config`), `arch` excludes deprecated values, and the engine scans the `/backup` mount
+
 ## 1.6.4
 
 - **Fix**: The repository marker (`\.github-config-sync-addon\.json`) is rewritten before every sync without the current file SHA, so on an already-marked repo the nightly sync failed with GitHub 422 `"sha" wasn't supplied` (and an earlier 409 `is at "..." but expected "..."` on a stale file), aborting the entire sync each night. The marker writer now reads the existing SHA and updates the file, and the SHA-conflict classifier now treats a 422 `sha wasn't supplied` response as a conflict so the refresh-and-retry path also catches any other SHA-less update

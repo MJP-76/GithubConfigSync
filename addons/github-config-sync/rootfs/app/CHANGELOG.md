@@ -2,6 +2,12 @@
 
 ## Latest Releases
 
+## 1.6.5
+
+- **Fix**: `include_backups` now reads the actual Supervisor `backup` mount (`/backup`) instead of the never-mounted `/backups` path, so the toggle can finally sync backups
+- **Chore**: Add-on `map` uses valid, non-deprecated Supervisor mount types (`homeassistant_config` pinned to `/config`, `all_addon_configs`, `backup`); deprecated 32-bit `arch` values removed
+- **Test**: Add-on `map` and `arch` regression checks plus the backup-root scan test
+
 ## 1.6.4
 
 - **Fix**: The repository marker is rewritten before every sync without the current file SHA, so an already-marked repo failed the nightly sync with GitHub 422 `"sha" wasn't supplied` (or a 409 stale-SHA conflict). The marker writer now reads the existing SHA before updating, and 422 missing-SHA responses are treated as SHA conflicts for the refresh-and-retry path

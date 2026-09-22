@@ -671,6 +671,65 @@ class ServerApiTests(unittest.TestCase):
     def test_sync_mode_schema_is_pipe_separated_enum(self) -> None:
         self.assertEqual(self._addon_schema()["sync_mode"], "list(whitelist|blacklist)?")
 
+    RE_MAP_STRING = re.compile(
+        r"^(data|config|ssl|addons|backup|share|media|homeassistant_config|all_addon_configs|addon_config)(?::(rw|ro))?$"
+    )
+
+    _VALID_MAP_TYPES = frozenset(
+        {"data", "ssl", "addons", "backup", "share", "media", "homeassistant_config", "all_addon_configs", "addon_config"}
+    )
+
+    _DEPRECATED_ARCH = frozenset({"armhf", "armv7", "i386"})
+
+    def _addon_meta(self) -> dict:
+        if yaml is None:
+            self.skipTest("pyyaml is required for config.yaml map/arch tests")
+        with self._ADDON_CONFIG_YAML.open("r", encoding="utf-8") as handle:
+            return yaml.safe_load(handle)
+
+    def _addon_map_types(self) -> list[str]:
+        meta = self._addon_meta()
+        self.assertIsInstance(meta.get("map"), list)
+        types = []
+        for entry in meta["map"]:
+            if isinstance(entry, dict):
+                self.assertIn("type", entry)
+                entry_type = str(entry["type"])
+            else:
+                self.assertTrue(
+                    self.RE_MAP_STRING.match(str(entry)),
+                    f"invalid map entry: {entry!r}",
+                )
+                entry_type = str(entry).split(":", 1)[0]
+            self.assertIn(entry_type, self._VALID_MAP_TYPES, f"unknown map type: {entry_type}")
+            types.append(entry_type)
+        return types
+
+    def test_addon_config_map_entries_are_valid_supervisor_mounts(self) -> None:
+        types = self._addon_map_types()
+        self.assertGreater(len(types), 0)
+        self.assertNotIn("config", types, "deprecated config map type must not be used")
+
+    def test_addon_config_homeassistant_mount_pins_config_root(self) -> None:
+        meta = self._addon_meta()
+        entry = next(
+            item for item in meta["map"]
+            if isinstance(item, dict) and item.get("type") == "homeassistant_config"
+        )
+        self.assertEqual(entry.get("read_only"), False)
+        self.assertEqual(entry.get("path"), "/config")
+
+    def test_addon_config_map_covers_engine_sync_roots(self) -> None:
+        types = set(self._addon_map_types())
+        for required in ("all_addon_configs", "backup", "share", "media", "ssl"):
+            self.assertIn(required, types, f"map missing {required}")
+
+    def test_addon_config_arch_excludes_deprecated_values(self) -> None:
+        meta = self._addon_meta()
+        self.assertIsInstance(meta.get("arch"), list)
+        self.assertTrue(meta["arch"])
+        self.assertFalse(set(meta["arch"]) & self._DEPRECATED_ARCH)
+
     def test_sync_options_to_supervisor_logs_response_body_on_http_error(self) -> None:
         class FakeHttpError(server.urllib.error.HTTPError):
             code = 400

@@ -1,6 +1,6 @@
 name: "Github Config Sync"
 description: "Home Assistant app for GitHub config sync operations, not backups. Private repositories are strongly recommended; public visibility is optional."
-version: "1.6.4"
+version: "1.6.5"
 slug: "github_config_sync_web"
 url: "https://github.com/MJP-76/GithubConfigSync"
 init: false
@@ -14,17 +14,15 @@ panel_title: Github Config Sync
 arch:
   - aarch64
   - amd64
-  - armhf
-  - armv7
-  - i386
 map:
-  - config:rw
-  - addon_configs:rw
+  - type: homeassistant_config
+    read_only: false
+    path: /config
+  - all_addon_configs:rw
   - media:rw
   - share:rw
   - ssl
-  - backups:rw
-  - www:rw
+  - backup:rw
 ports:
   8099/tcp: null
 ports_description:

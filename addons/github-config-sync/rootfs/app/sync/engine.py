@@ -23,7 +23,7 @@ class SyncEngine:
             ("media", Path("/media")),
             ("share", Path("/share")),
             ("ssl", Path("/ssl")),
-            ("backups", Path("/backups")),
+            ("backups", Path("/backup")),
             ("www", self._config_root / "www"),
         ]
         self._root_map = [
@@ -430,7 +430,7 @@ class SyncEngine:
         elif relative.startswith("ssl/"):
             candidate = Path("/ssl") / relative.removeprefix("ssl/")
         elif relative.startswith("backups/"):
-            candidate = Path("/backups") / relative.removeprefix("backups/")
+            candidate = Path("/backup") / relative.removeprefix("backups/")
         elif relative.startswith("www/"):
             candidate = self._config_root / relative
         elif relative.startswith("addon_configs/"):
