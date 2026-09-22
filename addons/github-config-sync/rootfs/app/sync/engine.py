@@ -26,11 +26,12 @@ class SyncEngine:
             ("backups", Path("/backup")),
             ("www", self._config_root / "www"),
         ]
-        self._root_map = [
-            item
-            for item in self._root_map
-            if self._root_enabled(item[0])
-        ]
+        if self._config.sync_mode == "whitelist":
+            self._root_map = [
+                item
+                for item in self._root_map
+                if self._root_enabled(item[0])
+            ]
         self._github = GitHubClient(
             repository=config.repository,
             branch=config.branch,

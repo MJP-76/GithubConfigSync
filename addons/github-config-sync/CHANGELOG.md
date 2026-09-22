@@ -2,6 +2,11 @@
 
 ## Latest Releases
 
+## 1.6.6
+
+- **Feature**: The `sync_mode` option now actually controls what is synced. In `whitelist` mode (default) only the explicitly enabled paths are synced (the base HA config plus whichever `include_*` mount points are checked), as before. In `blacklist` mode every mounted path is synced except `.gitignore`-ignored patterns. Previously the option was validated and stored but the sync engine never read it, so switching to `blacklist` changed nothing
+- **Test**: Engine root selection for whitelist (toggle-filtered) and blacklist (all mounted roots) modes
+
 ## 1.6.5
 
 - **Fix**: The add-on `map` is now valid Supervisor mount types. The Supervisor (2026.09+) logged store warnings for the invalid entries `addon_configs:rw`, `backups:rw` and `www:rw` and for the deprecated `config` type — those folders were never actually mounted. `config` becomes `homeassistant_config` pinned to `/config` (`path`), `addon_configs` becomes `all_addon_configs` (mounted at `/addon_configs`), `backups` becomes the valid `backup` type (mounted at `/backup`), and `www` is dropped (www files are already resolved from the config root)

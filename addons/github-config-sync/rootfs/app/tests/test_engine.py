@@ -65,6 +65,52 @@ class SyncEngineTests(unittest.TestCase):
                 Path("/backup/snapshot.tar"),
             )
 
+    def test_whitelist_mode_filters_roots_by_toggles(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            config = SyncConfig(
+                repository="owner/repo",
+                branch="main",
+                token="token",
+                config_root=tmp,
+                dry_run=True,
+                sync_mode="whitelist",
+            )
+            engine = SyncEngine(config, previous_hash_index={})
+            self.assertEqual(engine._root_map, [("", Path(tmp))])
+
+    def test_whitelist_mode_respects_explicitly_enabled_roots(self) -> None:
+        config = SyncConfig(
+            repository="owner/repo",
+            branch="main",
+            token="token",
+            config_root="/config",
+            dry_run=True,
+            sync_mode="whitelist",
+            include_media=True,
+            include_ssl=True,
+        )
+        engine = SyncEngine(config, previous_hash_index={})
+        roots = dict(engine._root_map)
+        self.assertEqual(roots["media"], Path("/media"))
+        self.assertEqual(roots["ssl"], Path("/ssl"))
+        self.assertNotIn("backups", roots)
+        self.assertNotIn("share", roots)
+
+    def test_blacklist_mode_syncs_all_roots_regardless_of_toggles(self) -> None:
+        config = SyncConfig(
+            repository="owner/repo",
+            branch="main",
+            token="token",
+            config_root="/config",
+            dry_run=True,
+            sync_mode="blacklist",
+        )
+        engine = SyncEngine(config, previous_hash_index={})
+        self.assertEqual(
+            [label for label, _ in engine._root_map],
+            ["", "addon_configs", "media", "share", "ssl", "backups", "www"],
+        )
+
     def test_run_dry_run_returns_counts_without_github_calls(self) -> None:
         config = SyncConfig(
             repository="owner/repo",

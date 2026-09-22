@@ -6,6 +6,17 @@ The full 71-release history lives in
 [GitHub Releases](https://github.com/MJP-76/GithubConfigSync/releases)).
 The last 5 releases are kept at the top, per the project's changelog rules.
 
+## 1.6.6
+
+- **Feature**: The `sync_mode` option now actually controls what is synced. In
+  `whitelist` mode (default) only the explicitly enabled paths are synced (the
+  base HA config plus whichever `include_*` mount points are checked). In
+  `blacklist` mode every mounted path is synced except `.gitignore`-ignored
+  patterns. Previously the option was validated and stored but the sync engine
+  never read it, so switching to `blacklist` changed nothing
+- **Test**: Engine root selection for whitelist (toggle-filtered) and blacklist
+  (all mounted roots) modes
+
 ## 1.6.5
 
 - **Fix**: Add-on `map` entries are now valid Supervisor mount types. The
@@ -58,22 +69,5 @@ The last 5 releases are kept at the top, per the project's changelog rules.
   in the web UI that compares the installed version against the add-on's GitHub
   releases (server-cached for 5 minutes; fails soft) and points users to install
   updates from Home Assistant → Add-ons
-
-## 1.6.1
-
-- **Fix**: Sync no longer fails with "Path escapes allowed sync roots" when the
-  `www` mount point is excluded — `www` files are resolved from the config root
-  instead of the container's `/www` path (regression from the mount-point
-  controls)
-- **Fix**: `.gitignore` patterns in the config root are now honored during
-  scanning, so UI-managed defaults (e.g. HACS `www/community/`) are excluded
-- **Fix**: Removed the vestigial `sync_interval_minutes` option — scheduled
-  sync still uses day-of-week + time selection
-- **Fix**: Options pushed to Supervisor are filtered to the add-on schema,
-  fixing `Failed to sync options to Supervisor: HTTP Error 400`
-- **Fix**: Scheduled-sync timer can no longer double-schedule when settings are
-  saved while a poll is in flight
-- **Chore**: `include_www` now defaults consistently to off across the schema,
-  UI and engine
 
 _(older releases)_

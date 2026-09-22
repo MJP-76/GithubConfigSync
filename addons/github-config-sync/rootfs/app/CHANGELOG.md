@@ -2,6 +2,11 @@
 
 ## Latest Releases
 
+## 1.6.6
+
+- **Feature**: `sync_mode` is now honored by the sync engine — `whitelist` (default) syncs only the enabled mount points, `blacklist` syncs every mounted path except `.gitignore` patterns. Previously the option was stored but had no effect
+- **Test**: whitelist/blacklist root-selection tests
+
 ## 1.6.5
 
 - **Fix**: `include_backups` now reads the actual Supervisor `backup` mount (`/backup`) instead of the never-mounted `/backups` path, so the toggle can finally sync backups
