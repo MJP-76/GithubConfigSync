@@ -2,6 +2,12 @@
 
 ## Latest Releases
 
+## 1.6.7
+
+- **Fix**: Key and certificate material — SSL/TLS keys and certs (`.pem`, `.key`, `.crt`, `.cer`, `.der`, `.p12`, `.pfx`, `.p8`, `.pub`, `.asc`), SSH keys (`id_rsa`, `id_ed25519`, …) and `.ssh/` folders — is hard-excluded from sync in every mode, so private keys can never be uploaded
+- **Fix**: Removed bogus `include_ssl` / `include_addon_configs` ignored-directory entries
+- **Test**: key/SSH hard-ignore coverage and hash-index exclusion
+
 ## 1.6.6
 
 - **Feature**: `sync_mode` is now honored by the sync engine — `whitelist` (default) syncs only the enabled mount points, `blacklist` syncs every mounted path except `.gitignore` patterns. Previously the option was stored but had no effect

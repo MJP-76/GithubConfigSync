@@ -6,6 +6,16 @@ The full 71-release history lives in
 [GitHub Releases](https://github.com/MJP-76/GithubConfigSync/releases)).
 The last 5 releases are kept at the top, per the project's changelog rules.
 
+## 1.6.7
+
+- **Fix**: Key and certificate material can never be synced. SSL/TLS keys and
+  certs (`.pem`, `.key`, `.crt`, `.cer`, `.der`, `.p12`, `.pfx`, `.p8`, `.pub`,
+  `.asc`), SSH keys (`id_rsa`, `id_ed25519`, …) and `.ssh/` folders are
+  hard-excluded from scanning and upload in every sync mode
+- **Fix**: Removed two bogus entries (`include_ssl`, `include_addon_configs`)
+  from the built-in ignored-directories list
+- **Test**: key/cert/SSH hard-ignore coverage and hash-index exclusion
+
 ## 1.6.6
 
 - **Feature**: The `sync_mode` option now actually controls what is synced. In
@@ -59,15 +69,5 @@ The last 5 releases are kept at the top, per the project's changelog rules.
   body instead of the generic `HTTP Error 400: Bad Request`
 - **Test**: Add-on schema values are regression-checked against the Supervisor
   element regex and must match the option keys the app syncs
-
-## 1.6.2
-
-- **Feature**: New `include_pre_releases` option — when enabled, the add-on
-  reports pre-release builds (not just stable ones) in its update check, so a
-  candidate version is visible before it reaches the stable line
-- **Feature**: Added `/api/update-check` endpoint and an "Add-on updates" section
-  in the web UI that compares the installed version against the add-on's GitHub
-  releases (server-cached for 5 minutes; fails soft) and points users to install
-  updates from Home Assistant → Add-ons
 
 _(older releases)_

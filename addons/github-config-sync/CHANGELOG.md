@@ -2,6 +2,12 @@
 
 ## Latest Releases
 
+## 1.6.7
+
+- **Fix**: Key and certificate material can never be synced. SSL/TLS keys and certs (`.pem`, `.key`, `.crt`, `.cer`, `.der`, `.p12`, `.pfx`, `.p8`, `.pub`, `.asc`), SSH keys (`id_rsa`, `id_ed25519`, …) and `.ssh/` folders are hard-excluded from scanning and upload in every sync mode, layered on top of the existing `.gitignore` filtering
+- **Fix**: Removed two bogus entries (`include_ssl`, `include_addon_configs`) from the built-in ignored-directories list — leftover option-key names, no directory is ever named that
+- **Test**: key/cert/SSH paths are hard-ignored and never enter the hash index; no option-key leftovers in the ignored-dirs list
+
 ## 1.6.6
 
 - **Feature**: The `sync_mode` option now actually controls what is synced. In `whitelist` mode (default) only the explicitly enabled paths are synced (the base HA config plus whichever `include_*` mount points are checked), as before. In `blacklist` mode every mounted path is synced except `.gitignore`-ignored patterns. Previously the option was validated and stored but the sync engine never read it, so switching to `blacklist` changed nothing

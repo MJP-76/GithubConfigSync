@@ -10,7 +10,7 @@ APP_ROOT = Path(__file__).resolve().parents[1]
 if str(APP_ROOT) not in sys.path:
     sys.path.insert(0, str(APP_ROOT))
 
-from sync.hashing import GitIgnoreMatcher, build_hash_index, diff_hash_indexes, _is_file_sensitive, scan_sensitive_files
+from sync.hashing import GitIgnoreMatcher, build_hash_index, diff_hash_indexes, _is_file_sensitive, scan_sensitive_files, is_ignored, IGNORE_DIRS, IGNORE_PATTERNS
 
 CONST_PATH = Path(__file__).resolve().parents[5] / "custom_components/github_config_sync/const.py"
 CONST_SPEC = importlib.util.spec_from_file_location("github_config_sync_const", CONST_PATH)
@@ -145,6 +145,45 @@ class HashingTests(unittest.TestCase):
         self.assertIn(".ruff.toml", DEFAULT_IGNORE_PATTERNS)
         self.assertIn("core.config_entries", DEFAULT_IGNORE_PATTERNS)
         self.assertIn(".env", DEFAULT_IGNORE_PATTERNS)
+
+    def test_key_and_certificate_material_is_hard_ignored(self) -> None:
+        for path in (
+            "ssl/cert.pem",
+            "ssl/privkey.key",
+            "certs/chain.crt",
+            "certs/fullchain.p12",
+            "server.der",
+            "id_rsa",
+            "id_ed25519",
+            "backup/authorized.pub",
+        ):
+            self.assertTrue(is_ignored(path), f"{path} should be ignored")
+        self.assertFalse(is_ignored("configuration.yaml"))
+        self.assertFalse(is_ignored("automations.yaml"))
+
+    def test_key_and_certificate_files_never_enter_hash_index(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "configuration.yaml").write_text("homeassistant:\n", encoding="utf-8")
+            (root / "cert.pem").write_text("-----BEGIN CERTIFICATE-----\n", encoding="utf-8")
+            (root / "privkey.key").write_text("PRIVATE KEY", encoding="utf-8")
+            (root / "chain.crt").write_text("CERT", encoding="utf-8")
+            (root / "id_ed25519").write_text("KEY", encoding="utf-8")
+            (root / "server.pub").write_text("PUB", encoding="utf-8")
+            (root / ".ssh").mkdir()
+            (root / ".ssh" / "authorized_keys").write_text("ssh-rsa AAAA", encoding="utf-8")
+
+            index = build_hash_index(root)
+
+            self.assertEqual(list(index.keys()), ["configuration.yaml"])
+
+    def test_ignore_dirs_have_no_option_key_leftovers(self) -> None:
+        self.assertNotIn("include_ssl", IGNORE_DIRS)
+        self.assertNotIn("include_addon_configs", IGNORE_DIRS)
+        self.assertIn(".ssh", IGNORE_DIRS)
+        self.assertIn("*.pem", IGNORE_PATTERNS)
+        self.assertIn("*.key", IGNORE_PATTERNS)
+        self.assertIn("*.crt", IGNORE_PATTERNS)
 
     def test_diff_hash_indexes_returns_expected_added_changed_removed(self) -> None:
         previous = {"a.yaml": "1", "b.yaml": "2"}
