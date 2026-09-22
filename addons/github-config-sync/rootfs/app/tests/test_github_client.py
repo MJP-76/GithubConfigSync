@@ -366,7 +366,6 @@ class ContentTests(unittest.TestCase):
 
     def test_write_repo_marker_passes_existing_sha(self) -> None:
         client = _client()
-        marker_json = json.dumps({"created_by": "github-config-sync-addon"}, indent=2, sort_keys=True).encode("utf-8")
         with patch.object(GitHubClient, "get_content", return_value={"sha": "marker-sha"}) as mock_get:
             with patch.object(GitHubClient, "put_content", return_value={"content": {}}) as mock_put:
                 result = client.write_repo_marker()
@@ -537,15 +536,15 @@ class HelperTests(unittest.TestCase):
         with patch("sync.github_client.time.time", return_value=0):
             err = _http_error(403, b'{}', reset="60")
             wait = github_client._parse_rate_limit_wait(err, attempt=0)
-        self.assertEqual(wait, 62.0)
+        self.assertEqual(wait, 60.0)
 
-    def test_parse_rate_limit_wait_caps_at_300(self) -> None:
+    def test_parse_rate_limit_wait_caps_at_60(self) -> None:
         with patch("sync.github_client.time.time", return_value=0):
             err = _http_error(403, b'{}', reset="9999999999")
             wait = github_client._parse_rate_limit_wait(err, attempt=3)
-        self.assertEqual(wait, 300.0)
+        self.assertEqual(wait, 60.0)
 
     def test_parse_rate_limit_wait_falls_back_to_exponential(self) -> None:
         self.assertEqual(github_client._parse_rate_limit_wait(_http_error(403, b'{}'), attempt=0), 60.0)
-        self.assertEqual(github_client._parse_rate_limit_wait(_http_error(403, b'{}'), attempt=1), 120.0)
-        self.assertEqual(github_client._parse_rate_limit_wait(_http_error(403, b'{}'), attempt=3), 300.0)
+        self.assertEqual(github_client._parse_rate_limit_wait(_http_error(403, b'{}'), attempt=1), 60.0)
+        self.assertEqual(github_client._parse_rate_limit_wait(_http_error(403, b'{}'), attempt=3), 60.0)

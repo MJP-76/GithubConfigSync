@@ -6,6 +6,29 @@ The full 71-release history lives in
 [GitHub Releases](https://github.com/MJP-76/GithubConfigSync/releases)).
 The last 5 releases are kept at the top, per the project's changelog rules.
 
+## 1.6.8
+
+- **Feature**: The update check now reports how many new versions exist and
+  names every candidate — pre-releases included when `include_pre_releases` is
+  enabled — instead of only the newest. The UI badge reads "Update available
+  (N)" and the details line lists each build newer than the installed version
+- **Safety**: "Clean Repo" no longer wipes the remote repository. It is now a
+  diff-clean: only files present on GitHub but missing from the local config
+  are deleted, with per-file progress and cancel support, so it is safe to
+  run at any time
+- **Feature**: New "Reset Repo" action (`/api/sync/nuke-repo`) replaces the
+  whole repository — an empty tree on an orphan commit drops the entire
+  history, and every release and tag is deleted. It runs in a handful of
+  git-data API calls rather than per-file deletes, restores the starter
+  skeleton, and requires typing `RESET <repository>` to confirm
+- **Safety**: The sync engine refuses to delete remote files when the local
+  scan found no files at all, so a broken scan can never empty the remote repo
+- **Reliability**: GitHub rate-limit backoff is capped at 60 seconds per retry
+  instead of 300, so a stalled cleanup no longer hangs for minutes
+- **Test**: diff-clean and nuke-repo engine paths, history-reset orphan
+  commits, release/tag cleanup, the empty-scan guard, the rate-limit cap, and
+  the clean-repo/nuke-repo API endpoints
+
 ## 1.6.7
 
 - **Fix**: Key and certificate material can never be synced. SSL/TLS keys and
@@ -53,21 +76,5 @@ The last 5 releases are kept at the top, per the project's changelog rules.
   for the refresh-and-retry path
 - **Test**: Marker SHA passthrough, fresh-repo omit, and 422 missing-SHA
   recovery
-
-## 1.6.3
-
-- **Fix**: `auto_sync_days` schema is now a nested optional integer list
-  (`["int?"]`). The earlier `list?` form was rejected by the Supervisor's
-  schema parser, dropping the add-on from the store (so no updates were
-  offered); the interim `list(str)` form silently caused
-  `Failed to sync options to Supervisor: HTTP Error 400` on every save,
-  because a flat `list(...)` schema element is an enum, not a list type
-- **Fix**: `sync_mode` schema uses pipe-separated enum values without quotes
-  (`list(whitelist|blacklist)?`); the quoted form made the whole enum a single
-  bogus option and rejected real values with an options-sync 400
-- **Fix**: Supervisor options-sync failures now log the Supervisor response
-  body instead of the generic `HTTP Error 400: Bad Request`
-- **Test**: Add-on schema values are regression-checked against the Supervisor
-  element regex and must match the option keys the app syncs
 
 _(older releases)_

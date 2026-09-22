@@ -222,8 +222,10 @@ class GitHubClient:
             payload["tree"] = tree
         return self._request_json("POST", f"{self._base}/git/trees", payload=payload)
 
-    def create_git_commit(self, message: str, tree_sha: str, parent_sha: str) -> dict[str, Any]:
-        payload = {"message": message, "tree": tree_sha, "parents": [parent_sha]}
+    def create_git_commit(self, message: str, tree_sha: str, parent_sha: str | None = None) -> dict[str, Any]:
+        payload: dict[str, Any] = {"message": message, "tree": tree_sha}
+        if parent_sha:
+            payload["parents"] = [parent_sha]
         return self._request_json("POST", f"{self._base}/git/commits", payload=payload)
 
     def update_branch_ref(self, commit_sha: str) -> dict[str, Any]:
@@ -271,6 +273,36 @@ class GitHubClient:
 
     def delete_release(self, release_id: int) -> None:
         self._request_any("DELETE", f"{self._base}/releases/{release_id}")
+
+    def list_all_releases(self, per_page: int = 100) -> list[dict[str, Any]]:
+        releases: list[dict[str, Any]] = []
+        page = 1
+        while True:
+            payload = self._request_any(
+                "GET", f"{self._base}/releases?per_page={max(1, min(per_page, 100))}&page={page}"
+            )
+            if not isinstance(payload, list) or not payload:
+                break
+            releases.extend(r for r in payload if isinstance(r, dict))
+            if len(payload) < per_page:
+                break
+            page += 1
+        return releases
+
+    def list_tags(self, per_page: int = 100) -> list[dict[str, Any]]:
+        tags: list[dict[str, Any]] = []
+        page = 1
+        while True:
+            payload = self._request_any(
+                "GET", f"{self._base}/git/refs/tags?per_page={max(1, min(per_page, 100))}&page={page}"
+            )
+            if not isinstance(payload, list) or not payload:
+                break
+            tags.extend(r for r in payload if isinstance(r, dict))
+            if len(payload) < per_page:
+                break
+            page += 1
+        return tags
 
     def delete_tag(self, tag_name: str) -> None:
         try:
@@ -376,7 +408,7 @@ def _parse_rate_limit_wait(err: urllib.error.HTTPError, attempt: int) -> float:
         try:
             reset_epoch = int(reset_header)
             wait = max(1.0, reset_epoch - time.time() + 2)
-            return min(wait, 300)
+            return min(wait, 60)
         except (ValueError, TypeError):
             pass
-    return min(60 * (2 ** attempt), 300)
+    return min(60 * (2 ** attempt), 60)

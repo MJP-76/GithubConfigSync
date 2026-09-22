@@ -17,7 +17,7 @@ from urllib.parse import quote
 
 from flask import Flask, jsonify, request, send_from_directory
 
-from sync import SyncConfig, SyncEngine
+from sync import SyncConfig, SyncEngine, SyncPlan
 from sync.errors import SyncError
 from sync.github_client import GitHubClient
 from sync.hashing import IGNORE_PATTERNS
@@ -713,6 +713,13 @@ def _addon_update_check(options: dict[str, Any]) -> dict[str, Any]:
         if candidate is not None:
             update_available = (_parse_release_version(candidate.get("tag_name")) or (0,)) > installed
 
+        available = [
+            _release_summary(release)
+            for (_parsed, release) in versions
+            if (_parse_release_version(release.get("tag_name")) or (0,)) > installed
+            and (include_pre_releases or not release.get("prerelease"))
+        ]
+
         result = {
             "ok": True,
             "installed": APP_VERSION,
@@ -721,6 +728,8 @@ def _addon_update_check(options: dict[str, Any]) -> dict[str, Any]:
             "latest_stable": _release_summary(stable),
             "latest_candidate": _release_summary(candidate),
             "update_available": update_available,
+            "available": available,
+            "available_count": len(available),
         }
         _save_state({cache_key: {"timestamp": time.time(), "result": result}})
         return result
@@ -1959,7 +1968,6 @@ def trigger_clean_sync():
             return jsonify({"ok": False, "error": reason, "state": state}), 400
         engine.set_cancel_checker(_is_cancel_requested)
         engine.set_progress_callback(lambda payload: _save_state(_sync_progress_payload(payload)))
-        engine.clean_remote_tree()
         plan, current_hash_index = engine.clean_plan()
         scan = _plan_summary(plan)
         _append_log(
@@ -1995,7 +2003,7 @@ def trigger_clean_sync():
                 _append_log(f"Repository probe failed: {friendly_message}")
                 return jsonify({"ok": False, "error": friendly_message, "state": state}), 502
         result = engine.run(plan)
-        _restore_repo_skeleton_and_marker(engine, sync_config.repository)
+        _ensure_repo_marker(engine, sync_config.repository)
         sensitive_files = _sync_sensitive_warning(engine)
         _save_json(HASH_INDEX_PATH, current_hash_index)
     except SyncError as err:
@@ -2038,6 +2046,12 @@ def trigger_clean_sync():
 
 @app.post("/api/sync/clean-repo")
 def trigger_clean_repo():
+    """Delete remote files that no longer exist in the local config tree.
+
+    This is a diff-clean: only paths present on GitHub but absent from the
+    local scan are deleted, and everything that exists locally is left alone.
+    The delete loop reports progress per file and honours cancel requests.
+    """
     if not _require_auth():
         return jsonify({"ok": False, "error": "Unauthorized"}), 401
     options = _merge_options()
@@ -2051,14 +2065,108 @@ def trigger_clean_repo():
     _set_cancel_requested(False)
     _append_log(f"Clean repo requested for {sync_config.repository}")
 
+    scan: dict[str, Any] | None = None
     try:
-        engine = SyncEngine(sync_config, previous_hash_index=_load_json(HASH_INDEX_PATH, {}))
+        previous_index = _load_json(HASH_INDEX_PATH, {})
+        engine = SyncEngine(sync_config, previous_hash_index=previous_index)
         engine.set_progress_callback(lambda payload: _save_state(_sync_progress_payload(payload)))
         engine.set_cancel_checker(_is_cancel_requested)
-        engine.clean_remote_tree()
+        plan, current_hash_index = engine.clean_plan()
+        delete_plan = SyncPlan(
+            added=[],
+            changed=[],
+            removed=plan.removed,
+            total_files=len(current_hash_index),
+        )
+        scan = _plan_summary(delete_plan)
+        _append_log(f"Clean repo: deleting {len(delete_plan.removed)} file(s) absent from the local config")
+        if not sync_config.dry_run:
+            probe_ok, probe_message = engine._github.probe_repository()  # pylint: disable=protected-access
+            if not probe_ok:
+                raise SyncError(probe_message)
+        result = engine.run(delete_plan)
+        _ensure_repo_marker(engine, sync_config.repository)
+        _save_json(HASH_INDEX_PATH, current_hash_index)
+    except SyncError as err:
+        state = _save_state(
+            {
+                "status": "error",
+                "last_error": str(err),
+                "last_result": None,
+                "last_scan": scan,
+                **_clear_sync_progress_state(),
+            }
+        )
+        _append_log(f"Clean repo failed: {err}")
+        return jsonify({"ok": False, "error": str(err), "state": state}), 502
+
+    message = f"Clean repo completed. Deleted {result.deleted_count} file(s) absent from the local config."
+    state = _save_state(
+        {
+            "status": "ok",
+            "last_success": dt.datetime.now(dt.timezone.utc).isoformat(),
+            "last_result": message,
+            "last_scan": scan,
+            "last_error": None,
+            **_clear_sync_progress_state(),
+        }
+    )
+    _append_log(message)
+    return jsonify(
+        {
+            "ok": True,
+            "result": message,
+            "summary": {
+                "synced_count": result.synced_count,
+                "deleted_count": result.deleted_count,
+                "skipped_count": result.skipped_count,
+                "total_files": result.total_files,
+            },
+            "state": state,
+        }
+    )
+
+
+@app.post("/api/sync/nuke-repo")
+def trigger_nuke_repo():
+    """Reset the remote repository: empty tree, replace whole history, and remove all releases and tags.
+
+    Requires explicit typed confirmation. This is the fast path (a handful of
+    git-data API calls) instead of per-file deletes, and it also drops every
+    sync/version release and its tag. The starter skeleton and repo marker are
+    restored afterwards; a normal Sync uploads the local config again.
+    """
+    if not _require_auth():
+        return jsonify({"ok": False, "error": "Unauthorized"}), 401
+    options = _merge_options()
+    sync_config = _sync_config(options)
+
+    if not sync_config.repository:
+        return jsonify({"ok": False, "error": "github_repository is required"}), 400
+
+    body = request.get_json(silent=True) or {}
+    expected_confirm = f"RESET {sync_config.repository}"
+    if str(body.get("confirm") or "").strip() != expected_confirm:
+        return jsonify(
+            {"ok": False, "error": f"Confirmation required: type '{expected_confirm}' to reset the repository."}
+        ), 400
+
+    started = dt.datetime.now(dt.timezone.utc).isoformat()
+    _save_state({"status": "running", "last_run": started, "last_error": None, **_clear_sync_progress_state()})
+    _set_cancel_requested(False)
+    _append_log(f"Nuke repo requested for {sync_config.repository}")
+
+    try:
+        engine = SyncEngine(sync_config, previous_hash_index={})
+        engine.set_progress_callback(lambda payload: _save_state(_sync_progress_payload(payload)))
+        engine.set_cancel_checker(_is_cancel_requested)
+        engine.nuke_remote_tree(reset_history=True)
         if _is_cancel_requested():
-            raise SyncError("Clean cancelled")
-        _restore_repo_skeleton_and_marker(engine, sync_config.repository)
+            raise SyncError("Nuke cancelled")
+        engine.delete_all_releases_and_tags()
+        engine.restore_repo_skeleton()
+        engine._github.write_repo_marker({"created_by": "github-config-sync-addon", "reset": True})  # pylint: disable=protected-access
+        _save_json(HASH_INDEX_PATH, {})
     except SyncError as err:
         state = _save_state(
             {
@@ -2069,27 +2177,22 @@ def trigger_clean_repo():
                 **_clear_sync_progress_state(),
             }
         )
-        _append_log(f"Clean repo failed: {err}")
+        _append_log(f"Nuke repo failed: {err}")
         return jsonify({"ok": False, "error": str(err), "state": state}), 502
 
+    message = "Reset repo completed. Remote history replaced, releases and tags removed, skeleton restored."
     state = _save_state(
         {
             "status": "ok",
             "last_success": dt.datetime.now(dt.timezone.utc).isoformat(),
-            "last_result": "Clean repo completed. Remote repo fully reset and skeleton restored.",
+            "last_result": message,
             "last_scan": None,
             "last_error": None,
             **_clear_sync_progress_state(),
         }
     )
-    _append_log("Clean repo completed: remote tree wiped, skeleton restored, marker refreshed")
-    return jsonify(
-        {
-            "ok": True,
-            "result": "Clean repo completed. Remote repo fully reset and skeleton restored.",
-            "state": state,
-        }
-    )
+    _append_log(message)
+    return jsonify({"ok": True, "result": message, "state": state})
 
 
 if __name__ == "__main__":

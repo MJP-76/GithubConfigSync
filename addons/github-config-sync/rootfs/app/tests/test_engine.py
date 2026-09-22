@@ -316,6 +316,7 @@ class SyncEngineTests(unittest.TestCase):
                 {"type": "file", "name": "nested.yaml", "path": "config/nested.yaml", "sha": "nestedsha"},
             ],
         ]
+        fake_client.get_content.side_effect = [{"sha": "nestedsha"}, {"sha": "rootsha"}]
 
         with patch("sync.engine.GitHubClient", return_value=fake_client):
             engine = SyncEngine(config, previous_hash_index={})
@@ -333,7 +334,7 @@ class SyncEngineTests(unittest.TestCase):
             message="sync: delete root.yaml",
         )
 
-    def test_clean_remote_tree_uses_git_tree_delete_flow(self) -> None:
+    def test_clean_remote_tree_uses_atomic_empty_tree_commit(self) -> None:
         config = SyncConfig(
             repository="owner/repo",
             branch="main",
@@ -345,14 +346,6 @@ class SyncEngineTests(unittest.TestCase):
         )
         fake_client = MagicMock()
         fake_client.get_branch_head_sha.return_value = "headsha"
-        fake_client.get_commit_tree_sha.return_value = "basetree"
-        fake_client.list_directory_contents.side_effect = [
-            [
-                {"type": "file", "path": "root.yaml", "sha": "rootsha"},
-                {"type": "dir", "path": "nested", "name": "nested"},
-            ],
-            [{"type": "file", "path": "nested/inside.yaml", "sha": "innersha"}],
-        ]
         fake_client.create_git_tree.return_value = {"sha": "treesha"}
         fake_client.create_git_commit.return_value = {"sha": "commitsha"}
 
@@ -361,14 +354,96 @@ class SyncEngineTests(unittest.TestCase):
             engine.clean_remote_tree()
 
         fake_client.get_branch_head_sha.assert_called_once()
-        fake_client.get_commit_tree_sha.assert_called_once_with("headsha")
-        fake_client.create_git_tree.assert_called_once()
+        fake_client.create_git_tree.assert_called_once_with(tree=[])
         fake_client.create_git_commit.assert_called_once_with(
-            message="sync: fast clean remote tree",
+            message="sync: reset repository",
             tree_sha="treesha",
             parent_sha="headsha",
         )
         fake_client.update_branch_ref.assert_called_once_with("commitsha")
+        fake_client.delete_content.assert_not_called()
+
+    def test_nuke_remote_tree_resets_history_with_orphan_commit(self) -> None:
+        config = SyncConfig(
+            repository="owner/repo",
+            branch="main",
+            token="token",
+            config_root=".",
+            addon_config_root="/addon_configs",
+            dry_run=False,
+            include_addon_configs=True,
+        )
+        fake_client = MagicMock()
+        fake_client.create_git_tree.return_value = {"sha": "treesha"}
+        fake_client.create_git_commit.return_value = {"sha": "commitsha"}
+
+        with patch("sync.engine.GitHubClient", return_value=fake_client):
+            engine = SyncEngine(config, previous_hash_index={})
+            engine.nuke_remote_tree(reset_history=True)
+
+        fake_client.get_branch_head_sha.assert_not_called()
+        fake_client.create_git_tree.assert_called_once_with(tree=[])
+        fake_client.create_git_commit.assert_called_once_with(
+            message="sync: reset repository",
+            tree_sha="treesha",
+            parent_sha=None,
+        )
+        fake_client.update_branch_ref.assert_called_once_with("commitsha")
+        fake_client.delete_content.assert_not_called()
+
+    def test_delete_all_releases_and_tags(self) -> None:
+        config = SyncConfig(
+            repository="owner/repo",
+            branch="main",
+            token="token",
+            config_root=".",
+            addon_config_root="/addon_configs",
+            dry_run=False,
+            include_addon_configs=True,
+        )
+        fake_client = MagicMock()
+        fake_client.list_all_releases.return_value = [
+            {"id": 101, "tag_name": "sync-21-09-26-03-00-00"},
+            {"id": 102, "tag_name": "v1.0.0"},
+            {"id": "not-an-int", "tag_name": "v2.0.0"},
+        ]
+        fake_client.list_tags.return_value = [
+            {"name": "v3.0.0"},
+            {"ref": "refs/tags/sync-22-09-26-03-00-00"},
+            {"node_id": "nope"},
+        ]
+
+        with patch("sync.engine.GitHubClient", return_value=fake_client):
+            engine = SyncEngine(config, previous_hash_index={})
+            engine.delete_all_releases_and_tags()
+
+        self.assertEqual(fake_client.delete_release.call_count, 2)
+        for release_id in (101, 102):
+            fake_client.delete_release.assert_any_call(release_id)
+        for tag in ("sync-21-09-26-03-00-00", "v1.0.0", "sync-22-09-26-03-00-00"):
+            fake_client.delete_tag.assert_any_call(tag)
+
+    def test_run_refuses_to_delete_when_local_scan_is_empty(self) -> None:
+        config = SyncConfig(
+            repository="owner/repo",
+            branch="main",
+            token="token",
+            config_root=".",
+            addon_config_root="/addon_configs",
+            dry_run=False,
+            include_addon_configs=True,
+        )
+        fake_client = MagicMock()
+        plan = SyncPlan(added=[], changed=[], removed=["config.yaml", "secrets.yaml"], total_files=0)
+
+        with patch("sync.engine.GitHubClient", return_value=fake_client):
+            engine = SyncEngine(config, previous_hash_index={})
+            with self.assertRaises(Exception) as ctx:
+                engine.run(plan)
+
+        self.assertIn("local scan found no files", str(ctx.exception))
+        fake_client.put_content.assert_not_called()
+        fake_client.delete_content.assert_not_called()
 
     def test_restore_repo_skeleton_uses_app_root_assets(self) -> None:
         config = SyncConfig(

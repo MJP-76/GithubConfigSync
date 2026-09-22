@@ -2,6 +2,14 @@
 
 ## Latest Releases
 
+## 1.6.8
+
+- **Feature**: Update check reports how many new versions exist and names every candidate (pre-releases too when `include_pre_releases` is on) instead of only the newest
+- **Safety**: "Clean Repo" is now a diff-clean — it deletes only files that exist remotely but are missing from the local config, with per-file progress and cancel; it never wipes the repository
+- **Feature**: New "Reset Repo" action replaces the remote repository with an empty tree on an orphan commit (whole history dropped) and deletes every release and tag; it is a handful of git-data API calls, restores the skeleton, and needs a typed `RESET <repository>` confirmation
+- **Safety**: The engine refuses to delete remote files when the local scan found no files
+- **Reliability**: Rate-limit backoff capped at 60 s per retry (was 300 s)
+
 ## 1.6.7
 
 - **Fix**: Key and certificate material — SSL/TLS keys and certs (`.pem`, `.key`, `.crt`, `.cer`, `.der`, `.p12`, `.pfx`, `.p8`, `.pub`, `.asc`), SSH keys (`id_rsa`, `id_ed25519`, …) and `.ssh/` folders — is hard-excluded from sync in every mode, so private keys can never be uploaded

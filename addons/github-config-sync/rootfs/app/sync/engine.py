@@ -74,6 +74,11 @@ class SyncEngine:
         return plan, current_hash_index
 
     def run(self, plan: SyncPlan) -> SyncResult:
+        if plan.removed and plan.total_files == 0:
+            raise SyncError(
+                "Refusing to delete remote files: the local scan found no files. "
+                "Nothing on GitHub was changed."
+            )
         upsert_paths = [*plan.added, *plan.changed]
         removed_paths = list(plan.removed)
         self._progress_callback(
@@ -126,15 +131,6 @@ class SyncEngine:
     def sensitive_files(self) -> list[str]:
         return list(self._sensitive_files)
 
-    def clean_remote_tree(self) -> None:
-        if self._cancel_requested():
-            raise SyncError("Clean cancelled")
-        try:
-            self._wipe_remote_repository()
-            return
-        except SyncError:
-            self._delete_remote_tree("")
-
     def restore_repo_skeleton(self) -> None:
         self._restore_repo_skeleton()
 
@@ -177,70 +173,118 @@ class SyncEngine:
                 sha = remote.get("sha") if remote else None
         raise last_err  # type: ignore[misc]  # pragma: no cover
 
-    def _wipe_remote_repository(self) -> None:
-        head_sha = self._github.get_branch_head_sha()
-        base_tree_sha = self._github.get_commit_tree_sha(head_sha)
-        deletions = self._collect_remote_deletions("")
+    def clean_remote_tree(self) -> None:
+        """Empty the remote tree in one atomic commit (fast path); falls back to per-file deletes."""
+        if self._cancel_requested():
+            raise SyncError("Clean cancelled")
+        try:
+            self._reset_remote_tree(reset_history=False)
+            return
+        except SyncError:
+            self._delete_remote_tree("")
+
+    def nuke_remote_tree(self, reset_history: bool = True) -> None:
+        """Reset the remote repository to an empty tree in a handful of API calls.
+
+        With reset_history True an orphan commit replaces the whole history, so
+        old commits, releases and tags are all dropped. Falls back to per-file
+        deletes (with per-file progress and cancel) if the fast path fails.
+        """
+        if self._cancel_requested():
+            raise SyncError("Nuke cancelled")
+        try:
+            self._reset_remote_tree(reset_history=reset_history)
+            return
+        except SyncError:
+            self._delete_remote_tree("")
+
+    def delete_all_releases_and_tags(self) -> None:
+        releases = self._github.list_all_releases()
+        for release in releases:
+            release_id = release.get("id")
+            tag_name = release.get("tag_name")
+            if isinstance(release_id, int):
+                try:
+                    self._github.delete_release(release_id)
+                except SyncError:
+                    pass
+            if isinstance(tag_name, str) and tag_name:
+                try:
+                    self._github.delete_tag(tag_name)
+                except SyncError:
+                    pass
+        for tag_ref in self._github.list_tags():
+            tag_name = tag_ref.get("name")
+            if not isinstance(tag_name, str):
+                ref = tag_ref.get("ref")
+                if isinstance(ref, str):
+                    tag_name = ref.rsplit("/", 1)[-1]
+            if isinstance(tag_name, str) and tag_name:
+                try:
+                    self._github.delete_tag(tag_name)
+                except SyncError:
+                    pass
+
+    def _reset_remote_tree(self, reset_history: bool) -> None:
         self._progress_callback(
             {
                 "status": "running",
-                "current_action": "cleaning",
+                "current_action": "resetting",
                 "current_path": "",
                 "upsert_total": 0,
-                "remove_total": len(deletions),
+                "remove_total": 0,
                 "upsert_remaining": 0,
-                "remove_remaining": len(deletions),
+                "remove_remaining": 0,
                 "upsert_paths": [],
-                "remove_paths": [str(item.get("path", "")) for item in deletions[:50]],
+                "remove_paths": [],
             }
         )
-        if not deletions:
-            deletions = [{"path": ".keep", "mode": "100644", "type": "blob", "sha": None}]
-        empty_tree = self._github.create_git_tree(base_tree=base_tree_sha, tree=deletions)
+        parent_sha = None
+        if not reset_history:
+            parent_sha = self._github.get_branch_head_sha()
+        empty_tree = self._github.create_git_tree(tree=[])
         tree_sha = empty_tree.get("sha")
         if not isinstance(tree_sha, str) or not tree_sha:
             raise SyncError("GitHub empty tree response was incomplete")
         commit = self._github.create_git_commit(
-            message="sync: fast clean remote tree",
+            message="sync: reset repository",
             tree_sha=tree_sha,
-            parent_sha=head_sha,
+            parent_sha=parent_sha,
         )
         commit_sha = commit.get("sha")
         if not isinstance(commit_sha, str) or not commit_sha:
             raise SyncError("GitHub commit response was incomplete")
         self._github.update_branch_ref(commit_sha)
-        self._progress_callback(
-            {
-                "status": "running",
-                "current_action": "cleaning",
-                "current_path": "",
-                "upsert_total": 0,
-                "remove_total": len(deletions),
-                "upsert_remaining": 0,
-                "remove_remaining": 0,
-                "upsert_paths": [],
-                "remove_paths": [str(item.get("path", "")) for item in deletions[:50]],
-            }
-        )
 
     def _delete_remote_tree(self, root: str) -> None:
-        for item in self._github.list_directory_contents(root):
+        deletions = self._collect_remote_deletions(root)
+        for index, item in enumerate(deletions):
             if self._cancel_requested():
                 raise SyncError("Clean cancelled")
-            item_type = item.get("type")
             item_path = item.get("path")
             if not isinstance(item_path, str):
                 continue
-            if item_type == "dir":
-                self._delete_remote_tree(item_path)
-                continue
-            sha = item.get("sha")
+            remote = self._github.get_content(item_path)
+            sha = remote.get("sha") if remote else None
             if not isinstance(sha, str):
                 continue
             self._github.delete_content(
                 path=item_path,
                 sha=sha,
                 message=f"sync: delete {item_path}",
+            )
+            self._progress_callback(
+                {
+                    "status": "running",
+                    "current_action": "resetting",
+                    "current_path": item_path,
+                    "upsert_total": 0,
+                    "remove_total": len(deletions),
+                    "upsert_remaining": 0,
+                    "remove_remaining": len(deletions) - index - 1,
+                    "upsert_paths": [],
+                    "remove_paths": [str(d.get("path", "")) for d in deletions[:50]],
+                }
             )
 
     def _collect_remote_deletions(self, root: str) -> list[dict[str, object]]:

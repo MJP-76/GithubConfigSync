@@ -956,7 +956,7 @@ class ServerApiTests(unittest.TestCase):
         self.assertTrue(body["ok"])
         self.assertEqual(body["result"], "Sync completed.")
 
-    def test_clean_sync_clears_remote_tree_before_upload(self) -> None:
+    def test_clean_sync_uses_clean_plan_without_wiping(self) -> None:
         (self._config_root / "one.txt").write_text("one", encoding="utf-8")
         self._write_options(
             {
@@ -970,7 +970,6 @@ class ServerApiTests(unittest.TestCase):
 
         with patch("server.SyncEngine") as engine_cls:
             engine = engine_cls.return_value
-            engine.clean_remote_tree.return_value = None
             engine._github.probe_repository.return_value = (True, "Repository probe succeeded")
             engine.sensitive_files.return_value = []
             engine.clean_plan.return_value = (
@@ -991,9 +990,9 @@ class ServerApiTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertTrue(body["ok"])
         self.assertEqual(body["result"], "Sync completed.")
-        engine.clean_remote_tree.assert_called_once()
+        engine.clean_remote_tree.assert_not_called()
 
-    def test_clean_repo_endpoint_clears_remote_tree_without_upload(self) -> None:
+    def test_clean_repo_endpoint_deletes_only_files_missing_locally(self) -> None:
         self._write_options(
             {
                 "github_repository": "owner/repo",
@@ -1005,17 +1004,78 @@ class ServerApiTests(unittest.TestCase):
 
         with patch("server.SyncEngine") as engine_cls:
             engine = engine_cls.return_value
-            engine.clean_remote_tree.return_value = None
             engine._github.write_repo_marker.return_value = {"ok": True}
+            engine.clean_plan.return_value = (
+                unittest.mock.MagicMock(
+                    added=["one.txt"],
+                    changed=[],
+                    removed=["stale.yaml", "old/cache.json"],
+                    total_files=3,
+                ),
+                {"one.txt": "aaa", "stale.yaml": "bbb", "old/cache.json": "ccc"},
+            )
+            engine.run.return_value = unittest.mock.MagicMock(
+                synced_count=0, deleted_count=2, skipped_count=0, total_files=3, message="Clean repo completed."
+            )
             response = self.client.post("/api/sync/clean-repo")
 
         body = response.get_json()
         self.assertEqual(response.status_code, 200)
         self.assertTrue(body["ok"])
-        self.assertEqual(body["result"], "Clean repo completed. Remote repo fully reset and skeleton restored.")
-        engine.clean_remote_tree.assert_called_once()
+        self.assertIn("Deleted 2 file(s)", body["result"])
+        engine.clean_remote_tree.assert_not_called()
+        engine.restore_repo_skeleton.assert_not_called()
+        self.assertEqual(engine.clean_plan.call_count, 1)
+        call_plan = engine.run.call_args[0][0]
+        self.assertEqual(call_plan.added, [])
+        self.assertEqual(call_plan.changed, [])
+        self.assertEqual(call_plan.removed, ["stale.yaml", "old/cache.json"])
+        engine._github.write_repo_marker.assert_called_once()
+
+    def test_nuke_repo_requires_typed_confirmation(self) -> None:
+        self._write_options(
+            {
+                "github_repository": "owner/repo",
+                "github_branch": "main",
+                "github_token": "gho_test",
+                "dry_run": True,
+            }
+        )
+
+        with patch("server.SyncEngine") as engine_cls:
+            engine = engine_cls.return_value
+            response = self.client.post(
+                "/api/sync/nuke-repo",
+                json={"confirm": "RESET owner/repo"},
+            )
+
+        body = response.get_json()
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(body["ok"])
+        engine.nuke_remote_tree.assert_called_once_with(reset_history=True)
+        engine.delete_all_releases_and_tags.assert_called_once()
         engine.restore_repo_skeleton.assert_called_once()
         engine._github.write_repo_marker.assert_called_once()
+
+    def test_nuke_repo_rejects_missing_confirmation(self) -> None:
+        self._write_options(
+            {
+                "github_repository": "owner/repo",
+                "github_branch": "main",
+                "github_token": "gho_test",
+                "dry_run": True,
+            }
+        )
+
+        with patch("server.SyncEngine") as engine_cls:
+            engine = engine_cls.return_value
+            response = self.client.post("/api/sync/nuke-repo", json={"confirm": "RESET wrong"})
+
+        body = response.get_json()
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(body["ok"])
+        engine.nuke_remote_tree.assert_not_called()
+        engine.delete_all_releases_and_tags.assert_not_called()
 
     def test_clean_upload_allows_empty_existing_repository(self) -> None:
         self._write_options(
@@ -1052,7 +1112,7 @@ class ServerApiTests(unittest.TestCase):
         body = response.get_json()
         self.assertEqual(response.status_code, 200)
         self.assertTrue(body["ok"])
-        engine.clean_remote_tree.assert_called_once()
+        engine.clean_remote_tree.assert_not_called()
         engine._github.write_repo_marker.assert_called_once()
 
     def test_manual_sync_endpoint_uses_retention_days(self) -> None:
@@ -1223,6 +1283,9 @@ class ServerApiTests(unittest.TestCase):
         self.assertEqual(result["latest_stable"]["tag"], next_stable)
         self.assertEqual(result["latest_candidate"]["tag"], next_stable)
         self.assertFalse(result["latest_candidate"]["prerelease"])
+        self.assertEqual(result["available_count"], 1)
+        self.assertEqual([a["tag"] for a in result["available"]], [next_stable])
+        self.assertFalse(result["available"][0]["prerelease"])
 
     def test_update_check_counts_prereleases_when_enabled(self) -> None:
         self._write_options({"include_pre_releases": True})
@@ -1241,6 +1304,43 @@ class ServerApiTests(unittest.TestCase):
         self.assertEqual(result["latest_stable"]["tag"], next_stable)
         self.assertEqual(result["latest_candidate"]["tag"], next_prerelease)
         self.assertTrue(result["latest_candidate"]["prerelease"])
+        self.assertEqual(result["available_count"], 2)
+        self.assertEqual(
+            [a["tag"] for a in result["available"]],
+            [next_prerelease, next_stable],
+        )
+        self.assertTrue(result["available"][0]["prerelease"])
+        self.assertFalse(result["available"][1]["prerelease"])
+
+    def test_update_check_available_excludes_installed_and_older(self) -> None:
+        current = f"v{server.APP_VERSION}"
+        older = self._next_minor(-1)
+        next_stable = self._next_minor()
+        next_prerelease = f"{self._next_minor(2)}-beta.1"
+        releases = [
+            self._fake_release(current, prerelease=False),
+            self._fake_release(older, prerelease=False),
+            self._fake_release(next_prerelease, prerelease=True),
+            self._fake_release(next_stable, prerelease=False),
+        ]
+        self._write_options({"include_pre_releases": True})
+        with patch("server.GitHubClient.list_releases", return_value=releases):
+            result = server._addon_update_check(server._merge_options())
+
+        self.assertEqual(
+            [a["tag"] for a in result["available"]],
+            [next_prerelease, next_stable],
+        )
+        self.assertEqual(result["available_count"], 2)
+        self.assertTrue(result["available"][0]["prerelease"])
+
+        self._write_options({"include_pre_releases": False})
+        with patch("server.GitHubClient.list_releases", return_value=releases):
+            result = server._addon_update_check(server._merge_options())
+
+        self.assertEqual([a["tag"] for a in result["available"]], [next_stable])
+        self.assertEqual(result["available_count"], 1)
+        self.assertFalse(result["available"][0]["prerelease"])
 
     def test_update_check_only_newer_prerelease_needs_enable(self) -> None:
         at_installed_stable = f"v{server.APP_VERSION}"
@@ -1253,6 +1353,8 @@ class ServerApiTests(unittest.TestCase):
             disabled = server._addon_update_check(server._merge_options())
         self.assertFalse(disabled["update_available"])
         self.assertEqual(disabled["latest_candidate"]["tag"], at_installed_stable)
+        self.assertEqual(disabled["available_count"], 0)
+        self.assertEqual(disabled["available"], [])
 
         self._write_options({"include_pre_releases": True})
         with patch("server.GitHubClient.list_releases", return_value=releases):
@@ -1366,6 +1468,7 @@ class AuthBehaviorTests(unittest.TestCase):
             "/api/sync/cancel",
             "/api/sync/clean",
             "/api/sync/clean-repo",
+            "/api/sync/nuke-repo",
             "/api/auth/device/start",
             "/api/auth/device/complete",
         ):

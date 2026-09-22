@@ -595,11 +595,12 @@
         <details>
           <summary class="section-title" style="cursor: pointer; color: var(--err)"><strong>Danger Zone</strong></summary>
           <p class="subtle" style="margin-top: 10px; margin-bottom: 10px">
-            Clean Upload rebuilds the remote repo from the current local config. Clean Repo empties the remote repo before restoring the starter files.
+            Clean Upload re-uploads every file from the current local config, deleting files on GitHub that no longer exist locally. Clean Repo deletes only files that are missing from the local config and leaves everything else untouched. Reset Repo empties the remote repository, replaces its whole history, and removes all releases and tags — use it to start fresh.
           </p>
           <div class="row">
             <button id="cleanSyncBtn">Clean Upload</button>
             <button id="cleanRepoBtn" class="secondary">Clean Repo</button>
+            <button id="resetRepoBtn" class="secondary">Reset Repo</button>
             <button id="cancelProcessBtn" class="secondary">Cancel Process</button>
           </div>
         </details>
@@ -678,6 +679,7 @@
         syncBtn: document.getElementById("syncBtn"),
         cleanSyncBtn: document.getElementById("cleanSyncBtn"),
         cleanRepoBtn: document.getElementById("cleanRepoBtn"),
+        resetRepoBtn: document.getElementById("resetRepoBtn"),
         refreshBtn: document.getElementById("refreshBtn"),
         downloadDiagnosticsBtn: document.getElementById("downloadDiagnosticsBtn"),
         cancelSyncBtn: document.getElementById("cancelSyncBtn"),
@@ -1129,7 +1131,9 @@
             el.updateInfo.textContent = `Update check failed: ${(uc.error || "unknown error")}`;
             return;
           }
-          el.updateBadge.textContent = uc.update_available ? "Update available" : "Up to date";
+          el.updateBadge.textContent = uc.update_available
+            ? (uc.available_count > 1 ? `Update available (${uc.available_count})` : "Update available")
+            : "Up to date";
           el.updateBadge.className = `pill status ${uc.update_available ? "ok" : ""}`;
           const parts = [`Installed: v${uc.installed}`];
           if (uc.latest_candidate) {
@@ -1144,6 +1148,14 @@
             uc.latest_stable.tag !== uc.latest_candidate.tag
           ) {
             parts.push(`Latest stable: ${uc.latest_stable.tag}`);
+          }
+          if (uc.available_count > 0 && Array.isArray(uc.available)) {
+            const listed = uc.available
+              .slice(0, 5)
+              .map((a) => (a.prerelease ? `${a.tag} (pre)` : a.tag))
+              .join(", ");
+            const more = uc.available_count > 5 ? ` +${uc.available_count - 5}` : "";
+            parts.push(`Available: ${uc.available_count}${listed ? ` — ${listed}${more}` : ""}`);
           }
           el.updateInfo.textContent = parts.join("  ·  ");
         } catch (_error) {
@@ -1450,6 +1462,31 @@
         }
       }
 
+      async function resetRepo() {
+        const repoName = el.repo.value.trim();
+        const expected = `RESET ${repoName || "required"}`;
+        const typed = window.prompt(
+          `Reset ${repoName || "the selected repository"}?\n\nAll files and the entire commit history are erased, and every release and tag is deleted. The skeleton and marker are restored; a normal Sync re-uploads your config.\n\nType ${expected} to confirm:`
+        );
+        if (typed === null || typed.trim() !== expected) {
+          setStatus("Reset Repo cancelled: confirmation text did not match.");
+          return;
+        }
+        setButtonBusy(el.resetRepoBtn, true, "Resetting...");
+        try {
+          await saveOptions();
+          const data = await fetchJson(apiUrl("/api/sync/nuke-repo"), {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ confirm: expected }),
+          });
+          setStatus(data.result || "Reset repo completed");
+          await loadStatus();
+        } finally {
+          setButtonBusy(el.resetRepoBtn, false);
+        }
+      }
+
       async function cancelCurrentSync() {
         setButtonBusy(el.cancelSyncBtn, true, "Cancelling...");
         try {
@@ -1465,14 +1502,17 @@
         runSync().catch((error) => setStatus(error.message, false))
       );
       el.cleanSyncBtn.addEventListener("click", () => {
-        if (window.confirm(`Run Clean Upload on ${el.repo.value.trim() || "the selected repository"}?\n\nThis will rebuild the remote repo from the current local config.\n\nWARNING: This is an atomic GitHub tree operation and cannot be cancelled once started.`)) {
+        if (window.confirm(`Run Clean Upload on ${el.repo.value.trim() || "the selected repository"}?\n\nRe-uploads every file from your local config and deletes any GitHub files that are no longer there. Progress is shown and you can cancel between files.`)) {
           runCleanSync().catch((error) => setStatus(error.message, false));
         }
       });
       el.cleanRepoBtn.addEventListener("click", () => {
-        if (window.confirm(`Run Clean Repo on ${el.repo.value.trim() || "the selected repository"}?\n\nThis will empty the remote repo and restore the base skeleton.\n\nWARNING: This is an atomic GitHub tree operation and cannot be cancelled once started.`)) {
+        if (window.confirm(`Run Clean Repo on ${el.repo.value.trim() || "the selected repository"}?\n\nDeletes only files that are missing from your local config. Existing files are left untouched and you can cancel between files.`)) {
           cleanRepoSkeleton().catch((error) => setStatus(error.message, false));
         }
+      });
+      el.resetRepoBtn.addEventListener("click", () => {
+        resetRepo().catch((error) => setStatus(error.message, false));
       });
       el.cancelSyncBtn.addEventListener("click", () =>
         cancelCurrentSync().catch((error) => setStatus(error.message, false))

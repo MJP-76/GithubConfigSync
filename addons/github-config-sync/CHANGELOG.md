@@ -2,6 +2,15 @@
 
 ## Latest Releases
 
+## 1.6.8
+
+- **Feature**: The update check now shows how many new versions exist and names every build (pre-release included when `include_pre_releases` is enabled) newer than the installed version. The badge reads "Update available (N)" and the details line lists each candidate instead of just the newest
+- **Safety**: "Clean Repo" no longer wipes the remote repository. It is now a diff-clean: only files that exist on GitHub but are missing from the local config are deleted, with per-file progress and cancel support, so it is safe to run at any time
+- **Feature**: New "Reset Repo" action (`/api/sync/nuke-repo`) replaces the entire repository — an empty tree on an orphan commit drops the whole history, and every release and tag is deleted. It runs in a handful of git-data API calls rather than per-file deletes, restores the starter skeleton, and requires typing `RESET <repository>` to confirm
+- **Safety**: The sync engine refuses to delete remote files when the local scan found no files at all, so a broken scan can never empty the remote repo
+- **Reliability**: GitHub rate-limit backoff is capped at 60 seconds per retry instead of 300, so a stalled cleanup no longer hangs for minutes
+- **Test**: diff-clean and nuke-repo engine paths, history-reset orphan commits, release/tag cleanup, the empty-scan guard, the rate-limit cap, and the clean-repo/nuke-repo API endpoints
+
 ## 1.6.7
 
 - **Fix**: Key and certificate material can never be synced. SSL/TLS keys and certs (`.pem`, `.key`, `.crt`, `.cer`, `.der`, `.p12`, `.pfx`, `.p8`, `.pub`, `.asc`), SSH keys (`id_rsa`, `id_ed25519`, …) and `.ssh/` folders are hard-excluded from scanning and upload in every sync mode, layered on top of the existing `.gitignore` filtering
