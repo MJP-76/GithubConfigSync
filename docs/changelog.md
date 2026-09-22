@@ -6,6 +6,17 @@ The full 71-release history lives in
 [GitHub Releases](https://github.com/MJP-76/GithubConfigSync/releases)).
 The last 5 releases are kept at the top, per the project's changelog rules.
 
+## 1.6.4
+
+- **Fix**: The repository marker is rewritten before every sync without the
+  current file SHA, so on an already-marked repo the nightly sync failed with
+  GitHub 422 `"sha" wasn't supplied` (and earlier, a 409 stale-SHA conflict),
+  aborting the entire sync. The marker writer now reads the existing SHA and
+  updates the file, and 422 missing-SHA responses are treated as SHA conflicts
+  for the refresh-and-retry path
+- **Test**: Marker SHA passthrough, fresh-repo omit, and 422 missing-SHA
+  recovery
+
 ## 1.6.3
 
 - **Fix**: `auto_sync_days` schema is now a nested optional integer list
@@ -54,19 +65,5 @@ The last 5 releases are kept at the top, per the project's changelog rules.
 - **Feature**: Reset to Defaults button for ignore patterns in web UI
 - **Fix**: Reset to Defaults button was missing its event handler (Uncaught TypeError)
 - **Fix**: Add-on rebuild via Supervisor API now works correctly
-
-## 1.5.22
-
-- **Fix**: "Token missing" badge no longer appears when the token is actually
-  fine — transient GitHub check failures now show as an amber "Token check
-  failed" badge instead of a red "Token missing"
-- **Fix**: One slow/timed-out GitHub call no longer poisons the token badge —
-  transient `error` health results cache for 30s (stable states keep 5m)
-- **Fix**: Device Flow completion no longer reports "request timed out"
-  mid-authorization — UI waits up to 130s (server polls GitHub up to 120s)
-- **Fix**: Live token health check uses a bounded 20s GitHub call with a 30s
-  client timeout
-- **Fix**: `_save_state()` is now lock-serialized so concurrent status
-  polls/sync writes can no longer drop the token-health cache entry
 
 _(older releases)_

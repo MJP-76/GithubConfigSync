@@ -343,6 +343,56 @@ class ContentTests(unittest.TestCase):
         self.assertEqual(mock_request.call_args_list[2].kwargs["payload"]["sha"], "fresh-sha")
         mock_sleep.assert_called_once()
 
+    def test_put_content_recovers_from_422_missing_sha(self) -> None:
+        client = _client()
+        sequence = [
+            SyncError(
+                'GitHub API error HTTP 422 for PUT .github-config-sync-addon.json: '
+                '{"message":"Invalid request.\\n\\n\\"sha\\" wasn\'t supplied.","status":"422"}'
+            ),
+            {"sha": "fresh-sha"},
+            {"content": {}},
+        ]
+        with patch("sync.github_client.time.sleep") as mock_sleep:
+            with patch.object(GitHubClient, "_request_json", side_effect=sequence) as mock_request:
+                result = client.put_content(".github-config-sync-addon.json", b"{}", "sync: add repo marker")
+
+        self.assertEqual(result, {"content": {}})
+        self.assertEqual(mock_request.call_count, 3)
+        methods = [call.args[0] for call in mock_request.call_args_list]
+        self.assertEqual(methods, ["PUT", "GET", "PUT"])
+        self.assertEqual(mock_request.call_args_list[2].kwargs["payload"]["sha"], "fresh-sha")
+        mock_sleep.assert_called_once()
+
+    def test_write_repo_marker_passes_existing_sha(self) -> None:
+        client = _client()
+        marker_json = json.dumps({"created_by": "github-config-sync-addon"}, indent=2, sort_keys=True).encode("utf-8")
+        with patch.object(GitHubClient, "get_content", return_value={"sha": "marker-sha"}) as mock_get:
+            with patch.object(GitHubClient, "put_content", return_value={"content": {}}) as mock_put:
+                result = client.write_repo_marker()
+
+        self.assertEqual(result, {"content": {}})
+        mock_get.assert_called_once_with(".github-config-sync-addon.json")
+        mock_put.assert_called_once()
+        kwargs = mock_put.call_args.kwargs
+        self.assertEqual(kwargs["sha"], "marker-sha")
+        self.assertEqual(kwargs["message"], "sync: add repo marker")
+        self.assertEqual(
+            kwargs["content"],
+            json.dumps({"created_by": "github-config-sync-addon"}, indent=2, sort_keys=True).encode("utf-8"),
+        )
+
+    def test_write_repo_marker_without_existing_file_omits_sha(self) -> None:
+        client = _client()
+        with patch.object(GitHubClient, "get_content", return_value=None) as mock_get:
+            with patch.object(GitHubClient, "put_content", return_value={"content": {}}) as mock_put:
+                client.write_repo_marker({"created_by": "custom"})
+
+        mock_get.assert_called_once_with(".github-config-sync-addon.json")
+        self.assertIsNone(mock_put.call_args.kwargs["sha"])
+        self.assertEqual(mock_put.call_args.kwargs["content"],
+                         json.dumps({"created_by": "custom"}, indent=2, sort_keys=True).encode("utf-8"))
+
     def test_put_content_sha_conflict_persists_and_raises(self) -> None:
         client = _client()
         conflict = SyncError("GitHub API error HTTP 409 for PUT x: conflict")
@@ -466,7 +516,22 @@ class HelperTests(unittest.TestCase):
         self.assertTrue(github_client._is_sha_conflict(SyncError("HTTP 409 for x")))
         self.assertTrue(github_client._is_sha_conflict(SyncError('"status":"409"')))
         self.assertTrue(github_client._is_sha_conflict(SyncError('"status": "409"')))
+        self.assertTrue(
+            github_client._is_sha_conflict(
+                SyncError('"status":"422" - "sha" wasn\'t supplied.')
+            )
+        )
+        self.assertTrue(
+            github_client._is_sha_conflict(
+                SyncError('{"message":"Invalid request.\\n\\n\\"sha\\" wasn\'t supplied.","status":"422"}')
+            )
+        )
         self.assertFalse(github_client._is_sha_conflict(SyncError("HTTP 404 for x")))
+        self.assertFalse(
+            github_client._is_sha_conflict(
+                SyncError('{"message":"wrong branch","status":"422"}')
+            )
+        )
 
     def test_parse_rate_limit_wait_uses_reset_header(self) -> None:
         with patch("sync.github_client.time.time", return_value=0):

@@ -120,10 +120,13 @@ class GitHubClient:
 
     def write_repo_marker(self, payload: dict[str, Any] | None = None) -> dict[str, Any]:
         marker_payload = payload or {"created_by": "github-config-sync-addon"}
+        already_present = self.get_content(ADDON_REPO_MARKER_PATH)
+        sha = already_present.get("sha") if already_present else None
         return self.put_content(
             path=ADDON_REPO_MARKER_PATH,
             content=json.dumps(marker_payload, indent=2, sort_keys=True).encode("utf-8"),
             message="sync: add repo marker",
+            sha=sha,
         )
 
     def probe_repository(self) -> tuple[bool, str]:
@@ -359,7 +362,12 @@ class GitHubClient:
 
 def _is_sha_conflict(err: SyncError) -> bool:
     message = str(err)
-    return "HTTP 409" in message or '"status":"409"' in message or '"status": "409"' in message
+    if "HTTP 409" in message or '"status":"409"' in message or '"status": "409"' in message:
+        return True
+    if '"status":"422"' in message or '"status": "422"' in message:
+        lowered = message.lower()
+        return "sha" in lowered and "supplied" in lowered
+    return False
 
 
 def _parse_rate_limit_wait(err: urllib.error.HTTPError, attempt: int) -> float:

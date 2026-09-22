@@ -2,6 +2,11 @@
 
 ## Latest Releases
 
+## 1.6.4
+
+- **Fix**: The repository marker is rewritten before every sync without the current file SHA, so an already-marked repo failed the nightly sync with GitHub 422 `"sha" wasn't supplied` (or a 409 stale-SHA conflict). The marker writer now reads the existing SHA before updating, and 422 missing-SHA responses are treated as SHA conflicts for the refresh-and-retry path
+- **Test**: Marker SHA passthrough, fresh-repo omit, and 422 missing-SHA recovery
+
 ## 1.6.3
 
 - **Fix**: `auto_sync_days` schema is now a nested optional integer list (`["int?"]`). The earlier `list?` form was rejected by the Supervisor's schema parser and dropped the add-on from the store; the interim `list(str)` form elsewhere caused `Failed to sync options to Supervisor: HTTP Error 400` on every save because a flat `list(...)` schema element is an enum
