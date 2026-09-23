@@ -529,11 +529,10 @@
               <input id="includePreReleases" type="checkbox" />
               <label for="includePreReleases"><strong>Show pre-release build updates</strong></label>
             </div>
-            <p style="font-size: 0.8rem; color: var(--muted); margin: 6px 0 10px">
+            <p style="font-size: 0.8rem; color: var(--muted); margin: 6px 0 0">
               When enabled, the add-on also counts pre-release builds when checking for updates.
               Updates are installed from Home Assistant &rarr; Add-ons &rarr; Github Config Sync &rarr; Update.
             </p>
-            <div id="updateInfo" class="muted" style="font-size: 0.85rem"></div>
           </div>
         </details>
         <div class="row" style="margin-top: 14px">
@@ -649,7 +648,6 @@
         includePreReleases: document.getElementById("includePreReleases"),
         updateSection: document.getElementById("updateSection"),
         updateBadge: document.getElementById("updateBadge"),
-        updateInfo: document.getElementById("updateInfo"),
         syncMode: document.getElementById("syncMode"),
         dryRun: document.getElementById("dryRun"),
         schedulerStatus: document.getElementById("schedulerStatus"),
@@ -1128,40 +1126,15 @@
           if (!uc.ok) {
             el.updateBadge.textContent = "Unavailable";
             el.updateBadge.className = "pill status err";
-            el.updateInfo.textContent = `Update check failed: ${(uc.error || "unknown error")}`;
             return;
           }
           el.updateBadge.textContent = uc.update_available
             ? (uc.available_count > 1 ? `Update available (${uc.available_count})` : "Update available")
             : "Up to date";
           el.updateBadge.className = `pill status ${uc.update_available ? "ok" : ""}`;
-          const parts = [`Installed: v${uc.installed}`];
-          if (uc.latest_candidate) {
-            const suffix = uc.latest_candidate.prerelease ? " (pre-release)" : "";
-            parts.push(`Latest: ${uc.latest_candidate.tag}${suffix}`);
-          } else {
-            parts.push("Latest: n/a");
-          }
-          if (
-            uc.latest_stable &&
-            uc.latest_candidate &&
-            uc.latest_stable.tag !== uc.latest_candidate.tag
-          ) {
-            parts.push(`Latest stable: ${uc.latest_stable.tag}`);
-          }
-          if (uc.available_count > 0 && Array.isArray(uc.available)) {
-            const listed = uc.available
-              .slice(0, 5)
-              .map((a) => (a.prerelease ? `${a.tag} (pre)` : a.tag))
-              .join(", ");
-            const more = uc.available_count > 5 ? ` +${uc.available_count - 5}` : "";
-            parts.push(`Available: ${uc.available_count}${listed ? ` — ${listed}${more}` : ""}`);
-          }
-          el.updateInfo.textContent = parts.join("  ·  ");
         } catch (_error) {
           el.updateBadge.textContent = "Unavailable";
           el.updateBadge.className = "pill status err";
-          el.updateInfo.textContent = "Update check unavailable.";
         }
       }
 

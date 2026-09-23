@@ -2,6 +2,10 @@
 
 ## Latest Releases
 
+## 1.6.10
+
+- **Chore**: Removed the "Installed / Latest / Latest stable / Available" detail line from the updates section — the panel now shows the status badge plus the "Show pre-release build updates" toggle
+
 ## 1.6.9
 
 - **Reliability**: Rate-limit watchdog — `429` and secondary/abuse limits retry until they clear (or the sync is cancelled), honouring `Retry-After`/`X-RateLimit-Reset`, with a shared gate so parallel workers back off as one and the UI shows "waiting" instead of freezing

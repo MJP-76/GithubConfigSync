@@ -2,6 +2,10 @@
 
 ## Latest Releases
 
+## 1.6.10
+
+- **Chore**: The "Installed / Latest / Latest stable / Available" detail line is removed from the add-on updates section. The updates panel now shows just the status badge and the "Show pre-release build updates" toggle — installing a pre-release build is done from Home Assistant &rarr; Add-ons, and the toggle is what makes pre-release builds appear there as candidates
+
 ## 1.6.9
 
 - **Reliability**: New rate-limit watchdog. GitHub `429` and secondary/abuse limits are now retried until they clear (or the sync is cancelled) instead of failing after 5 attempts — the wait honours `Retry-After` / `X-RateLimit-Reset` headers, a shared gate makes every concurrent upload/delete worker hold together so the batch doesn't stampede the API, waiting can be cancelled at any time, and the UI shows "waiting" progress instead of freezing mid-sync

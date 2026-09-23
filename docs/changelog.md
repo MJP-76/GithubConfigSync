@@ -6,6 +6,14 @@ The full 71-release history lives in
 [GitHub Releases](https://github.com/MJP-76/GithubConfigSync/releases)).
 The last 5 releases are kept at the top, per the project's changelog rules.
 
+## 1.6.10
+
+- **Chore**: The "Installed / Latest / Latest stable / Available" detail line is
+  removed from the add-on updates section. The panel now shows just the status
+  badge and the "Show pre-release build updates" toggle — pre-release builds
+  are installed from Home Assistant &rarr; Add-ons, and the toggle is what makes
+  them appear there as update candidates
+
 ## 1.6.9
 
 - **Reliability**: New rate-limit watchdog. GitHub `429` and secondary/abuse
@@ -69,21 +77,5 @@ The last 5 releases are kept at the top, per the project's changelog rules.
   never read it, so switching to `blacklist` changed nothing
 - **Test**: Engine root selection for whitelist (toggle-filtered) and blacklist
   (all mounted roots) modes
-
-## 1.6.5
-
-- **Fix**: Add-on `map` entries are now valid Supervisor mount types. The
-  Supervisor logged store warnings for the invalid `addon_configs:rw`,
-  `backups:rw` and `www:rw` entries and for the deprecated `config` type, so
-  those folders were never actually mounted. `config` becomes
-  `homeassistant_config` pinned to `/config`, `addon_configs` becomes
-  `all_addon_configs` (mounted at `/addon_configs`), `backups` becomes the
-  valid `backup` type (mounted at `/backup`), and `www` is dropped (www files
-  are already resolved from the config root)
-- **Fix**: `include_backups` now scans `/backup` instead of the never-mounted
-  `/backups`
-- **Chore**: Removed deprecated 32-bit `arch` values (`armhf`, `armv7`,
-  `i386`); the add-on builds for `aarch64` and `amd64`
-- **Test**: `map` and `arch` regression checks plus the backup-root scan test
 
 _(older releases)_
