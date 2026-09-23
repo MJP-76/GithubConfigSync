@@ -311,8 +311,6 @@ class ServerApiTests(unittest.TestCase):
         diagnostics = self.client.get("/api/diagnostics").get_json()
 
         self.assertEqual(status["auth"]["token_state"], "configured")
-        self.assertEqual(status["repo_versions"]["stable"], server.STABLE_REPO_VERSION)
-        self.assertEqual(status["repo_versions"]["dev"], server.DEV_REPO_VERSION)
         self.assertEqual(diagnostics["options"]["github_token"], "********")
 
     def test_changelog_endpoint_returns_latest_five_entries(self) -> None:

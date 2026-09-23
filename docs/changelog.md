@@ -6,6 +6,15 @@ The full 71-release history lives in
 [GitHub Releases](https://github.com/MJP-76/GithubConfigSync/releases)).
 The last 5 releases are kept at the top, per the project's changelog rules.
 
+## 1.6.11
+
+- **Chore**: The Stable/Dev version pills are removed from the add-on header and
+  the stale `repo_versions` payload is dropped from `/api/health` and
+  `/api/status` — both only ever echoed the installed version. The add-on update
+  badge is now the single place the version shows: "Up to date: v1.6.x" or
+  "Update available: v1.6.10", with the candidate tag included for pre-releases
+  when the toggle is on
+
 ## 1.6.10
 
 - **Chore**: The "Installed / Latest / Latest stable / Available" detail line is
@@ -66,16 +75,5 @@ The last 5 releases are kept at the top, per the project's changelog rules.
 - **Fix**: Removed two bogus entries (`include_ssl`, `include_addon_configs`)
   from the built-in ignored-directories list
 - **Test**: key/cert/SSH hard-ignore coverage and hash-index exclusion
-
-## 1.6.6
-
-- **Feature**: The `sync_mode` option now actually controls what is synced. In
-  `whitelist` mode (default) only the explicitly enabled paths are synced (the
-  base HA config plus whichever `include_*` mount points are checked). In
-  `blacklist` mode every mounted path is synced except `.gitignore`-ignored
-  patterns. Previously the option was validated and stored but the sync engine
-  never read it, so switching to `blacklist` changed nothing
-- **Test**: Engine root selection for whitelist (toggle-filtered) and blacklist
-  (all mounted roots) modes
 
 _(older releases)_

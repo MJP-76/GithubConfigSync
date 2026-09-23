@@ -2,6 +2,10 @@
 
 ## Latest Releases
 
+## 1.6.11
+
+- **Chore**: The Stable/Dev version pills are removed from the header and the stale `repo_versions` payload is dropped from `/api/health` and `/api/status` — they only ever echoed the installed version. The add-on update badge is now the one place the version shows: "Up to date: v1.6.x" or "Update available: v1.6.10" (with the candidate tag, pre-release included when the toggle is on)
+
 ## 1.6.10
 
 - **Chore**: The "Installed / Latest / Latest stable / Available" detail line is removed from the add-on updates section. The updates panel now shows just the status badge and the "Show pre-release build updates" toggle — installing a pre-release build is done from Home Assistant &rarr; Add-ons, and the toggle is what makes pre-release builds appear there as candidates

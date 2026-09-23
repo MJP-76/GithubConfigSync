@@ -40,8 +40,6 @@ def _read_addon_version() -> str:
 
 
 APP_VERSION = _read_addon_version()
-STABLE_REPO_VERSION = APP_VERSION
-DEV_REPO_VERSION = APP_VERSION
 APP_PORT = 8099
 DEFAULT_OAUTH_CLIENT_ID = "Ov23li2ycCraodta6WCU"
 DEFAULT_NEW_REPO_NAME = "ha-github-config-sync"
@@ -327,12 +325,6 @@ DEFAULT_STATE: dict[str, Any] = {
     "last_result": None,
     "last_scan": None,
 }
-
-
-def _display_repo_version(value: str | None, fallback: str) -> str:
-    if isinstance(value, str) and value.strip():
-        return value
-    return fallback
 
 
 def _load_json(path: Path, fallback: dict[str, Any]) -> dict[str, Any]:
@@ -1200,17 +1192,7 @@ def index():
 
 @app.get("/api/health")
 def health():
-    return jsonify(
-        {
-            "ok": True,
-            "version": APP_VERSION,
-            "repo_versions": {
-                "stable": _display_repo_version(STABLE_REPO_VERSION, "n/a"),
-                "dev": _display_repo_version(DEV_REPO_VERSION, APP_VERSION),
-                "current": APP_VERSION,
-            },
-        }
-    )
+    return jsonify({"ok": True, "version": APP_VERSION})
 
 
 @app.post("/api/sync/manual")
@@ -1415,11 +1397,6 @@ def get_status():
             "state": state,
             "auth": _auth_diagnostics(options),
             "version": APP_VERSION,
-            "repo_versions": {
-                "stable": _display_repo_version(STABLE_REPO_VERSION, "n/a"),
-                "dev": _display_repo_version(DEV_REPO_VERSION, APP_VERSION),
-                "current": APP_VERSION,
-            },
             "token_health": _cached_token_health_only(options),
             "cancel_sync": _is_cancel_requested(),
             "log_tail": _sanitized_log_tail(),

@@ -262,20 +262,6 @@
         min-height: 140px;
       }
 
-      .version-grid {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 10px;
-        margin-top: 10px;
-      }
-
-      .version-item {
-        background: var(--card-2);
-        border: 1px solid var(--border);
-        border-radius: 12px;
-        padding: 10px 12px;
-      }
-
       pre {
         background: var(--card-2);
         border: 1px solid var(--border);
@@ -305,16 +291,6 @@
           <div class="row" style="justify-content: flex-end">
             <span id="versionBadge" class="pill status">Version...</span>
             <span id="status" class="pill status">Loading...</span>
-          </div>
-        </div>
-        <div class="version-grid">
-          <div class="version-item">
-            <span class="progress-label">Stable</span>
-            <span id="stableRepoVersion" class="progress-value">Loading...</span>
-          </div>
-          <div class="version-item">
-            <span class="progress-label">Dev</span>
-            <span id="devRepoVersion" class="progress-value">Loading...</span>
           </div>
         </div>
         <div class="danger" style="margin-top: 12px">
@@ -621,8 +597,6 @@
       const el = {
         status: document.getElementById("status"),
         versionBadge: document.getElementById("versionBadge"),
-        stableRepoVersion: document.getElementById("stableRepoVersion"),
-        devRepoVersion: document.getElementById("devRepoVersion"),
         repo: document.getElementById("repo"),
         authMethod: document.getElementById("authMethod"),
         authMethodHelp: document.getElementById("authMethodHelp"),
@@ -1088,8 +1062,6 @@
           "\n\n" +
           (data.log_tail || "");
         el.versionBadge.textContent = `Version: ${data.version || "unknown"}`;
-        el.stableRepoVersion.textContent = (data.repo_versions && data.repo_versions.stable) || "unknown";
-        el.devRepoVersion.textContent = (data.repo_versions && data.repo_versions.dev) || "unknown";
         const stateStatus = (data.state && data.state.status) || "idle";
         if (stateStatus === "running") {
           setStatus("Running");
@@ -1128,9 +1100,10 @@
             el.updateBadge.className = "pill status err";
             return;
           }
+          const candidateTag = uc.latest_candidate ? uc.latest_candidate.tag : null;
           el.updateBadge.textContent = uc.update_available
-            ? (uc.available_count > 1 ? `Update available (${uc.available_count})` : "Update available")
-            : "Up to date";
+            ? `${uc.available_count > 1 ? `Update available (${uc.available_count})` : "Update available"}: ${candidateTag || "?"}`
+            : `Up to date: v${uc.installed || "?"}`;
           el.updateBadge.className = `pill status ${uc.update_available ? "ok" : ""}`;
         } catch (_error) {
           el.updateBadge.textContent = "Unavailable";
@@ -1629,10 +1602,6 @@
       fetchJson(apiUrl("/api/health"))
         .then((data) => {
           el.versionBadge.textContent = `Version: ${data.version || "unknown"}`;
-          if (data.repo_versions) {
-            el.stableRepoVersion.textContent = data.repo_versions.stable || "unknown";
-            el.devRepoVersion.textContent = data.repo_versions.dev || "unknown";
-          }
         })
         .catch(() => {});
 

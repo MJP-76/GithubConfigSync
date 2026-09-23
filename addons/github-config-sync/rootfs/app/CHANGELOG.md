@@ -2,6 +2,10 @@
 
 ## Latest Releases
 
+## 1.6.11
+
+- **Chore**: Removed the Stable/Dev version pills from the header and the `repo_versions` payload they read (they only echoed the installed version). The update badge now shows the version: "Up to date: v1.6.x" or "Update available: v1.6.10"
+
 ## 1.6.10
 
 - **Chore**: Removed the "Installed / Latest / Latest stable / Available" detail line from the updates section — the panel now shows the status badge plus the "Show pre-release build updates" toggle
