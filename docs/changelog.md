@@ -6,6 +6,26 @@ The full 71-release history lives in
 [GitHub Releases](https://github.com/MJP-76/GithubConfigSync/releases)).
 The last 5 releases are kept at the top, per the project's changelog rules.
 
+## 1.6.9
+
+- **Reliability**: New rate-limit watchdog. GitHub `429` and secondary/abuse
+  limits are retried until they clear — or the sync is cancelled — instead of
+  failing after 5 attempts. The wait honours `Retry-After` /
+  `X-RateLimit-Reset`, a shared gate makes every concurrent upload/delete
+  worker hold together so the batch doesn't stampede the API, and a wait can be
+  cancelled at any time. The UI shows "waiting" progress instead of freezing
+  mid-sync
+- **Reliability**: The core rate-limit budget is watched too: when nearly
+  exhausted the engine pauses before sending instead of burning requests on
+  guaranteed `403`s
+- **Fix**: The "Show pre-release build updates" and sync-mode controls were
+  missing from the form's auto-save listener list, so changing either on its
+  own never persisted — the toggle snapped back on the next load. Both now
+  auto-save like every other option
+- **Test**: 429/Retry-After backoff, retries past the old 5-attempt cap until
+  success, cancel-during-wait aborts, and cancelled rate-limit waits surface as
+  a cancelled sync rather than a failure
+
 ## 1.6.8
 
 - **Feature**: The update check now reports how many new versions exist and
@@ -65,16 +85,5 @@ The last 5 releases are kept at the top, per the project's changelog rules.
 - **Chore**: Removed deprecated 32-bit `arch` values (`armhf`, `armv7`,
   `i386`); the add-on builds for `aarch64` and `amd64`
 - **Test**: `map` and `arch` regression checks plus the backup-root scan test
-
-## 1.6.4
-
-- **Fix**: The repository marker is rewritten before every sync without the
-  current file SHA, so on an already-marked repo the nightly sync failed with
-  GitHub 422 `"sha" wasn't supplied` (and earlier, a 409 stale-SHA conflict),
-  aborting the entire sync. The marker writer now reads the existing SHA and
-  updates the file, and 422 missing-SHA responses are treated as SHA conflicts
-  for the refresh-and-retry path
-- **Test**: Marker SHA passthrough, fresh-repo omit, and 422 missing-SHA
-  recovery
 
 _(older releases)_

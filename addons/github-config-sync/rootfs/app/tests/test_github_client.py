@@ -22,8 +22,9 @@ from sync.github_client import GitHubClient
 
 
 class FakeResponse:
-    def __init__(self, body: bytes = b"") -> None:
+    def __init__(self, body: bytes = b"", headers: dict[str, str] | None = None) -> None:
         self._body = body
+        self.headers = headers or {}
 
     def __enter__(self) -> "FakeResponse":
         return self
@@ -35,10 +36,17 @@ class FakeResponse:
         return self._body
 
 
-def _http_error(code: int, body: bytes = b"{}", reset: str | None = None) -> urllib.error.HTTPError:
+def _http_error(
+    code: int,
+    body: bytes = b"{}",
+    reset: str | None = None,
+    retry_after: str | None = None,
+) -> urllib.error.HTTPError:
     headers = Message()
     if reset is not None:
         headers["X-RateLimit-Reset"] = reset
+    if retry_after is not None:
+        headers["Retry-After"] = retry_after
     return urllib.error.HTTPError("https://api.github.com/x", code, "msg", headers, io.BytesIO(body))
 
 
@@ -47,6 +55,14 @@ def _client(repository: str = "owner/repo") -> GitHubClient:
 
 
 class TransportTests(unittest.TestCase):
+    def setUp(self) -> None:
+        github_client.reset_rate_limit_gate()
+        github_client.register_rate_limit_hooks()
+
+    def tearDown(self) -> None:
+        github_client.reset_rate_limit_gate()
+        github_client.register_rate_limit_hooks()
+
     def test_get_returns_decoded_json(self) -> None:
         client = _client()
         with patch(
@@ -133,14 +149,49 @@ class TransportTests(unittest.TestCase):
         self.assertGreaterEqual(waiting, 1.0)
         self.assertLessEqual(waiting, 300)
 
-    def test_rate_limit_without_reset_exhausts(self) -> None:
+    def test_rate_limit_without_reset_retries_beyond_five_until_success(self) -> None:
         client = _client()
-        errors = [_http_error(403, b'{"message":"API rate limit exceeded"}') for _ in range(5)]
+        responses = [
+            _http_error(403, b'{"message":"API rate limit exceeded"}') for _ in range(7)
+        ] + [FakeResponse(b'{"ok":true}')]
         with patch("sync.github_client.time.sleep"):
-            with patch("sync.github_client.urllib.request.urlopen", side_effect=errors):
+            with patch("sync.github_client.urllib.request.urlopen", side_effect=responses) as mock_urlopen:
+                result = client._request_any("GET", "https://api.github.com/x")
+
+        self.assertEqual(result, {"ok": True})
+        self.assertEqual(mock_urlopen.call_count, 8)  # past the old 5-retry cap
+
+    def test_rate_limit_429_with_retry_after_waits_then_succeeds(self) -> None:
+        client = _client()
+        responses = [
+            _http_error(
+                429,
+                b'{"message":"You have triggered an abuse detection mechanism"}',
+                retry_after="2",
+            ),
+            FakeResponse(b'{"ok":true}'),
+        ]
+        with patch("sync.github_client.time.sleep") as mock_sleep:
+            with patch("sync.github_client.urllib.request.urlopen", side_effect=responses) as mock_urlopen:
+                result = client._request_any("GET", "https://api.github.com/x")
+
+        self.assertEqual(result, {"ok": True})
+        self.assertEqual(mock_urlopen.call_count, 2)
+        self.assertGreaterEqual(mock_sleep.call_args.args[0], 2.0)
+
+    def test_rate_limit_wait_aborts_on_cancel_hook(self) -> None:
+        client = _client()
+        github_client.register_rate_limit_hooks(cancel_check=lambda: True)
+        with patch("sync.github_client.time.sleep"):
+            with patch(
+                "sync.github_client.urllib.request.urlopen",
+                side_effect=_http_error(429, b"{}", retry_after="900"),
+            ) as mock_urlopen:
                 with self.assertRaises(SyncError) as ctx:
                     client._request_any("GET", "https://api.github.com/x")
-        self.assertIn("rate limit exceeded after 5 retries", str(ctx.exception))
+
+        self.assertIn("cancelled", str(ctx.exception))
+        self.assertEqual(mock_urlopen.call_count, 1)
 
     def test_url_error_becomes_sync_error(self) -> None:
         client = _client()

@@ -11,6 +11,7 @@ if str(APP_ROOT) not in sys.path:
     sys.path.insert(0, str(APP_ROOT))
 
 from sync.engine import SyncEngine
+from sync.errors import SyncError
 from sync.models import SyncConfig, SyncPlan
 
 
@@ -295,6 +296,34 @@ class SyncEngineTests(unittest.TestCase):
                     for event in progress_events
                 )
             )
+
+    def test_run_returns_cancelled_when_rate_limit_wait_cancelled(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            config = SyncConfig(
+                repository="owner/repo",
+                branch="main",
+                token="token",
+                config_root=tmp,
+                addon_config_root="/addon_configs",
+                dry_run=False,
+            )
+            plan = SyncPlan(added=[], changed=[], removed=["stale.yaml"], total_files=1)
+            fake_client = MagicMock()
+
+            with patch("sync.engine.GitHubClient", return_value=fake_client):
+                engine = SyncEngine(config, previous_hash_index={"stale.yaml": "h"})
+                engine.set_cancel_checker(lambda: True)
+                engine.set_progress_callback(lambda _payload: None)
+                with patch.object(
+                    engine,
+                    "_delete_one",
+                    side_effect=SyncError("Sync cancelled during GitHub rate-limit wait"),
+                ):
+                    result = engine.run(plan)
+
+            self.assertTrue(result.cancelled)
+            self.assertEqual(result.deleted_count, 0)
+            self.assertIn("Sync cancelled", result.message)
 
     def test_delete_remote_tree_wipes_nested_tree(self) -> None:
         config = SyncConfig(

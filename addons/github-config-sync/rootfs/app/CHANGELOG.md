@@ -2,6 +2,13 @@
 
 ## Latest Releases
 
+## 1.6.9
+
+- **Reliability**: Rate-limit watchdog — `429` and secondary/abuse limits retry until they clear (or the sync is cancelled), honouring `Retry-After`/`X-RateLimit-Reset`, with a shared gate so parallel workers back off as one and the UI shows "waiting" instead of freezing
+- **Reliability**: When the core rate-limit budget is nearly exhausted the engine pauses before sending
+- **Fix**: "Show pre-release build updates" and sync-mode controls auto-save like every other option (they were missing from the auto-save listener list, so their changes were never persisted on their own)
+- **Test**: 429/Retry-After waits, unbounded retries until success, cancel-during-wait, cancel surfaces as a cancelled sync
+
 ## 1.6.8
 
 - **Feature**: Update check reports how many new versions exist and names every candidate (pre-releases too when `include_pre_releases` is on) instead of only the newest

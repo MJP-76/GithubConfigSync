@@ -2,6 +2,13 @@
 
 ## Latest Releases
 
+## 1.6.9
+
+- **Reliability**: New rate-limit watchdog. GitHub `429` and secondary/abuse limits are now retried until they clear (or the sync is cancelled) instead of failing after 5 attempts — the wait honours `Retry-After` / `X-RateLimit-Reset` headers, a shared gate makes every concurrent upload/delete worker hold together so the batch doesn't stampede the API, waiting can be cancelled at any time, and the UI shows "waiting" progress instead of freezing mid-sync
+- **Reliability**: The core rate-limit budget is watched as well: when nearly exhausted the engine pauses before sending rather than burning requests on guaranteed `403`s
+- **Fix**: The "Show pre-release build updates" and sync-mode controls were missing from the form's auto-save listener list, so changing either on its own never saved — the toggle snapped back on the next reload or tab-return. Both are now wired to auto-save like every other option
+- **Test**: 429/Retry-After backoff and waits, retries past the old 5-attempt cap until success, cancel-during-wait aborts, and cancelled rate-limit waits surface as a cancelled sync instead of a failure
+
 ## 1.6.8
 
 - **Feature**: The update check now shows how many new versions exist and names every build (pre-release included when `include_pre_releases` is enabled) newer than the installed version. The badge reads "Update available (N)" and the details line lists each candidate instead of just the newest

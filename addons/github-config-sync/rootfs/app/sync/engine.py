@@ -5,7 +5,7 @@ from typing import Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from .errors import SyncError
-from .github_client import GitHubClient
+from .github_client import GitHubClient, register_rate_limit_hooks
 from .hashing import GitIgnoreMatcher, build_hash_index, diff_hash_indexes, scan_sensitive_files
 from .models import SyncConfig, SyncPlan, SyncResult
 
@@ -40,12 +40,46 @@ class SyncEngine:
         self._sensitive_files: list[str] = []
         self._cancel_requested: Callable[[], bool] = lambda: False
         self._progress_callback: Callable[[dict[str, object]], None] = lambda _payload: None
+        self._last_progress: dict[str, object] = {}
 
     def set_cancel_checker(self, cancel_requested: Callable[[], bool]) -> None:
         self._cancel_requested = cancel_requested
+        self._wire_rate_limit_watchdog()
 
     def set_progress_callback(self, progress_callback: Callable[[dict[str, object]], None]) -> None:
-        self._progress_callback = progress_callback
+        def _track(payload: dict[str, object]) -> None:
+            self._last_progress = dict(payload)
+            progress_callback(payload)
+
+        self._progress_callback = _track
+        self._wire_rate_limit_watchdog()
+
+    def _wire_rate_limit_watchdog(self) -> None:
+        """Keep the GitHub client's rate-limit watchdog pointed at this sync.
+
+        While GitHub is rate-limiting, every in-flight upload/delete sleeps in
+        the client until the limit clears and then retries — the watchdog only
+        needs to know how to cancel those waits and how to surface a "waiting"
+        progress payload so the UI shows the pause instead of a frozen bar.
+        """
+        register_rate_limit_hooks(
+            cancel_check=self._cancel_requested,
+            progress=self._report_rate_limit_wait,
+        )
+
+    def _report_rate_limit_wait(self, info: dict[str, object]) -> None:
+        wait = info.get("wait_seconds")
+        reason = info.get("reason") or "rate limited"
+        wait_text = f"~{wait:.0f}s" if isinstance(wait, (int, float)) else "a few seconds"
+        payload = dict(self._last_progress)
+        payload.update(
+            {
+                "status": "running",
+                "current_action": "waiting",
+                "current_path": f"GitHub rate limit ({reason}) — retrying in {wait_text}",
+            }
+        )
+        self._progress_callback(payload)
 
     def probe_repository(self) -> tuple[bool, str]:
         return self._github.probe_repository()
@@ -346,7 +380,15 @@ class SyncEngine:
                 }
             )
             for future in as_completed(futures):
-                future.result()
+                try:
+                    future.result()
+                except SyncError:
+                    if not self._cancel_requested():
+                        raise
+                    for pending in futures:
+                        pending.cancel()
+                    cancelled = True
+                    break
                 synced_count += 1
                 self._progress_callback(
                     {
@@ -361,6 +403,7 @@ class SyncEngine:
                         "remove_paths": removed_paths[:50],
                     }
                 )
+        self._drain_future_results(futures)
         if self._cancel_requested():
             cancelled = True
         return synced_count, skipped_count, cancelled
@@ -407,7 +450,15 @@ class SyncEngine:
                 }
             )
             for future in as_completed(futures):
-                did_delete = future.result()
+                try:
+                    did_delete = future.result()
+                except SyncError:
+                    if not self._cancel_requested():
+                        raise
+                    for pending in futures:
+                        pending.cancel()
+                    cancelled = True
+                    break
                 if did_delete:
                     deleted_count += 1
                 else:
@@ -425,9 +476,16 @@ class SyncEngine:
                         "remove_paths": removed_paths[:50],
                     }
                 )
+        self._drain_future_results(futures)
         if self._cancel_requested():
             cancelled = True
         return deleted_count, skipped_count, cancelled
+
+    def _drain_future_results(self, futures: dict) -> None:
+        """Retrieve any unhandled future exceptions so nothing is GC-logged."""
+        for future in futures:
+            if future.done() and not future.cancelled():
+                future.exception()
 
     def _delete_one(self, relative: str) -> bool:
         remote = self._github.get_content(relative)

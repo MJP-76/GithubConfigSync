@@ -3,12 +3,13 @@ from __future__ import annotations
 import base64
 import json
 import logging
+import threading
 import time
 import urllib.error
 import urllib.parse
 import urllib.request
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Callable
 
 from .errors import SyncError
 
@@ -321,8 +322,10 @@ class GitHubClient:
         return decoded
 
     def _request_any(self, method: str, url: str, payload: dict[str, Any] | None = None, timeout: int = 60) -> Any:
-        max_retries = 5
-        for attempt in range(max_retries):
+        transient_errors = 0
+        while True:
+            _wait_for_rate_gate()
+            _wait_for_core_budget()
             data = None
             headers = dict(self._headers)
             if payload is not None:
@@ -331,35 +334,36 @@ class GitHubClient:
             request = urllib.request.Request(url, method=method, data=data, headers=headers)
             try:
                 with urllib.request.urlopen(request, timeout=timeout) as response:
+                    _note_rate_headers(response.headers)
                     body = response.read().decode("utf-8")
                     return json.loads(body) if body else {}
             except urllib.error.HTTPError as err:
                 body = err.read().decode("utf-8", errors="ignore")
-                if err.code == 403 and "rate limit" in body.lower():
-                    retry_after = _parse_rate_limit_wait(err, attempt)
+                wait = _rate_limit_wait_from(err, body)
+                if wait is not None:
                     _LOGGER.warning(
-                        "GitHub rate limit hit (attempt %d/%d), waiting %.0fs before retry",
-                        attempt + 1,
-                        max_retries,
-                        retry_after,
-                    )
-                    time.sleep(retry_after)
-                    continue
-                if err.code in (500, 502, 503, 504) and attempt < max_retries - 1:
-                    wait = min(2 ** attempt, 8)
-                    _LOGGER.warning(
-                        "GitHub transient error HTTP %d (attempt %d/%d), retrying in %ds",
+                        "GitHub rate limit HTTP %d, waiting %.0fs before retry",
                         err.code,
-                        attempt + 1,
-                        max_retries,
                         wait,
                     )
-                    time.sleep(wait)
+                    _open_rate_gate(wait, reason=f"HTTP {err.code}")
+                    continue
+                if err.code in (500, 502, 503, 504):
+                    transient_errors += 1
+                    if transient_errors >= 5:
+                        raise SyncError(f"GitHub API error HTTP {err.code} for {method} {url}: {body}") from err
+                    wait = min(2 ** (transient_errors - 1), 8)
+                    _LOGGER.warning(
+                        "GitHub transient error HTTP %d (attempt %d/5), retrying in %ds",
+                        err.code,
+                        transient_errors,
+                        wait,
+                    )
+                    _interruptible_sleep(wait)
                     continue
                 raise SyncError(f"GitHub API error HTTP {err.code} for {method} {url}: {body}") from err
             except urllib.error.URLError as err:
                 raise SyncError(f"GitHub API request failed for {method} {url}: {err.reason}") from err
-        raise SyncError(f"GitHub API rate limit exceeded after {max_retries} retries for {method} {url}")
 
     def _oauth_request(self, method: str, path: str, payload: dict[str, Any] | None = None) -> dict[str, Any]:
         headers = {
@@ -412,3 +416,158 @@ def _parse_rate_limit_wait(err: urllib.error.HTTPError, attempt: int) -> float:
         except (ValueError, TypeError):
             pass
     return min(60 * (2 ** attempt), 60)
+
+
+_MAX_RATE_LIMIT_WAIT = 3600.0
+_PREEMPTIVE_REMAINING_MIN = 1
+
+# Module-level watchdog state shared by every GitHubClient instance (the client
+# itself is a frozen dataclass, and several worker threads can be mid-request at
+# once). When any request draws a rate limit, a gate opens that all threads wait
+# on, so the batch backs off as a unit and retries until it clears (or the sync
+# is cancelled) instead of stampeding the API or giving up after a few attempts.
+_RATE_GATE_LOCK = threading.Lock()
+_RATE_GATE_UNTIL: float = 0.0
+_RATE_GATE_REASON: str = ""
+_RATE_REMAINING: int | None = None
+_RATE_RESET: float | None = None
+_RATE_CANCEL_CHECK: Callable[[], bool] | None = None
+_RATE_PROGRESS: Callable[[dict[str, object]], None] | None = None
+
+
+def register_rate_limit_hooks(
+    cancel_check: Callable[[], bool] | None = None,
+    progress: Callable[[dict[str, object]], None] | None = None,
+) -> None:
+    """Wire the watchdog's cancel and progress signals (clear by passing None)."""
+    global _RATE_CANCEL_CHECK, _RATE_PROGRESS
+    _RATE_CANCEL_CHECK = cancel_check
+    _RATE_PROGRESS = progress
+
+
+def reset_rate_limit_gate() -> None:
+    """Clear gate state (used by tests and after a sync finishes)."""
+    global _RATE_GATE_UNTIL, _RATE_GATE_REASON, _RATE_REMAINING, _RATE_RESET
+    with _RATE_GATE_LOCK:
+        _RATE_GATE_UNTIL = 0.0
+        _RATE_GATE_REASON = ""
+        _RATE_REMAINING = None
+        _RATE_RESET = None
+
+
+def _rate_limit_wait_from(err: urllib.error.HTTPError, body: str) -> float | None:
+    """Return seconds to back off for, or None when the error is not a rate limit.
+
+    Handles GitHub's two flavours: 429 / 403 secondary limits (honoured via the
+    ``Retry-After`` header) and 403 primary limits (honoured via
+    ``X-RateLimit-Reset``). Falls back to exponential backoff when no header is
+    present, and keeps retrying — the loop only ends on success or cancellation.
+    """
+    lowered = body.lower()
+    is_secondary = err.code == 429 or (
+        err.code == 403
+        and ("rate limit" in lowered or "secondary" in lowered or "abuse" in lowered)
+    )
+    if not is_secondary:
+        return None
+    headers = err.headers or {}
+    retry_after = headers.get("Retry-After")
+    if retry_after is not None:
+        try:
+            return min(max(1.0, float(retry_after) + 1.0), _MAX_RATE_LIMIT_WAIT)
+        except (ValueError, TypeError):
+            pass
+    reset_header = headers.get("X-RateLimit-Reset")
+    if reset_header is not None:
+        try:
+            wait = max(1.0, float(reset_header) - time.time() + 2)
+            return min(wait, _MAX_RATE_LIMIT_WAIT)
+        except (ValueError, TypeError):
+            pass
+    return _parse_rate_limit_wait(err, 0)
+
+
+def _note_rate_headers(headers: Any) -> None:
+    global _RATE_REMAINING, _RATE_RESET
+    if headers is None:
+        return
+    remaining_raw = headers.get("X-RateLimit-Remaining")
+    reset_raw = headers.get("X-RateLimit-Reset")
+    if remaining_raw is None and reset_raw is None:
+        return
+    try:
+        remaining = int(remaining_raw) if remaining_raw is not None else None
+        reset = float(reset_raw) if reset_raw is not None else None
+    except (ValueError, TypeError):
+        return
+    with _RATE_GATE_LOCK:
+        if remaining is not None:
+            _RATE_REMAINING = remaining
+        if reset is not None:
+            _RATE_RESET = reset
+
+
+def _open_rate_gate(wait_seconds: float, reason: str = "") -> None:
+    global _RATE_GATE_UNTIL, _RATE_GATE_REASON
+    until = time.time() + wait_seconds
+    with _RATE_GATE_LOCK:
+        _RATE_GATE_UNTIL = max(_RATE_GATE_UNTIL, until)
+        _RATE_GATE_REASON = reason
+    progress = _RATE_PROGRESS
+    if progress is not None:
+        progress(
+            {
+                "action": "waiting",
+                "wait_seconds": wait_seconds,
+                "reason": reason,
+                "until": until,
+            }
+        )
+
+
+def _gate_wait() -> float:
+    with _RATE_GATE_LOCK:
+        return max(0.0, _RATE_GATE_UNTIL - time.time())
+
+
+def _interruptible_sleep(seconds: float) -> None:
+    """Sleep for ``seconds``, bailing early with a SyncError on cancellation."""
+    if seconds <= 0:
+        return
+    if _RATE_CANCEL_CHECK is None:
+        time.sleep(seconds)
+        return
+    deadline = time.time() + seconds
+    while True:
+        if _RATE_CANCEL_CHECK():
+            raise SyncError("Sync cancelled during GitHub rate-limit wait")
+        now = time.time()
+        if now >= deadline:
+            return
+        time.sleep(min(0.25, deadline - now))
+
+
+def _wait_for_rate_gate() -> None:
+    wait = _gate_wait()
+    if wait <= 0:
+        return
+    _LOGGER.warning("GitHub rate limit still active, waiting %.0fs", wait)
+    _interruptible_sleep(wait)
+
+
+def _wait_for_core_budget() -> None:
+    """Pause before sending when the core budget is nearly exhausted."""
+    with _RATE_GATE_LOCK:
+        remaining = _RATE_REMAINING
+        reset = _RATE_RESET
+    if remaining is None or reset is None or remaining > _PREEMPTIVE_REMAINING_MIN:
+        return
+    wait = reset - time.time()
+    if wait <= 0:
+        return
+    _LOGGER.warning(
+        "GitHub core rate limit nearly exhausted (remaining=%d), pausing %.0fs until reset",
+        remaining,
+        wait,
+    )
+    _interruptible_sleep(min(wait, _MAX_RATE_LIMIT_WAIT))
