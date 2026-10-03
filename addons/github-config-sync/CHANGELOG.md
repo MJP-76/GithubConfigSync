@@ -2,6 +2,10 @@
 
 ## Latest Releases
 
+## 1.6.12
+
+- **Docs**: Added a Safety & Liability Disclaimer to the documentation clarifying that this is a configuration sync tool (not a full backup), users assume all risks, and the maintainer accepts no responsibility for data loss/credential exposure or consequences of using override features.
+
 ## 1.6.11
 
 - **Chore**: The Stable/Dev version pills are removed from the header and the stale `repo_versions` payload is dropped from `/api/health` and `/api/status` — they only ever echoed the installed version. The add-on update badge is now the one place the version shows: "Up to date: v1.6.x" or "Update available: v1.6.10" (with the candidate tag, pre-release included when the toggle is on)
