@@ -124,3 +124,13 @@ If you find this project useful, and would like to help support its continued de
 - Start with a dry run and confirm the API summary matches the expected file changes.
 - For a live run, disable dry run only after the repository probe passes and the GitHub token has repo write access.
 - Missing local files during an upsert are skipped; missing remote files during deletes are skipped as well.
+
+## Safety & Liability Disclaimer
+
+GithubConfigSync is provided as-is. By using this add-on, you acknowledge and agree that:
+
+- **This is a configuration sync tool, not a full backup solution.** Use Home Assistant's built-in backups for restoring full system state (including databases, registries, and runtime data).
+- **You assume all risks** associated with syncing your Home Assistant configuration to a Git repository, including but not limited to data loss, corruption, or unintended exposure of sensitive information.
+- **The maintainer accepts no responsibility** for any data loss, credential exposure, configuration corruption, or other consequences arising from the use of this add-on, including use of any advanced/override features.
+- **Overrides of recommended safety filters are strictly opt-in.** If such options are enabled, you do so entirely at your own risk and must ensure you understand the implications (especially when using public repositories).
+- **Private repositories are strongly recommended** if your configuration contains any sensitive data (credentials, tokens, keys, or device identifiers). Even with private repositories, syncing sensitive files carries inherent risk.

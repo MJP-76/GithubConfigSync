@@ -67,3 +67,12 @@ tag is picked up the next time the Supervisor refreshes the repository.
 
 See the [Project guide](project-guide.md) for the full security posture and
 the current open items.
+## Safety & Liability Disclaimer
+
+GithubConfigSync is provided as-is. By using this add-on, you acknowledge and agree that:
+
+- **This is a configuration sync tool, not a full backup solution.** Use Home Assistant's built-in backups for restoring full system state (including databases, registries, and runtime data).
+- **You assume all risks** associated with syncing your Home Assistant configuration to a Git repository, including but not limited to data loss, corruption, or unintended exposure of sensitive information.
+- **The maintainer accepts no responsibility** for any data loss, credential exposure, configuration corruption, or other consequences arising from the use of this add-on, including use of any advanced/override features.
+- **Overrides of recommended safety filters are strictly opt-in.** If such options are enabled, you do so entirely at your own risk and must ensure you understand the implications (especially when using public repositories).
+- **Private repositories are strongly recommended** if your configuration contains any sensitive data (credentials, tokens, keys, or device identifiers). Even with private repositories, syncing sensitive files carries inherent risk.
