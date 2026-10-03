@@ -6,6 +6,10 @@ The full 71-release history lives in
 [GitHub Releases](https://github.com/MJP-76/GithubConfigSync/releases)).
 The last 5 releases are kept at the top, per the project's changelog rules.
 
+## 1.6.13
+
+- **Feature**: Added a Danger Zone option to override all security filters (hard-excludes, name/content secret detection). When enabled, the sync bypasses security filters; audit trail and private-repo gating groundwork in place. This is strictly opt-in and carries the risks stated in the documentation disclaimer.
+
 ## 1.6.12
 
 - **Docs**: Added a Safety & Liability Disclaimer to clarify this is a config sync tool (not a backup), users assume all risks, and the maintainer accepts no responsibility for data loss/credential exposure from using advanced features.
