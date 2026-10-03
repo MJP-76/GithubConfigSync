@@ -511,13 +511,13 @@ class SyncEngine:
                 self._put_with_retry(remote_path, local_path.read_bytes(), message=f"sync: restore {remote_path}")
 
     def _build_hash_index(self) -> dict[str, str]:
-        self._sensitive_files = scan_sensitive_files(self._config_root)
+        self._sensitive_files = scan_sensitive_files(self._config_root, override=getattr(self._config, "security_override_all_filters", False))
         ignore_matcher = GitIgnoreMatcher.from_file(self._config_root / ".gitignore")
         index: dict[str, str] = {}
         for prefix, root in self._root_map:
             if not root.exists():
                 continue
-            current = build_hash_index(root)
+            current = build_hash_index(root, override=getattr(self._config, "security_override_all_filters", False))
             for relative, digest in current.items():
                 key = f"{prefix}/{relative}" if prefix else relative
                 if ignore_matcher.has_rules and ignore_matcher.match(key):

@@ -18,6 +18,7 @@ class SyncConfig:
     include_www: bool = False
     include_addon_configs: bool = False
     sync_mode: str = "whitelist"
+    security_override_all_filters: bool = False
 
 
 @dataclass(frozen=True)

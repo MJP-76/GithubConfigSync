@@ -572,6 +572,13 @@
           <p class="subtle" style="margin-top: 10px; margin-bottom: 10px">
             Clean Upload re-uploads every file from the current local config, deleting files on GitHub that no longer exist locally. Clean Repo deletes only files that are missing from the local config and leaves everything else untouched. Reset Repo empties the remote repository, replaces its whole history, and removes all releases and tags — use it to start fresh.
           </p>
+          <div class="row" style="margin-bottom: 10px">
+            <input id="securityOverride" type="checkbox" />
+            <label for="securityOverride" style="color: var(--err)"><strong>Override all security filters (DANGER)</strong></label>
+          </div>
+          <p class="subtle" style="margin-bottom: 10px; color: var(--err)">
+            This bypasses hard-excludes and name/content secret detection. Only allowed for private repositories. <strong>You assume all risks</strong> and the maintainer accepts no responsibility for data loss, credential exposure, or other consequences. This option will write an audit trail to the repo and is strictly opt-in.
+          </p>
           <div class="row">
             <button id="cleanSyncBtn">Clean Upload</button>
             <button id="cleanRepoBtn" class="secondary">Clean Repo</button>
@@ -650,6 +657,7 @@
         createRepoBtn: document.getElementById("createRepoBtn"),
         syncBtn: document.getElementById("syncBtn"),
         cleanSyncBtn: document.getElementById("cleanSyncBtn"),
+        securityOverride: document.getElementById("securityOverride"),
         cleanRepoBtn: document.getElementById("cleanRepoBtn"),
         resetRepoBtn: document.getElementById("resetRepoBtn"),
         refreshBtn: document.getElementById("refreshBtn"),
@@ -953,6 +961,7 @@
         el.branch.value = data.github_branch || "main";
         el.versionRetention.value = data.version_retention_count || 7;
         el.dryRun.checked = Boolean(data.dry_run);
+        if (el.securityOverride) el.securityOverride.checked = Boolean(data.security_override_all_filters);
         el.autoSyncEnabled.checked = Boolean(data.auto_sync_enabled);
         updateSchedulerStatus(Boolean(data.auto_sync_enabled));
         const autoDays = data.auto_sync_days || [1, 2, 3, 4, 5];
@@ -1243,6 +1252,7 @@
             github_branch: el.branch.value.trim() || "main",
             version_retention_count: Number(el.versionRetention.value || "7"),
             dry_run: el.dryRun.checked,
+            security_override_all_filters: el.securityOverride ? el.securityOverride.checked : false,
             auto_sync_enabled: el.autoSyncEnabled.checked,
             auto_sync_days: getSelectedDays(),
             auto_sync_time: el.autoSyncTime.value || "03:00",

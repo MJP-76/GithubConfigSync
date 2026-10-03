@@ -84,6 +84,7 @@ SUPERVISOR_OPTION_KEYS = frozenset(
         "include_www",
         "include_pre_releases",
         "sync_mode",
+        "security_override_all_filters",
     }
 )
 
@@ -245,6 +246,7 @@ def _repo_sync_config(options: dict[str, Any], repository: str) -> SyncConfig:
         include_www=bool(options.get("include_www", False)),
         include_addon_configs=bool(options.get("include_addon_configs", False)),
         sync_mode=str(options.get("sync_mode", "whitelist")),
+        security_override_all_filters=bool(options.get("security_override_all_filters", False)),
     )
 
 
@@ -880,6 +882,7 @@ def _sync_config(options: dict[str, Any]) -> SyncConfig:
         include_www=bool(options.get("include_www", False)),
         include_addon_configs=bool(options.get("include_addon_configs", False)),
         sync_mode=str(options.get("sync_mode", "whitelist")),
+        security_override_all_filters=bool(options.get("security_override_all_filters", False)),
     )
 
 
@@ -1374,6 +1377,7 @@ def set_options():
         "include_www": payload.get("include_www", False),
         "include_pre_releases": payload.get("include_pre_releases", False),
         "sync_mode": str(payload.get("sync_mode", "whitelist")).strip() or "whitelist",
+        "security_override_all_filters": bool(payload.get("security_override_all_filters", False)),
     }
 
     valid, message = _validate_payload(candidate)

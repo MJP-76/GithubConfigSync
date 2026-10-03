@@ -170,7 +170,9 @@ def _is_hard_ignored(relative_path: str) -> bool:
     return any(fnmatch.fnmatch(normalized, pattern) for pattern in IGNORE_PATTERNS)
 
 
-def is_ignored(relative_path: str) -> bool:
+def is_ignored(relative_path: str, override: bool = False) -> bool:
+    if override:
+        return False
     if _is_hard_ignored(relative_path):
         return True
     return is_sensitive_candidate(relative_path)
@@ -192,8 +194,8 @@ def _file_contains_sensitive_content(path: Path) -> bool:
     return any(pattern.search(text) for pattern in SENSITIVE_CONTENT_PATTERNS)
 
 
-def scan_sensitive_files(root: Path) -> list[str]:
-    if not root.exists():
+def scan_sensitive_files(root: Path, override: bool = False) -> list[str]:
+    if override or not root.exists():
         return []
     flagged: list[str] = []
     for path in root.rglob("*"):
@@ -212,12 +214,12 @@ def scan_sensitive_files(root: Path) -> list[str]:
     return sorted(set(flagged))
 
 
-def _is_file_sensitive(root: Path, path: Path) -> bool:
+def _is_file_sensitive(root: Path, path: Path, override: bool = False) -> bool:
     """Check if a file should be excluded from upload."""
     relative = path.relative_to(root).as_posix()
-    if is_ignored(relative):
+    if is_ignored(relative, override=override):
         return True
-    return _file_contains_sensitive_content(path)
+    return _file_contains_sensitive_content(path) if not override else False
 
 
 def sha256_file(path: Path) -> str:
@@ -231,7 +233,7 @@ def sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
-def build_hash_index(root: Path) -> dict[str, str]:
+def build_hash_index(root: Path, override: bool = False) -> dict[str, str]:
     if not root.exists():
         return {}
 
@@ -240,7 +242,7 @@ def build_hash_index(root: Path) -> dict[str, str]:
         if not path.is_file():
             continue
         relative = path.relative_to(root).as_posix()
-        if _is_file_sensitive(root, path):
+        if _is_file_sensitive(root, path, override=override):
             continue
         index[relative] = sha256_file(path)
     return index
