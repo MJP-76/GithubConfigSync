@@ -2,6 +2,10 @@
 
 ## Latest Releases
 
+## 1.6.14
+
+- **Feature**: Add targeted allowlist for safe config paths (esphome/*.yaml, esphome/**/*.yaml, zigbee2mqtt/configuration.yaml, zigbee2mqtt/*.yaml) so ESPHome/Zigbee2MQTT configs bypass sensitive-file heuristics without requiring a global override. Runtime artifacts (DBs/WAL/SHM, logs, locks, caches) remain excluded.
+
 ## 1.6.13
 
 - **Feature**: Added a Danger Zone option to override all security filters (hard-excludes, name/content secret detection). When enabled, the sync bypasses security filters; audit trail and private-repo gating groundwork in place. This is strictly opt-in and carries the risks stated in the documentation disclaimer.
