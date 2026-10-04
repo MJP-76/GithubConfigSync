@@ -6,6 +6,10 @@ The full 71-release history lives in
 [GitHub Releases](https://github.com/MJP-76/GithubConfigSync/releases)).
 The last 5 releases are kept at the top, per the project's changelog rules.
 
+## 1.6.20
+
+- **Fix**: Selections were still being lost on reload. Save was debounced by 900ms, and with no Save button to fall back on, picking a folder and reloading before the timer fired discarded it - which is exactly what a picker is normally followed by. Explicit Select/Remove now commits immediately; the debounce stays for typing into fields.
+
 ## 1.6.19
 
 - **UI**: The mount tick boxes are gone. The sync picker is now the single place paths are chosen - it already showed every mount as a top-level row, so the checkboxes duplicated it. `include_*` is now derived from the selection on save rather than being a control of its own.

@@ -1318,23 +1318,29 @@
           autoSaveInFlight = false;
           if (autoSaveQueued) {
             autoSaveQueued = false;
-            scheduleAutoSave();
+            scheduleAutoSave(true);
           }
         }
       }
 
-      function scheduleAutoSave() {
+      function scheduleAutoSave(immediate = false) {
         if (autoSaveTimer) {
           window.clearTimeout(autoSaveTimer);
         }
-        autoSaveTimer = window.setTimeout(() => {
-          autoSaveTimer = null;
-          if (autoSaveInFlight) {
-            autoSaveQueued = true;
-            return;
-          }
-          saveOptions().catch(showUiError);
-        }, 900);
+        // Debounce suits typing into a field, but a Select click is deliberate
+        // and there is no Save button to fall back on - waiting 900ms meant a
+        // quick reload silently discarded the pick.
+        autoSaveTimer = window.setTimeout(
+          () => {
+            autoSaveTimer = null;
+            if (autoSaveInFlight) {
+              autoSaveQueued = true;
+              return;
+            }
+            saveOptions().catch(showUiError);
+          },
+          immediate ? 0 : 900
+        );
       }
 
       async function startDeviceLogin() {
@@ -1638,7 +1644,7 @@
           remove.addEventListener("click", () => {
             selectedPaths = selectedPaths.filter((p) => p !== path);
             renderSelection();
-            scheduleAutoSave();
+            scheduleAutoSave(true);
           });
           row.append(label, remove);
           box.appendChild(row);
@@ -1653,7 +1659,7 @@
         if (path && !selectedPaths.includes(path)) selectedPaths.push(path);
         if (el.treePathInput) el.treePathInput.value = "";
         renderSelection();
-        scheduleAutoSave();
+        scheduleAutoSave(true);
       }
 
       async function fetchTree(path) {
