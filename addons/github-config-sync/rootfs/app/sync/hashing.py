@@ -156,7 +156,7 @@ def _gitignore_rule_matches(relative: str, dir_only: bool, pattern: str) -> bool
     return any(fnmatch.fnmatchcase(part, pattern) for part in relative.split("/"))
 
 
-def _is_hard_ignored(relative_path: str) -> bool:
+def _is_hard_ignored(relative_path: str, override: bool = False) -> bool:
     """Ignore based on ignore dirs/patterns/sensitive substrings only.
 
     Deliberately excludes is_sensitive_candidate() so that files caught by
@@ -171,10 +171,10 @@ def _is_hard_ignored(relative_path: str) -> bool:
 
 
 def is_ignored(relative_path: str, override: bool = False) -> bool:
-    if override:
-        return False
-    if _is_hard_ignored(relative_path):
+    if _is_hard_ignored(relative_path, override=override):
         return True
+    if override:
+        return False  # Skip content/name heuristics when overridden
     return is_sensitive_candidate(relative_path)
 
 
@@ -202,7 +202,7 @@ def scan_sensitive_files(root: Path, override: bool = False) -> list[str]:
         if not path.is_file():
             continue
         relative = path.relative_to(root).as_posix()
-        if _is_hard_ignored(relative):
+        if _is_hard_ignored(relative, override=override):
             continue
         reasons = []
         if is_sensitive_candidate(relative):
