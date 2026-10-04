@@ -6,6 +6,19 @@ The full 71-release history lives in
 [GitHub Releases](https://github.com/MJP-76/GithubConfigSync/releases)).
 The last 5 releases are kept at the top, per the project's changelog rules.
 
+## 1.6.16
+
+- **Breaking**: The built-in `esphome/*.yaml` / `zigbee2mqtt/*.yaml` allowlist is removed. It bypassed the security checks in every mode, which contradicted what the modes are for. To sync credential-bearing config, select it under **Override**.
+- **Feature**: The sync mode dropdown becomes three modes, consolidated with mount points, `.gitignore` and dry run into a single **Sync Selection** section whose options change with the mode:
+  - **Whitelist** - only the files/folders you select; nothing selected syncs nothing; security checks stay on
+  - **Blacklist** - the default folders; security checks stay on (unchanged behaviour)
+  - **Override** - only the files/folders you select; security checks off (replaces the Danger Zone checkbox)
+- **Feature**: File/folder picker for `/config`, with one-click whole-config selection and glob entries such as `zigbee2mqtt/*.yaml`.
+- **Hardening**: The runtime floor is explicit and absolute. Databases, WAL/SHM, logs, lockfiles, caches, `.storage`, `.git` and `node_modules` are excluded in all three modes - there is no mode that will sync them, because this add-on syncs configuration rather than backing it up. Your `.gitignore` also always wins.
+- **Fix**: `.ssh` was classified as a runtime artifact while `id_rsa` was classified as a credential path, so Override could sync one but not the other. `.ssh` is now consistently a credential path.
+- **Fix**: `/config/www` was walked twice, once as part of `/config` and once as its own root.
+- **Migration**: Existing installs are seeded with the config root so their sync does not silently go quiet, and the Danger Zone checkbox becomes Override mode.
+
 ## 1.6.15
 
 - **Fix**: Safe config paths were still dropped by the content-based secret scan. ESPHome and Zigbee2MQTT configs embed `password:`/`api_key:` inline, so allowlisted files were excluded despite matching the allowlist. Allowlisted paths now bypass both name and content checks and are no longer reported as sensitive.

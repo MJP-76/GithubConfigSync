@@ -102,6 +102,7 @@ class ServerApiTests(unittest.TestCase):
                 "github_branch": "main",
                 "github_token": "token",
                 "dry_run": True,
+                "sync_paths": ".",
             }
         )
 
@@ -167,11 +168,11 @@ class ServerApiTests(unittest.TestCase):
 
     def test_safe_config_paths_parse_handles_commas_blanks_and_duplicates(self) -> None:
         self.assertEqual(
-            server._parse_safe_config_paths(" a/*.yaml, ,b/*.yaml\na/*.yaml\n"),
+            server._parse_path_list(" a/*.yaml, ,b/*.yaml\na/*.yaml\n"),
             ("a/*.yaml", "b/*.yaml"),
         )
-        self.assertEqual(server._parse_safe_config_paths(None), ())
-        self.assertEqual(server._parse_safe_config_paths(""), ())
+        self.assertEqual(server._parse_path_list(None), ())
+        self.assertEqual(server._parse_path_list(""), ())
 
     def _valid_options_payload(self, **overrides: object) -> dict:
         payload = {
@@ -211,6 +212,130 @@ class ServerApiTests(unittest.TestCase):
             )
         )
         self.assertTrue(valid, message)
+
+    def test_sync_paths_round_trip(self) -> None:
+        self._write_options(
+            {
+                "github_repository": "owner/repo",
+                "github_branch": "main",
+                "github_token": "token",
+                "dry_run": True,
+                "sync_paths": "esphome\nblueprints/*.yaml",
+            }
+        )
+
+        body = self.client.get("/api/options").get_json()
+        self.assertEqual(body["sync_paths"], "esphome\nblueprints/*.yaml")
+        config = server._sync_config(server._merge_options())
+        self.assertEqual(config.sync_paths, ("esphome", "blueprints/*.yaml"))
+
+    def test_validate_rejects_escaping_sync_paths(self) -> None:
+        payload = {
+            "github_repository": "owner/repo",
+            "github_branch": "main",
+            "github_token": "t",
+            "version_retention_count": 7,
+            "dry_run": True,
+            "auto_sync_enabled": False,
+            "auto_sync_create_release": False,
+            "auth_method": "device_flow",
+            "sync_mode": "whitelist",
+            "sync_paths": "../outside",
+        }
+        valid, message = server._validate_payload(payload)
+        self.assertFalse(valid)
+        self.assertIn("sync_paths", message)
+
+    def test_validate_rejects_unknown_sync_mode(self) -> None:
+        valid, message = server._validate_payload(
+            {
+                "github_repository": "owner/repo",
+                "github_branch": "main",
+                "github_token": "t",
+                "version_retention_count": 7,
+                "dry_run": True,
+                "auto_sync_enabled": False,
+                "auto_sync_create_release": False,
+                "auth_method": "device_flow",
+                "sync_mode": "everything",
+            }
+        )
+        self.assertFalse(valid)
+        self.assertIn("whitelist, blacklist or override", message)
+
+    def test_migration_seeds_config_root_for_existing_install(self) -> None:
+        """Whitelist now means nothing selected = nothing synced, so an install
+        that already points at a repository must be seeded rather than go quiet."""
+        server.SUPERVISOR_OPTIONS_PATH.write_text(
+            json.dumps(
+                {
+                    "github_repository": "owner/repo",
+                    "github_branch": "main",
+                    "sync_mode": "whitelist",
+                    "include_media": True,
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        server._migrate_options()
+
+        stored = json.loads(server.WEBUI_OPTIONS_PATH.read_text(encoding="utf-8"))
+        self.assertEqual(stored["sync_paths"], ".\nmedia")
+
+    def test_migration_leaves_a_fresh_install_alone(self) -> None:
+        server._migrate_options()
+        self.assertFalse(server.WEBUI_OPTIONS_PATH.exists())
+
+    def test_migration_moves_danger_zone_to_override_mode(self) -> None:
+        server.SUPERVISOR_OPTIONS_PATH.write_text(
+            json.dumps(
+                {
+                    "github_repository": "owner/repo",
+                    "github_branch": "main",
+                    "sync_mode": "whitelist",
+                    "security_override_all_filters": True,
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        server._migrate_options()
+
+        stored = json.loads(server.WEBUI_OPTIONS_PATH.read_text(encoding="utf-8"))
+        self.assertEqual(stored["sync_mode"], "override")
+        self.assertEqual(stored["sync_paths"], ".")
+
+    def test_tree_lists_entries_and_omits_runtime_directories(self) -> None:
+        (self._config_root / "esphome").mkdir()
+        (self._config_root / "esphome" / "kitchen.yaml").write_text("x: 1\n", encoding="utf-8")
+        (self._config_root / "node_modules").mkdir()
+        (self._config_root / "home-assistant.log").write_text("noise\n", encoding="utf-8")
+
+        body = self.client.get("/api/sync/tree?path=").get_json()
+
+        self.assertTrue(body["ok"])
+        names = [entry["name"] for entry in body["entries"]]
+        self.assertIn("esphome", names)
+        self.assertNotIn("node_modules", names)
+        self.assertNotIn("home-assistant.log", names)
+
+        child = self.client.get("/api/sync/tree?path=esphome").get_json()
+        self.assertEqual(
+            [(e["name"], e["type"]) for e in child["entries"]],
+            [("kitchen.yaml", "file")],
+        )
+        self.assertEqual(child["parent"], "")
+
+    def test_tree_marks_suspicious_files(self) -> None:
+        (self._config_root / "token_helper.yaml").write_text("x: 1\n", encoding="utf-8")
+        body = self.client.get("/api/sync/tree?path=").get_json()
+        flagged = {e["name"]: e["suspicious"] for e in body["entries"]}
+        self.assertTrue(flagged.get("token_helper.yaml"))
+
+    def test_tree_rejects_traversal(self) -> None:
+        response = self.client.get("/api/sync/tree?path=..")
+        self.assertEqual(response.status_code, 400)
 
     def test_start_device_flow_returns_verification_data(self) -> None:
         self._write_options({"github_client_id": "client-id", "github_branch": "main"})
@@ -731,7 +856,10 @@ class ServerApiTests(unittest.TestCase):
         self.assertEqual(self._addon_schema()["auto_sync_days"], ["int?"])
 
     def test_sync_mode_schema_is_pipe_separated_enum(self) -> None:
-        self.assertEqual(self._addon_schema()["sync_mode"], "list(whitelist|blacklist)?")
+        self.assertEqual(
+            self._addon_schema()["sync_mode"],
+            "list(whitelist|blacklist|override)?",
+        )
 
     RE_MAP_STRING = re.compile(
         r"^(data|config|ssl|addons|backup|share|media|homeassistant_config|all_addon_configs|addon_config)(?::(rw|ro))?$"

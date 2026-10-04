@@ -33,6 +33,7 @@ class SyncEngineTests(unittest.TestCase):
                 addon_config_root=str(addon_root),
                 dry_run=True,
                 include_addon_configs=True,
+                sync_paths=(".",),
             )
 
             previous = {
@@ -109,7 +110,7 @@ class SyncEngineTests(unittest.TestCase):
         engine = SyncEngine(config, previous_hash_index={})
         self.assertEqual(
             [label for label, _ in engine._root_map],
-            ["", "addon_configs", "media", "share", "ssl", "backups", "www"],
+            ["", "addon_configs", "media", "share", "ssl", "backups"],
         )
 
     def test_run_dry_run_returns_counts_without_github_calls(self) -> None:
@@ -514,6 +515,7 @@ class SyncEngineTests(unittest.TestCase):
                         addon_config_root="/addon_configs",
                         dry_run=False,
                         include_www=include_www,
+                        sync_paths=(".",),
                     )
                     engine = SyncEngine(config, previous_hash_index={})
                     plan, _ = engine.plan()
@@ -580,12 +582,126 @@ class SyncEngineTests(unittest.TestCase):
                 addon_config_root="/addon_configs",
                 dry_run=False,
                 include_www=True,
+                sync_paths=(".",),
             )
             engine = SyncEngine(config, previous_hash_index={})
             plan, _ = engine.plan()
 
             self.assertEqual(sorted(plan.added), [".gitignore", "configuration.yaml"])
             self.assertNotIn("www/community/Drag-And-Drop-Card/drag-and-drop-card.js.gz", plan.added)
+
+
+class SyncSelectionModesTests(unittest.TestCase):
+    """The three modes differ on two axes: how much you pick, and whether the
+    security checks stand between you and it.
+
+    Selection is never enough on its own to release a credential file - that
+    needs Override - and no mode can reach the runtime floor or the .gitignore.
+    """
+
+    def setUp(self) -> None:
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self._tmp = tmp
+        root = Path(tmp.name) / "config"
+        self.root = root
+        root.mkdir()
+        (root / "configuration.yaml").write_text("homeassistant:\n", encoding="utf-8")
+        (root / "secrets.yaml").write_text("token: abc123\n", encoding="utf-8")
+        (root / "home-assistant_v2.db").write_bytes(b"sqlite")
+        (root / "local_only.yaml").write_text("x: 1\n", encoding="utf-8")
+        (root / ".gitignore").write_text("local_only.yaml\n", encoding="utf-8")
+        (root / "esphome").mkdir()
+        (root / "esphome" / "kitchen.yaml").write_text('wifi:\n  password: "x"\n', encoding="utf-8")
+        (root / "blueprints").mkdir()
+        (root / "blueprints" / "motion.yaml").write_text("id: a\n", encoding="utf-8")
+
+    def _plan(self, mode: str, sync_paths=(), **kwargs) -> set[str]:
+        config = SyncConfig(
+            repository="owner/repo",
+            branch="main",
+            token="token",
+            config_root=str(self.root),
+            addon_config_root=str(Path(self._tmp.name) / "no_such_addon_root"),
+            dry_run=True,
+            sync_mode=mode,
+            sync_paths=tuple(sync_paths),
+            **kwargs,
+        )
+        engine = SyncEngine(config, previous_hash_index={})
+        plan, _ = engine.plan()
+        return set(plan.added)
+
+    def test_whitelist_with_nothing_selected_syncs_nothing(self) -> None:
+        self.assertEqual(self._plan("whitelist"), set())
+
+    def test_override_with_nothing_selected_syncs_nothing(self) -> None:
+        """An empty selection must never quietly become everything-unfiltered."""
+        self.assertEqual(self._plan("override"), set())
+
+    def test_whitelist_selects_the_config_root(self) -> None:
+        added = self._plan("whitelist", sync_paths=(".",))
+        self.assertIn("configuration.yaml", added)
+        self.assertIn("blueprints/motion.yaml", added)
+
+    def test_whitelist_keeps_the_security_checks(self) -> None:
+        added = self._plan("whitelist", sync_paths=(".",))
+        self.assertNotIn("secrets.yaml", added)
+        self.assertNotIn("esphome/kitchen.yaml", added)  # dropped on content
+
+    def test_override_releases_credentials_but_not_the_floor(self) -> None:
+        added = self._plan("override", sync_paths=(".",))
+        self.assertIn("secrets.yaml", added)
+        self.assertIn("esphome/kitchen.yaml", added)
+        self.assertNotIn("home-assistant_v2.db", added)
+        self.assertNotIn("local_only.yaml", added)
+
+    def test_blacklist_walks_the_defaults_and_filters(self) -> None:
+        added = self._plan("blacklist")
+        self.assertIn("configuration.yaml", added)
+        self.assertNotIn("secrets.yaml", added)
+        self.assertNotIn("esphome/kitchen.yaml", added)
+        self.assertNotIn("home-assistant_v2.db", added)
+        self.assertNotIn("local_only.yaml", added)
+
+    def test_subdirectory_selection_is_scoped(self) -> None:
+        added = self._plan("whitelist", sync_paths=("blueprints",))
+        self.assertIn("blueprints/motion.yaml", added)
+        self.assertNotIn("configuration.yaml", added)
+
+    def test_glob_selection_is_accepted(self) -> None:
+        added = self._plan("whitelist", sync_paths=("blueprints/*.yaml",))
+        self.assertIn("blueprints/motion.yaml", added)
+
+    def test_selected_runtime_artifact_is_still_refused(self) -> None:
+        for mode in ("whitelist", "override", "blacklist"):
+            with self.subTest(mode=mode):
+                added = self._plan(mode, sync_paths=(".", "home-assistant_v2.db"))
+                self.assertNotIn("home-assistant_v2.db", added)
+
+    def test_ticked_mount_becomes_a_selection(self) -> None:
+        config = SyncConfig(
+            repository="owner/repo",
+            branch="main",
+            token="token",
+            config_root=str(self.root),
+            dry_run=True,
+            sync_mode="whitelist",
+            include_media=True,
+        )
+        engine = SyncEngine(config, previous_hash_index={})
+        self.assertIn("media", engine._selections)
+        self.assertIn("", engine._root_map[0][0])
+
+    def test_www_is_not_a_separate_root(self) -> None:
+        """www lives under /config, so it used to be walked twice."""
+        (self.root / "www").mkdir()
+        (self.root / "www" / "dash.yaml").write_text("x: 1\n", encoding="utf-8")
+        added = self._plan("blacklist")
+        self.assertEqual(
+            sorted(p for p in added if p.startswith("www/")),
+            ["www/dash.yaml"],
+        )
 
 
 def _seed_index(config: SyncConfig) -> dict[str, str]:

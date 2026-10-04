@@ -77,18 +77,25 @@ GithubConfigSync is provided as-is. By using this add-on, you acknowledge and ag
 - **Overrides of recommended safety filters are strictly opt-in.** If such options are enabled, you do so entirely at your own risk and must ensure you understand the implications (especially when using public repositories).
 - **Private repositories are strongly recommended** if your configuration contains any sensitive data (credentials, tokens, keys, or device identifiers). Even with private repositories, syncing sensitive files carries inherent risk.
 
-## Safe config paths (targeted allowlist)
+## Sync Selection
 
-Some configuration files trip the secret filters even though they are configuration rather than runtime state — ESPHome and Zigbee2MQTT configs embed wifi passwords, API keys and encryption keys inline.
+**Settings → 5. Sync Selection** decides what gets synced. The three modes differ on two axes: how much you pick, and whether the security checks stand between you and it.
 
-Built in and always active:
+| Mode | What you pick | Security checks |
+|---|---|---|
+| **Whitelist** | files and folders you select — nothing selected = nothing synced | on |
+| **Blacklist** | nothing; the default folders are walked | on |
+| **Override** | files and folders you select | off |
 
-- `esphome/*.yaml`
-- `zigbee2mqtt/*.yaml`
+- **Whitelist** — select the whole configuration folder in one click, or drill down and pick individual files and folders. The checks stay on, so a file containing a password is held back even if you selected it, and shows up in the sensitive-file report rather than vanishing silently.
+- **Blacklist** — no selection needed. Walks the default folders with the usual ignores plus the security checks.
+- **Override** — for deliberately syncing something the checks would block, such as ESPHome or Zigbee2MQTT configs that embed wifi passwords and API keys inline. Explicitly opt-in; see the disclaimer above.
 
-Add your own in **Settings → 6. Safe config paths**, one glob per line. `*` matches across directories, so `esphome/*.yaml` also covers subfolders, and matching is case-insensitive. Allowlisted paths bypass the name-based and content-based secret checks and are not reported as sensitive.
+Regardless of mode:
 
-Runtime artifacts (databases, WAL/SHM files, logs, lockfiles, caches, `.storage`, `.git`, `node_modules`) remain excluded in all cases — neither the allowlist nor the global security override can re-enable them.
+- Runtime artifacts are never synced — databases, WAL/SHM files, logs, lockfiles, caches, `.storage`, `.git`, `node_modules`. No mode can re-enable them.
+- Your `.gitignore` is applied last and always wins.
+- Mount points outside `/config` (`addon_configs`, `media`, `share`, `ssl`, `backups`) are ticked as a group in Whitelist and Override, and always walked in Blacklist.
 
 ## The `.gitignore` file
 
@@ -98,7 +105,7 @@ The add-on reads and writes a single `.gitignore` at the root of your Home Assis
 /config/.gitignore
 ```
 
-You can edit it directly, or use **Settings → 8. Recommended .gitignore entries** to write the recommended defaults. Anything matched is skipped during sync, so it is the right place to keep large or unwanted trees out of version control — for example HACS-installed integrations:
+You can edit it directly, or use **Settings → Sync Selection → Recommended .gitignore entries** to write the recommended defaults. Anything matched is skipped during sync, so it is the right place to keep large or unwanted trees out of version control — for example HACS-installed integrations:
 
 ```
 custom_components/

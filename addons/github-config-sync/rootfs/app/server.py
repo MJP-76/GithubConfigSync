@@ -18,9 +18,10 @@ from urllib.parse import quote
 from flask import Flask, jsonify, request, send_from_directory
 
 from sync import SyncConfig, SyncEngine, SyncPlan
+from sync.engine import SYNC_MODES
 from sync.errors import SyncError
 from sync.github_client import GitHubClient
-from sync.hashing import IGNORE_PATTERNS, MAX_SAFE_CONFIG_PATHS
+from sync.hashing import IGNORE_PATTERNS, MAX_SAFE_CONFIG_PATHS, is_sensitive_candidate
 
 def _read_addon_version() -> str:
     """Read version from the add-on config.yaml (single source of truth)."""
@@ -86,12 +87,13 @@ SUPERVISOR_OPTION_KEYS = frozenset(
         "sync_mode",
         "security_override_all_filters",
         "safe_config_paths",
+        "sync_paths",
     }
 )
 
 
-def _parse_safe_config_paths(raw: Any) -> tuple[str, ...]:
-    """Normalise the safe config path allowlist into a tuple of glob patterns.
+def _parse_path_list(raw: Any) -> tuple[str, ...]:
+    """Normalise a path-list option into a tuple of glob patterns.
 
     Accepts a multiline string (as typed in the UI) or a list, splitting on
     newlines and commas, and drops blanks and duplicates while preserving order.
@@ -115,7 +117,7 @@ def _parse_safe_config_paths(raw: Any) -> tuple[str, ...]:
 
 def _safe_config_paths_to_text(raw: Any) -> str:
     """Canonical newline-separated text form of the safe config path allowlist."""
-    return "\n".join(_parse_safe_config_paths(raw))
+    return "\n".join(_parse_path_list(raw))
 
 
 def _is_private_ip(ip: str) -> bool:
@@ -244,6 +246,7 @@ DEFAULT_OPTIONS: dict[str, Any] = {
     "include_pre_releases": False,
     "sync_mode": "whitelist",
     "safe_config_paths": "",
+    "sync_paths": "",
 }
 
 
@@ -277,7 +280,8 @@ def _repo_sync_config(options: dict[str, Any], repository: str) -> SyncConfig:
         include_addon_configs=bool(options.get("include_addon_configs", False)),
         sync_mode=str(options.get("sync_mode", "whitelist")),
         security_override_all_filters=bool(options.get("security_override_all_filters", False)),
-        safe_config_paths=_parse_safe_config_paths(options.get("safe_config_paths")),
+        safe_config_paths=_parse_path_list(options.get("safe_config_paths")),
+        sync_paths=_parse_path_list(options.get("sync_paths")),
     )
 
 
@@ -358,6 +362,46 @@ DEFAULT_STATE: dict[str, Any] = {
     "last_result": None,
     "last_scan": None,
 }
+
+
+def _migrate_options() -> None:
+    """Bring options written by older versions forward.
+
+    Two changes are unsafe to apply lazily:
+
+    * ``sync_paths`` is new, and whitelist with an empty selection now syncs
+      nothing. An existing install must be seeded with the config root, or its
+      sync silently becomes a no-op the moment it upgrades.
+    * the Danger Zone checkbox is gone; what it selected is now override mode.
+    """
+    from sync.engine import MOUNT_KEYS  # local import keeps module load order tidy
+
+    supervisor = _load_json(SUPERVISOR_OPTIONS_PATH, {})
+    webui = _load_json(WEBUI_OPTIONS_PATH, {})
+    effective = {**DEFAULT_OPTIONS, **supervisor, **webui}
+    updates: dict[str, Any] = {}
+
+    already_pickable = "sync_paths" in supervisor or "sync_paths" in webui
+    if not already_pickable and str(effective.get("github_repository", "")).strip():
+        seeded = ["."]
+        seeded.extend(name for name in MOUNT_KEYS if effective.get(f"include_{name}", False))
+        updates["sync_paths"] = "\n".join(seeded)
+
+    if effective.get("security_override_all_filters") and str(effective.get("sync_mode", "")) != "override":
+        updates["sync_mode"] = "override"
+        if not updates.get("sync_paths"):
+            updates["sync_paths"] = "\n".join(
+                ["."] + [n for n in MOUNT_KEYS if effective.get(f"include_{n}", False)]
+            )
+
+    if not updates:
+        return
+    for store in (SUPERVISOR_OPTIONS_PATH, WEBUI_OPTIONS_PATH):
+        current = _load_json(store, {})
+        current.update(updates)
+        _save_json(store, current)
+    _sync_options_to_supervisor({**effective, **updates})
+    _append_log(f"Migrated options for sync modes: {', '.join(sorted(updates))}")
 
 
 def _load_json(path: Path, fallback: dict[str, Any]) -> dict[str, Any]:
@@ -532,10 +576,19 @@ def _validate_payload(payload: dict[str, Any]) -> tuple[bool, str | None]:
     if str(payload.get("auth_method", "device_flow")) not in ("device_flow", "fine_grained_pat"):
         return False, "auth_method must be device_flow or fine_grained_pat"
     sync_mode = str(payload.get("sync_mode", "whitelist")).strip()
-    if sync_mode not in ("whitelist", "blacklist"):
-        return False, "sync_mode must be whitelist or blacklist"
+    if sync_mode not in SYNC_MODES:
+        return False, "sync_mode must be whitelist, blacklist or override"
 
-    safe_paths = _parse_safe_config_paths(payload.get("safe_config_paths"))
+    safe_paths = _parse_path_list(payload.get("safe_config_paths"))
+    picked_paths = _parse_path_list(payload.get("sync_paths"))
+    if len(picked_paths) > MAX_SAFE_CONFIG_PATHS:
+        return False, f"sync_paths accepts at most {MAX_SAFE_CONFIG_PATHS} entries"
+    for pattern in picked_paths:
+        if pattern.startswith("/") or "\\" in pattern:
+            return False, f"sync_paths entry '{pattern}' must be a relative path using forward slashes"
+        if ".." in Path(pattern).parts:
+            return False, f"sync_paths entry '{pattern}' must not contain '..'"
+
     if len(safe_paths) > MAX_SAFE_CONFIG_PATHS:
         return False, f"safe_config_paths accepts at most {MAX_SAFE_CONFIG_PATHS} patterns"
     for pattern in safe_paths:
@@ -923,7 +976,8 @@ def _sync_config(options: dict[str, Any]) -> SyncConfig:
         include_addon_configs=bool(options.get("include_addon_configs", False)),
         sync_mode=str(options.get("sync_mode", "whitelist")),
         security_override_all_filters=bool(options.get("security_override_all_filters", False)),
-        safe_config_paths=_parse_safe_config_paths(options.get("safe_config_paths")),
+        safe_config_paths=_parse_path_list(options.get("safe_config_paths")),
+        sync_paths=_parse_path_list(options.get("sync_paths")),
     )
 
 
@@ -1131,7 +1185,8 @@ class _SyncScheduler:
                 include_addon_configs=bool(options.get("include_addon_configs", False)),
                 sync_mode=str(options.get("sync_mode", "whitelist")),
                 security_override_all_filters=bool(options.get("security_override_all_filters", False)),
-                safe_config_paths=_parse_safe_config_paths(options.get("safe_config_paths")),
+                safe_config_paths=_parse_path_list(options.get("safe_config_paths")),
+                sync_paths=_parse_path_list(options.get("sync_paths")),
             )
             now = dt.datetime.now(dt.timezone.utc)
             local_now = now.astimezone()
@@ -1227,6 +1282,7 @@ _scheduler = _SyncScheduler()
 
 
 app = Flask(__name__, static_folder=str(STATIC_DIR), static_url_path="/static")
+_migrate_options()
 _reset_stale_runtime_state()
 _scheduler.restart()
 
@@ -1371,6 +1427,7 @@ def get_options():
         return jsonify({"ok": False, "error": "Unauthorized"}), 401
     options = _merge_options()
     options["safe_config_paths"] = _safe_config_paths_to_text(options.get("safe_config_paths"))
+    options["sync_paths"] = _safe_config_paths_to_text(options.get("sync_paths"))
     return jsonify(_mask_token(options))
 
 
@@ -1424,6 +1481,7 @@ def set_options():
         "sync_mode": str(payload.get("sync_mode", "whitelist")).strip() or "whitelist",
         "security_override_all_filters": bool(payload.get("security_override_all_filters", False)),
         "safe_config_paths": _safe_config_paths_to_text(payload.get("safe_config_paths")),
+        "sync_paths": _safe_config_paths_to_text(payload.get("sync_paths")),
     }
 
     valid, message = _validate_payload(candidate)
@@ -1484,6 +1542,62 @@ def get_ignore_recommendations():
             "ok": True,
             "local_gitignore": local_exists,
             "patterns": [{"pattern": pattern, "selected": (pattern in current) or not local_exists} for pattern in IGNORE_PATTERNS],
+        }
+    )
+
+
+@app.get("/api/sync/tree")
+def get_sync_tree():
+    """Browse the config directory for the sync picker.
+
+    Runtime directories are omitted entirely rather than flagged: there is no
+    mode in which they can be selected, so offering them would be a lie.
+    """
+    if not _require_auth():
+        return jsonify({"ok": False, "error": "Unauthorized"}), 401
+    from sync.hashing import IGNORE_DIRS, SECURITY_DIRS, _is_runtime_artifact
+
+    requested = str(request.args.get("path", "")).strip().replace("\\", "/").strip("/")
+    if ".." in Path(requested).parts:
+        return jsonify({"ok": False, "error": "Invalid path"}), 400
+    base = (CONFIG_ROOT / requested).resolve()
+    if not base.is_relative_to(CONFIG_ROOT.resolve()) or not base.is_dir():
+        return jsonify({"ok": False, "error": "Not a directory"}), 400
+
+    entries = []
+    try:
+        children = list(base.iterdir())
+    except OSError as err:
+        return jsonify({"ok": False, "error": str(err)}), 500
+
+    for child in sorted(children, key=lambda p: (not p.is_dir(), p.name.lower())):
+        if child.name.startswith("."):
+            # Dotfiles are not browsable: .gitignore is edited in its own
+            # section, and the rest are runtime or credential directories.
+            continue
+        relative = f"{requested}/{child.name}" if requested else child.name
+        if child.is_dir():
+            if child.name in IGNORE_DIRS or child.name in SECURITY_DIRS:
+                continue
+            entries.append({"name": child.name, "path": relative, "type": "dir"})
+            continue
+        if _is_runtime_artifact(relative):
+            continue
+        entries.append(
+            {
+                "name": child.name,
+                "path": relative,
+                "type": "file",
+                "suspicious": is_sensitive_candidate(relative),
+            }
+        )
+
+    return jsonify(
+        {
+            "ok": True,
+            "path": requested,
+            "parent": "/".join(requested.split("/")[:-1]) if requested else None,
+            "entries": entries,
         }
     )
 
@@ -1779,7 +1893,8 @@ def create_repo():
                 include_addon_configs=bool(options.get("include_addon_configs", False)),
                 sync_mode=str(options.get("sync_mode", "whitelist")),
                 security_override_all_filters=bool(options.get("security_override_all_filters", False)),
-                safe_config_paths=_parse_safe_config_paths(options.get("safe_config_paths")),
+                safe_config_paths=_parse_path_list(options.get("safe_config_paths")),
+                sync_paths=_parse_path_list(options.get("sync_paths")),
             ),
             previous_hash_index={},
         )

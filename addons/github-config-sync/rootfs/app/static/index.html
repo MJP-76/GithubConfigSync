@@ -439,81 +439,107 @@
             </div>
           </div>
         </details>
-        <details id="syncModeSection" style="margin-top: 12px">
-          <summary style="cursor: pointer; color: var(--muted)">5. Sync mode</summary>
-          <div style="margin-top: 10px;">
-            <label style="display: flex; align-items: center; gap: 8px;">
-              <span>Sync mode:</span>
-              <select id="syncMode" style="flex: 1; max-width: 200px;">
-                <option value="whitelist">Whitelist (default) — only sync explicitly enabled paths</option>
-                <option value="blacklist">Blacklist — sync everything except ignored patterns</option>
+        <details id="syncSelectionSection" style="margin-top: 12px" open>
+          <summary style="cursor: pointer; color: var(--muted)">5. Sync Selection</summary>
+
+          <div style="margin-top: 10px">
+            <label style="display: flex; align-items: center; gap: 8px">
+              <span>Mode:</span>
+              <select id="syncMode" style="flex: 1; max-width: 240px">
+                <option value="whitelist">Whitelist &mdash; only what I pick, security checks on</option>
+                <option value="blacklist">Blacklist &mdash; default folders, security checks on</option>
+                <option value="override">Override &mdash; only what I pick, security checks off</option>
               </select>
             </label>
-            <p style="font-size: 0.8rem; color: var(--muted); margin: 4px 0 0">
-              Whitelist: only explicitly enabled folders (config, www, etc.) are synced.
-              Blacklist: everything is synced except ignored patterns (legacy behavior).
+            <p id="syncModeHelp" class="subtle" style="margin: 6px 0 0"></p>
+          </div>
+
+          <div id="overrideWarning" style="display: none; margin-top: 10px; padding: 10px; border: 1px solid var(--err); border-radius: 6px">
+            <strong style="color: var(--err)">Security checks are off in this mode.</strong>
+            <p class="subtle" style="margin: 6px 0 0; color: var(--err)">
+              Anything you select here is synced even if it contains passwords, keys or tokens, and
+              the sensitive-file warning is suppressed. <strong>You assume all risks</strong> and the
+              maintainer accepts no responsibility for credential exposure or other consequences.
+              Databases, WAL/SHM files, logs, lockfiles, caches and <code>.storage</code> still stay
+              out &mdash; this add-on syncs configuration, it is not a backup tool.
             </p>
           </div>
-        </details>
-        <div id="safePathsSection" style="margin-top: 12px; padding: 10px; border: 1px solid var(--border); border-radius: 6px;">
-          <div class="section-title">6. Safe config paths (targeted allowlist)</div>
-          <p class="subtle" style="margin: 6px 0 10px">
-            Config files that normally trip the secret filters, but are configuration rather than
-            runtime state — ESPHome and Zigbee2MQTT configs embed wifi passwords and API keys inline.
-            Matching files are always synced, and are never listed as sensitive.
-          </p>
-          <label for="safeConfigPaths" style="display: block; margin-bottom: 6px;">
-            <span>Additional paths to allow (one glob per line):</span>
-          </label>
-          <textarea
-            id="safeConfigPaths"
-            rows="4"
-            spellcheck="false"
-            placeholder="homeassistant/*.yaml&#10;blueprints/**/*.yaml"
-            style="width: 100%; font-family: var(--mono, monospace); font-size: 0.85rem;"
-          ></textarea>
-          <p class="subtle" style="margin: 8px 0 0">
-            <code>*</code> matches across directories, so <code>esphome/*.yaml</code> covers
-            subfolders too. Already built in: <code>esphome/*.yaml</code> and
-            <code>zigbee2mqtt/*.yaml</code> — listing them again is harmless.
-            This cannot re-enable databases, WAL/SHM files, logs, lockfiles, caches or
-            <code>.storage</code>, which stay excluded regardless.
-          </p>
-        </div>
-        <details id="mountPointsSection" style="margin-top: 12px">
-          <summary style="cursor: pointer; color: var(--muted)">7. Mount points to sync</summary>
-          <div class="grid" style="margin-top: 10px">
-            <label><input id="includeAddonConfigs" type="checkbox" /> Include /addon_configs</label>
-            <label><input id="includeMedia" type="checkbox" /> Include /media</label>
-            <label><input id="includeShare" type="checkbox" /> Include /share</label>
-            <label><input id="includeSsl" type="checkbox" /> Include /ssl</label>
-            <label><input id="includeBackups" type="checkbox" /> Include /backup or /backups</label>
-            <label><input id="includeWww" type="checkbox" /> Include /www</label>
+
+          <div id="syncSelectionPanel" style="margin-top: 12px; padding: 10px; border: 1px solid var(--border); border-radius: 6px">
+            <div class="row" style="justify-content: space-between; align-items: center; margin-bottom: 8px">
+              <strong>What to sync</strong>
+              <span class="row" style="gap: 6px">
+                <button id="selectConfigRootBtn" class="secondary" type="button">Select whole config folder</button>
+              </span>
+            </div>
+
+            <div id="treePath" class="muted" style="font-size: 0.8rem; margin-bottom: 6px">config/</div>
+            <div id="treeList" class="ignore-list" style="max-height: 240px; overflow-y: auto"></div>
+
+            <div class="row" style="gap: 8px; margin-top: 8px">
+              <input id="treePathInput" placeholder="esphome/ or zigbee2mqtt/*.yaml" style="flex: 1" />
+              <button id="addPathBtn" class="secondary" type="button">Add</button>
+              <button id="treeUpBtn" class="secondary" type="button">Up</button>
+            </div>
+
+            <div class="muted" style="margin-top: 10px; font-size: 0.8rem">Selected:</div>
+            <div id="selectedPathsList" class="ignore-list" style="margin-top: 4px"></div>
+
+            <p class="subtle" style="margin: 8px 0 0">
+              Directories include everything beneath them. <code>*</code> matches across directories,
+              so <code>esphome/*.yaml</code> covers subfolders. Selecting nothing syncs nothing.
+            </p>
           </div>
-        </details>
-        <details id="gitignoreSection" style="margin-top: 12px">
-          <summary style="cursor: pointer; color: var(--muted)">8. Recommended .gitignore entries</summary>
-          <p class="subtle" style="margin-bottom: 10px">
-            These are safe defaults for Home Assistant. They are read from your local .gitignore and can be added with one click.
-          </p>
-          <div id="ignoreMeta" class="muted" style="margin-bottom: 10px"></div>
-          <div class="row" style="margin-bottom: 10px">
-            <label class="row" style="gap: 8px">
-              <input id="selectAllIgnore" type="checkbox" />
-              <span>Select All</span>
-            </label>
+
+          <div id="blacklistPanel" style="display: none; margin-top: 12px; padding: 10px; border: 1px solid var(--border); border-radius: 6px">
+            <strong>Default folders</strong>
+            <p class="subtle" style="margin: 6px 0 8px">
+              Blacklist needs nothing selected. It walks the default folders below and applies the
+              usual ignores plus the security checks.
+            </p>
+            <ul class="subtle" style="margin: 0; padding-left: 18px">
+              <li><code>/config</code> (everything under your configuration directory)</li>
+              <li><code>/addon_configs</code> &middot; <code>/media</code> &middot; <code>/share</code> &middot; <code>/ssl</code> &middot; <code>/backup</code></li>
+            </ul>
+            <p class="subtle" style="margin: 8px 0 0">
+              Files containing passwords or keys are held back here. To include them, switch to
+              <strong>Override</strong> and select them.
+            </p>
           </div>
-          <div id="ignoreList" class="ignore-list"></div>
-          <div class="row" style="margin-top: 12px">
-            <button id="addIgnoreDefaultsBtn" class="secondary">Update local .gitignore Defaults</button>
-            <button id="saveIgnoreBtn" class="secondary">Write Selected Entries to .gitignore</button>
-            <button id="resetIgnoreBtn" class="secondary" style="margin-left: 8px;">Reset to Defaults</button>
-            <button id="refreshIgnoreBtn" class="secondary">Refresh Ignore Suggestions</button>
+
+          <div id="mountPointsPanel" style="margin-top: 12px">
+            <div class="muted" style="font-size: 0.8rem; margin-bottom: 6px">Mount points outside /config</div>
+            <div class="grid">
+              <label><input id="includeAddonConfigs" type="checkbox" /> Include /addon_configs</label>
+              <label><input id="includeMedia" type="checkbox" /> Include /media</label>
+              <label><input id="includeShare" type="checkbox" /> Include /share</label>
+              <label><input id="includeSsl" type="checkbox" /> Include /ssl</label>
+              <label><input id="includeBackups" type="checkbox" /> Include /backup or /backups</label>
+            </div>
           </div>
-        </details>
-        <details id="dryRunSection" style="margin-top: 12px">
-          <summary style="cursor: pointer; color: var(--muted)">9. Dry run mode (no push)</summary>
-          <div style="margin-top: 10px; padding: 10px; border: 1px solid var(--border); border-radius: 6px;">
+
+          <details id="gitignoreSection" style="margin-top: 12px">
+            <summary style="cursor: pointer; color: var(--muted)">Recommended .gitignore entries</summary>
+            <p class="subtle" style="margin-bottom: 10px">
+              These are safe defaults for Home Assistant. They are read from your local .gitignore and can be added with one click.
+            </p>
+            <div id="ignoreMeta" class="muted" style="margin-bottom: 10px"></div>
+            <div class="row" style="margin-bottom: 10px">
+              <label class="row" style="gap: 8px">
+                <input id="selectAllIgnore" type="checkbox" />
+                <span>Select All</span>
+              </label>
+            </div>
+            <div id="ignoreList" class="ignore-list"></div>
+            <div class="row" style="margin-top: 12px">
+              <button id="addIgnoreDefaultsBtn" class="secondary">Update local .gitignore Defaults</button>
+              <button id="saveIgnoreBtn" class="secondary">Write Selected Entries to .gitignore</button>
+              <button id="resetIgnoreBtn" class="secondary" style="margin-left: 8px;">Reset to Defaults</button>
+              <button id="refreshIgnoreBtn" class="secondary">Refresh Ignore Suggestions</button>
+            </div>
+          </details>
+
+          <div style="margin-top: 12px; padding: 10px; border: 1px solid var(--border); border-radius: 6px">
             <div class="row">
               <input id="dryRun" type="checkbox" />
               <label for="dryRun">Dry run mode (no push)</label>
@@ -523,6 +549,7 @@
             </p>
           </div>
         </details>
+
         <details id="updateSection" style="margin-top: 12px">
           <summary style="cursor: pointer; color: var(--muted)">10. Add-on updates <span id="updateBadge" class="pill status">Up to date</span></summary>
           <div style="margin-top: 10px; padding: 10px; border: 1px solid var(--border); border-radius: 6px;">
@@ -597,13 +624,6 @@
           <p class="subtle" style="margin-top: 10px; margin-bottom: 10px">
             Clean Upload re-uploads every file from the current local config, deleting files on GitHub that no longer exist locally. Clean Repo deletes only files that are missing from the local config and leaves everything else untouched. Reset Repo empties the remote repository, replaces its whole history, and removes all releases and tags — use it to start fresh.
           </p>
-          <div class="row" style="margin-bottom: 10px">
-            <input id="securityOverride" type="checkbox" />
-            <label for="securityOverride" style="color: var(--err)"><strong>Override all security filters (DANGER)</strong></label>
-          </div>
-          <p class="subtle" style="margin-bottom: 10px; color: var(--err)">
-            This bypasses hard-excludes and name/content secret detection. Only allowed for private repositories. <strong>You assume all risks</strong> and the maintainer accepts no responsibility for data loss, credential exposure, or other consequences. This option will write an audit trail to the repo and is strictly opt-in.
-          </p>
           <div class="row">
             <button id="cleanSyncBtn">Clean Upload</button>
             <button id="cleanRepoBtn" class="secondary">Clean Repo</button>
@@ -650,12 +670,22 @@
         includeShare: document.getElementById("includeShare"),
         includeSsl: document.getElementById("includeSsl"),
         includeBackups: document.getElementById("includeBackups"),
-        includeWww: document.getElementById("includeWww"),
         includePreReleases: document.getElementById("includePreReleases"),
         updateSection: document.getElementById("updateSection"),
         updateBadge: document.getElementById("updateBadge"),
         syncMode: document.getElementById("syncMode"),
-        safeConfigPaths: document.getElementById("safeConfigPaths"),
+        syncModeHelp: document.getElementById("syncModeHelp"),
+        overrideWarning: document.getElementById("overrideWarning"),
+        syncSelectionPanel: document.getElementById("syncSelectionPanel"),
+        blacklistPanel: document.getElementById("blacklistPanel"),
+        mountPointsPanel: document.getElementById("mountPointsPanel"),
+        treeList: document.getElementById("treeList"),
+        treePath: document.getElementById("treePath"),
+        treeUpBtn: document.getElementById("treeUpBtn"),
+        treePathInput: document.getElementById("treePathInput"),
+        addPathBtn: document.getElementById("addPathBtn"),
+        selectConfigRootBtn: document.getElementById("selectConfigRootBtn"),
+        selectedPathsList: document.getElementById("selectedPathsList"),
         dryRun: document.getElementById("dryRun"),
         schedulerStatus: document.getElementById("schedulerStatus"),
         runtime: document.getElementById("runtime"),
@@ -683,7 +713,6 @@
         createRepoBtn: document.getElementById("createRepoBtn"),
         syncBtn: document.getElementById("syncBtn"),
         cleanSyncBtn: document.getElementById("cleanSyncBtn"),
-        securityOverride: document.getElementById("securityOverride"),
         cleanRepoBtn: document.getElementById("cleanRepoBtn"),
         resetRepoBtn: document.getElementById("resetRepoBtn"),
         refreshBtn: document.getElementById("refreshBtn"),
@@ -987,7 +1016,6 @@
         el.branch.value = data.github_branch || "main";
         el.versionRetention.value = data.version_retention_count || 7;
         el.dryRun.checked = Boolean(data.dry_run);
-        if (el.securityOverride) el.securityOverride.checked = Boolean(data.security_override_all_filters);
         el.autoSyncEnabled.checked = Boolean(data.auto_sync_enabled);
         updateSchedulerStatus(Boolean(data.auto_sync_enabled));
         const autoDays = data.auto_sync_days || [1, 2, 3, 4, 5];
@@ -1007,10 +1035,16 @@
         el.includeShare.checked = Boolean(data.include_share);
         el.includeSsl.checked = Boolean(data.include_ssl);
         el.includeBackups.checked = Boolean(data.include_backups);
-        el.includeWww.checked = Boolean(data.include_www);
         el.includePreReleases.checked = Boolean(data.include_pre_releases);
+        loadedOptions = data;
         el.syncMode.value = data.sync_mode || "whitelist";
-        if (el.safeConfigPaths) el.safeConfigPaths.value = data.safe_config_paths || "";
+        selectedPaths = String(data.sync_paths || "")
+          .split(/[\n,]/)
+          .map((p) => p.trim())
+          .filter(Boolean);
+        applySyncMode();
+        renderSelection();
+        loadTree("");
         applyRepoMode();
         updateAuthMethodHelp();
       }
@@ -1279,7 +1313,6 @@
             github_branch: el.branch.value.trim() || "main",
             version_retention_count: Number(el.versionRetention.value || "7"),
             dry_run: el.dryRun.checked,
-            security_override_all_filters: el.securityOverride ? el.securityOverride.checked : false,
             auto_sync_enabled: el.autoSyncEnabled.checked,
             auto_sync_days: getSelectedDays(),
             auto_sync_time: el.autoSyncTime.value || "03:00",
@@ -1289,10 +1322,12 @@
             include_share: el.includeShare.checked,
             include_ssl: el.includeSsl.checked,
             include_backups: el.includeBackups.checked,
-            include_www: el.includeWww.checked,
+            include_www: Boolean(loadedOptions.include_www),
             include_pre_releases: el.includePreReleases.checked,
             sync_mode: el.syncMode.value,
-            safe_config_paths: el.safeConfigPaths ? el.safeConfigPaths.value : "",
+            sync_paths: selectedPaths.join("\n"),
+            safe_config_paths: loadedOptions.safe_config_paths || "",
+            security_override_all_filters: false,
           };
           await fetchJson(apiUrl("/api/options"), { method: "POST", body: JSON.stringify(payload) });
           setStatus("Settings saved");
@@ -1547,6 +1582,154 @@
           el.newRepoDescription.value = humanizeRepoName(el.newRepoName.value);
         }
       });
+
+      const MODE_HELP = {
+        whitelist:
+          "Only what you select is synced, and the security checks still apply — a file containing a password is held back even if you picked it.",
+        blacklist:
+          "Nothing to select. The default folders are walked with the usual ignores and the security checks.",
+        override:
+          "Only what you select is synced, and the security checks stand aside for those paths. Databases, logs, locks and .storage still stay out.",
+      };
+      let selectedPaths = [];
+      let treePath = "";
+      let loadedOptions = {};
+
+      function currentMode() {
+        return el.syncMode ? el.syncMode.value : "whitelist";
+      }
+
+      function applySyncMode() {
+        const mode = currentMode();
+        const picking = mode !== "blacklist";
+        if (el.syncModeHelp) el.syncModeHelp.textContent = MODE_HELP[mode] || "";
+        if (el.overrideWarning) el.overrideWarning.style.display = mode === "override" ? "" : "none";
+        if (el.syncSelectionPanel) el.syncSelectionPanel.style.display = picking ? "" : "none";
+        if (el.mountPointsPanel) el.mountPointsPanel.style.display = picking ? "" : "none";
+        if (el.blacklistPanel) el.blacklistPanel.style.display = picking ? "none" : "";
+      }
+
+      function renderSelection() {
+        const box = el.selectedPathsList;
+        if (!box) return;
+        box.innerHTML = "";
+        if (!selectedPaths.length) {
+          const note = document.createElement("p");
+          note.className = "subtle";
+          note.style.margin = "0";
+          note.textContent = "Nothing selected — this mode will sync no files.";
+          box.appendChild(note);
+          return;
+        }
+        for (const path of selectedPaths) {
+          const row = document.createElement("div");
+          row.className = "row";
+          row.style.justifyContent = "space-between";
+          row.style.padding = "3px 0";
+          const label = document.createElement("code");
+          label.textContent = path === "." ? "/config  (whole folder)" : path;
+          const remove = document.createElement("button");
+          remove.type = "button";
+          remove.className = "secondary";
+          remove.textContent = "Remove";
+          remove.addEventListener("click", () => {
+            selectedPaths = selectedPaths.filter((p) => p !== path);
+            renderSelection();
+          });
+          row.append(label, remove);
+          box.appendChild(row);
+        }
+      }
+
+      function addPath(value) {
+        const raw = String(value || "").trim();
+        if (!raw) return;
+        const path = raw === "." ? "." : raw.replace(/\/+$/, "");
+        if (path && !selectedPaths.includes(path)) selectedPaths.push(path);
+        if (el.treePathInput) el.treePathInput.value = "";
+        renderSelection();
+      }
+
+      async function loadTree(path) {
+        if (!el.treeList) return;
+        treePath = path || "";
+        if (el.treePath) el.treePath.textContent = "config/" + (treePath ? treePath + "/" : "");
+        if (el.treeUpBtn) el.treeUpBtn.disabled = !treePath;
+        try {
+          const data = await fetchJson(apiUrl("/api/sync/tree?path=" + encodeURIComponent(treePath)));
+          el.treeList.innerHTML = "";
+          const entries = data.entries || [];
+          if (!entries.length) {
+            const empty = document.createElement("p");
+            empty.className = "subtle";
+            empty.style.margin = "0";
+            empty.textContent = "Empty folder.";
+            el.treeList.appendChild(empty);
+            return;
+          }
+          for (const entry of entries) {
+            const row = document.createElement("div");
+            row.className = "row";
+            row.style.justifyContent = "space-between";
+            row.style.padding = "3px 0";
+            const left = document.createElement("span");
+            left.className = "row";
+            left.style.gap = "8px";
+            const label = document.createElement("span");
+            label.textContent = (entry.type === "dir" ? "\u{1F4C1} " : "\u{1F4C4} ") + entry.name;
+            left.appendChild(label);
+            if (entry.suspicious) {
+              const warn = document.createElement("span");
+              warn.className = "pill status";
+              warn.style.color = "var(--err)";
+              warn.textContent = "looks sensitive";
+              left.appendChild(warn);
+            }
+            row.appendChild(left);
+            const actions = document.createElement("span");
+            actions.className = "row";
+            actions.style.gap = "6px";
+            if (entry.type === "dir") {
+              const open = document.createElement("button");
+              open.type = "button";
+              open.className = "secondary";
+              open.textContent = "Open";
+              open.addEventListener("click", () => loadTree(entry.path));
+              actions.appendChild(open);
+            }
+            const pick = document.createElement("button");
+            pick.type = "button";
+            pick.className = "secondary";
+            pick.textContent = "Select";
+            pick.addEventListener("click", () => addPath(entry.path));
+            actions.appendChild(pick);
+            row.appendChild(actions);
+            el.treeList.appendChild(row);
+          }
+        } catch (error) {
+          el.treeList.textContent = "Could not load folder: " + error;
+        }
+      }
+
+      if (el.syncMode) el.syncMode.addEventListener("change", applySyncMode);
+      if (el.selectConfigRootBtn)
+        el.selectConfigRootBtn.addEventListener("click", () => addPath("."));
+      if (el.addPathBtn)
+        el.addPathBtn.addEventListener("click", () => addPath(el.treePathInput && el.treePathInput.value));
+      if (el.treePathInput)
+        el.treePathInput.addEventListener("keydown", (event) => {
+          if (event.key === "Enter") {
+            event.preventDefault();
+            addPath(el.treePathInput.value);
+          }
+        });
+      if (el.treeUpBtn)
+        el.treeUpBtn.addEventListener("click", () => {
+          const parts = treePath.split("/").filter(Boolean);
+          parts.pop();
+          loadTree(parts.join("/"));
+        });
+
       [
         el.repo,
         el.authMethod,
@@ -1559,7 +1742,6 @@
         el.includeShare,
         el.includeSsl,
         el.includeBackups,
-        el.includeWww,
         el.includePreReleases,
         el.existingRepoRiskAck,
         el.autoSyncEnabled,

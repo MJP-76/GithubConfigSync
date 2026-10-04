@@ -121,22 +121,25 @@ GithubConfigSync is provided as-is. By using this add-on, you acknowledge and ag
 - **Overrides of recommended safety filters are strictly opt-in.** If such options are enabled, you do so entirely at your own risk and must ensure you understand the implications (especially when using public repositories).
 - **Private repositories are strongly recommended** if your configuration contains any sensitive data (credentials, tokens, keys, or device identifiers). Even with private repositories, syncing sensitive files carries inherent risk.
 
-### Safe config paths (targeted allowlist)
+### Sync Selection
 
-Some configuration files trip the secret filters even though they are configuration rather than runtime state — ESPHome and Zigbee2MQTT configs embed wifi passwords, API keys and encryption keys inline. Those are allowlisted so they sync normally.
+**Settings → 5. Sync Selection** is where you decide what gets synced. The three modes differ on two axes: how much you pick, and whether the security checks stand between you and it.
 
-Built in and always active:
+| Mode | What you pick | Security checks |
+|---|---|---|
+| **Whitelist** | files and folders you select — nothing selected = nothing synced | on |
+| **Blacklist** | nothing; the default folders are walked | on |
+| **Override** | files and folders you select | off |
 
-- `esphome/*.yaml`
-- `zigbee2mqtt/*.yaml`
+- **Whitelist** — for when you know exactly what you want tracked. Select the whole configuration folder in one click, or drill down and pick individual files and folders. The checks stay on, so a file containing a password is held back even if you selected it; it appears in the sensitive-file report instead of vanishing silently.
+- **Blacklist** — no selection needed. Walks the default folders with the usual ignores plus the security checks. The closest thing to "sync my config, don't think about it".
+- **Override** — for deliberately syncing something the checks would block. ESPHome and Zigbee2MQTT configs embed wifi passwords and API keys inline, so this is how those get version-controlled. Explicitly opt-in and carries the risks set out in the disclaimer below.
 
-You can add your own patterns in **Settings → 6. Safe config paths**, one glob per line. `*` matches across directories, so `esphome/*.yaml` covers subfolders too, and matching is case-insensitive.
+In every mode:
 
-Allowlisted paths bypass both the name-based and content-based secret checks, and are never listed in the sensitive-files warning.
-
-This cannot re-enable runtime artifacts. Databases, WAL/SHM files, logs, lockfiles, caches, `.storage`, `.git` and `node_modules` stay excluded regardless of the allowlist or the global security override — they have no restore value and only add churn.
-
-The allowlist does **not** bypass your `.gitignore`. That is applied separately and still wins.
+- **Runtime artifacts are never synced** — databases, WAL/SHM files, logs, lockfiles, caches, `.storage`, `.git` and `node_modules`. This add-on syncs configuration, not system state, and no mode will pull those in.
+- **Your `.gitignore` always wins.**
+- Mount points outside `/config` (`addon_configs`, `media`, `share`, `ssl`, `backups`) are ticked as a group in Whitelist and Override, and always walked in Blacklist.
 
 ### The `.gitignore` file
 
@@ -146,7 +149,7 @@ The add-on reads and writes a single `.gitignore` at the root of your Home Assis
 /config/.gitignore
 ```
 
-Create it with the File Editor add-on under `config`, or via the add-on's own **Settings → 8. Recommended .gitignore entries** section, which can write the recommended defaults for you. Use it to keep things you do not want under version control — for example `custom_components/`, which mostly holds HACS-installed integrations:
+Create it with the File Editor add-on under `config`, or via the add-on's own **Settings → Sync Selection → Recommended .gitignore entries** section, which can write the recommended defaults for you. Use it to keep things you do not want under version control — for example `custom_components/`, which mostly holds HACS-installed integrations:
 
 ```
 custom_components/

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import fnmatch
 from pathlib import Path
 from typing import Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -8,6 +9,61 @@ from .errors import SyncError
 from .github_client import GitHubClient, register_rate_limit_hooks
 from .hashing import GitIgnoreMatcher, build_hash_index, diff_hash_indexes, scan_sensitive_files
 from .models import SyncConfig, SyncPlan, SyncResult
+
+# The three sync modes. Each is a preset over one question: how much do you
+# pick, and do the security checks stand between you and it.
+#
+#   whitelist - you pick the paths; the security checks still apply
+#   blacklist - the default folders; the security checks still apply
+#   override  - you pick the paths; the security checks stand aside
+#
+# The runtime floor (databases, WAL/SHM, logs, locks, caches, .storage) and the
+# user's own .gitignore are outside that question: no mode re-enables them.
+SYNC_MODE_WHITELIST = "whitelist"
+SYNC_MODE_BLACKLIST = "blacklist"
+SYNC_MODE_OVERRIDE = "override"
+SYNC_MODES = (SYNC_MODE_WHITELIST, SYNC_MODE_BLACKLIST, SYNC_MODE_OVERRIDE)
+
+# Modes in which sync_paths is consulted. Blacklist syncs the defaults and
+# deliberately does not consult the selection.
+SELECTION_MODES = (SYNC_MODE_WHITELIST, SYNC_MODE_OVERRIDE)
+
+# Mounts that live outside the config directory and are selected by name.
+MOUNT_KEYS = ("addon_configs", "media", "share", "ssl", "backups")
+
+# The selection entry meaning "everything under /config". Stored as "." because
+# an empty string would otherwise silently mean "everything".
+WHOLE_CONFIG_ROOT = "."
+
+
+def _mount_prefix(key: str) -> str:
+    head = key.split("/", 1)[0]
+    return head if head in MOUNT_KEYS else ""
+
+
+def _normalise_selection(raw: object) -> str | None:
+    """Normalise one selection entry, or None to drop it."""
+    value = str(raw or "").strip().replace("\\", "/")
+    while value.startswith("./"):
+        value = value[2:]
+    value = value.strip("/")
+    if value == WHOLE_CONFIG_ROOT:
+        return WHOLE_CONFIG_ROOT
+    return value or None
+
+
+def _selection_matches(selection: str, key: str) -> bool:
+    """Whether a selection entry covers a repo-relative key.
+
+    Directory selections are recursive, and a bare ``*`` in an entry is treated
+    as a glob so ``zigbee2mqtt/*.yaml`` selects only those files.
+    """
+    if selection == WHOLE_CONFIG_ROOT:
+        return _mount_prefix(key) == ""
+    if fnmatch.fnmatchcase(key, selection):
+        return True
+    prefix = selection.rstrip("/")
+    return key == prefix or key.startswith(prefix + "/")
 
 
 class SyncEngine:
@@ -24,13 +80,15 @@ class SyncEngine:
             ("share", Path("/share")),
             ("ssl", Path("/ssl")),
             ("backups", Path("/backup")),
-            ("www", self._config_root / "www"),
         ]
-        if self._config.sync_mode == "whitelist":
+        # "www" is deliberately not a separate root: it lives inside the config
+        # directory, so listing it walked every file under it a second time.
+        self._selections = self._build_selections()
+        if self._config.sync_mode in SELECTION_MODES:
             self._root_map = [
                 item
                 for item in self._root_map
-                if self._root_enabled(item[0])
+                if item[0] == "" or self._root_enabled(item[0])
             ]
         self._github = GitHubClient(
             repository=config.repository,
@@ -510,23 +568,6 @@ class SyncEngine:
             if local_path.exists():
                 self._put_with_retry(remote_path, local_path.read_bytes(), message=f"sync: restore {remote_path}")
 
-    def _build_hash_index(self) -> dict[str, str]:
-        override = getattr(self._config, "security_override_all_filters", False)
-        safe_paths = getattr(self._config, "safe_config_paths", ())
-        self._sensitive_files = scan_sensitive_files(self._config_root, override=override, safe_paths=safe_paths)
-        ignore_matcher = GitIgnoreMatcher.from_file(self._config_root / ".gitignore")
-        index: dict[str, str] = {}
-        for prefix, root in self._root_map:
-            if not root.exists():
-                continue
-            current = build_hash_index(root, override=override, safe_paths=safe_paths)
-            for relative, digest in current.items():
-                key = f"{prefix}/{relative}" if prefix else relative
-                if ignore_matcher.has_rules and ignore_matcher.match(key):
-                    continue
-                index[key] = digest
-        return index
-
     def _local_path_for(self, relative: str) -> Path:
         if relative.startswith("media/"):
             candidate = Path("/media") / relative.removeprefix("media/")
@@ -567,6 +608,64 @@ class SyncEngine:
         if name == "www":
             return self._config.include_www
         return False
+
+    def _build_selections(self) -> tuple[str, ...]:
+        """Entries the sync may read from: picked paths, glob extras, mounts.
+
+        ``safe_config_paths`` is folded in as a glob-based way to pick paths
+        without browsing for them. Note the config root is never implied -
+        whitelist with nothing selected must sync nothing.
+        """
+        entries: list[str] = [str(e) for e in (getattr(self._config, "sync_paths", ()) or ())]
+        entries.extend(str(e) for e in (getattr(self._config, "safe_config_paths", ()) or ()))
+        entries.extend(name for name in MOUNT_KEYS if self._root_enabled(name))
+
+        selections: list[str] = []
+        seen: set[str] = set()
+        for entry in entries:
+            normalised = _normalise_selection(entry)
+            if normalised is None or normalised in seen:
+                continue
+            seen.add(normalised)
+            selections.append(normalised)
+        return tuple(selections)
+
+    def _path_selected(self, key: str) -> bool:
+        return any(_selection_matches(selection, key) for selection in self._selections)
+
+    def _build_hash_index(self) -> dict[str, str]:
+        mode = getattr(self._config, "sync_mode", SYNC_MODE_WHITELIST)
+        selection_mode = mode in SELECTION_MODES
+        override = mode == SYNC_MODE_OVERRIDE
+
+        if selection_mode and not self._selections:
+            # Nothing selected means nothing syncs. That holds in Override too:
+            # "sync everything unfiltered" has to be a deliberate selection, not
+            # the side effect of an empty list.
+            self._sensitive_files = []
+            return {}
+
+        # The warning list only covers paths the user actually picked, so it
+        # reports what was blocked rather than every sensitive file on disk.
+        self._sensitive_files = scan_sensitive_files(
+            self._config_root,
+            override=override,
+            in_scope=self._path_selected if selection_mode else None,
+        )
+        ignore_matcher = GitIgnoreMatcher.from_file(self._config_root / ".gitignore")
+        index: dict[str, str] = {}
+        for prefix, root in self._root_map:
+            if not root.exists():
+                continue
+            current = build_hash_index(root, override=override)
+            for relative, digest in current.items():
+                key = f"{prefix}/{relative}" if prefix else relative
+                if selection_mode and not self._path_selected(key):
+                    continue
+                if ignore_matcher.has_rules and ignore_matcher.match(key):
+                    continue
+                index[key] = digest
+        return index
 
 
 def _is_sha_conflict(err: Exception) -> bool:

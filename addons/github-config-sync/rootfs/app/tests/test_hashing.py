@@ -10,7 +10,7 @@ APP_ROOT = Path(__file__).resolve().parents[1]
 if str(APP_ROOT) not in sys.path:
     sys.path.insert(0, str(APP_ROOT))
 
-from sync.hashing import GitIgnoreMatcher, build_hash_index, diff_hash_indexes, _is_file_sensitive, scan_sensitive_files, is_ignored, IGNORE_DIRS, IGNORE_PATTERNS
+from sync.hashing import GitIgnoreMatcher, SECURITY_DIRS, build_hash_index, diff_hash_indexes, _is_file_sensitive, scan_sensitive_files, is_ignored, IGNORE_DIRS, IGNORE_PATTERNS
 
 CONST_PATH = Path(__file__).resolve().parents[5] / "custom_components/github_config_sync/const.py"
 CONST_SPEC = importlib.util.spec_from_file_location("github_config_sync_const", CONST_PATH)
@@ -180,7 +180,7 @@ class HashingTests(unittest.TestCase):
     def test_ignore_dirs_have_no_option_key_leftovers(self) -> None:
         self.assertNotIn("include_ssl", IGNORE_DIRS)
         self.assertNotIn("include_addon_configs", IGNORE_DIRS)
-        self.assertIn(".ssh", IGNORE_DIRS)
+        self.assertNotIn(".ssh", IGNORE_DIRS)
         self.assertIn("*.pem", IGNORE_PATTERNS)
         self.assertIn("*.key", IGNORE_PATTERNS)
         self.assertIn("*.crt", IGNORE_PATTERNS)
@@ -240,94 +240,81 @@ class HashingTests(unittest.TestCase):
         self.assertFalse(empty.has_rules)
 
 
-class SafeConfigPathTests(unittest.TestCase):
-    """Targeted allowlist behaviour (issue #44)."""
+class SecurityFloorTests(unittest.TestCase):
+    """Hashing answers only one question: is this path allowed at all.
 
-    def test_builtin_safe_config_paths_are_not_ignored(self) -> None:
+    Selection is the engine's concern and is tested in test_engine. What
+    belongs here is the floor that no mode re-enables, plus what Override does
+    reach.
+    """
+
+    def test_runtime_artifacts_are_never_synced(self) -> None:
         for path in (
-            "esphome/kitchen.yaml",
-            "esphome/nested/deep.yaml",
-            "zigbee2mqtt/configuration.yaml",
-        ):
-            self.assertFalse(is_ignored(path), f"{path} should be allowlisted")
-
-    def test_safe_config_path_survives_content_scan(self) -> None:
-        """Regression: allowlisted files must not be dropped by the content scan.
-
-        ESPHome/Zigbee2MQTT configs embed ``password:``/``api_key:`` inline, so
-        an allowlisted file still has to be uploaded.
-        """
-        with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp)
-            (root / "esphome").mkdir()
-            (root / "esphome" / "kitchen.yaml").write_text(
-                'wifi:\n  password: "hunter2"\napi:\n  key: "abc"\n', encoding="utf-8"
-            )
-            self.assertIn("esphome/kitchen.yaml", build_hash_index(root))
-            self.assertEqual(scan_sensitive_files(root), [])
-
-    def test_content_scan_still_applies_outside_the_allowlist(self) -> None:
-        with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp)
-            (root / "random.yaml").write_text('password: "hunter2"\n', encoding="utf-8")
-            self.assertEqual(build_hash_index(root), {})
-            self.assertIn("random.yaml", scan_sensitive_files(root))
-
-    def test_user_supplied_paths_extend_the_allowlist(self) -> None:
-        # "token" trips the sensitive-name heuristic, so it is excluded by default.
-        self.assertTrue(is_ignored("blueprints/token_helper.yaml"))
-        self.assertFalse(
-            is_ignored("blueprints/token_helper.yaml", safe_paths=["blueprints/*.yaml"])
-        )
-        # Built-ins still apply alongside user entries.
-        self.assertFalse(is_ignored("esphome/kitchen.yaml", safe_paths=["blueprints/*.yaml"]))
-        # An unrelated sensitive-looking path stays excluded.
-        self.assertTrue(is_ignored("other/token_helper.yaml", safe_paths=["blueprints/*.yaml"]))
-
-    def test_user_paths_are_case_insensitive_like_the_builtins(self) -> None:
-        self.assertFalse(is_ignored("ESPHome/Kitchen.yaml"))
-
-    def test_allowlist_cannot_re_enable_runtime_artifacts(self) -> None:
-        """Runtime artifacts stay excluded no matter what the allowlist says."""
-        for path in (
-            "esphome/home-assistant_v2.db",
+            "home-assistant_v2.db",
+            "home-assistant_v2.db-wal",
             "zigbee2mqtt/database.db",
-            "zigbee2mqtt/backup.db-wal",
+            "config.sqlite3",
+            "home-assistant.log",
             ".storage/core.config_entries",
-            "logs/home-assistant.log",
+            "node_modules/pkg/index.js",
+            ".cache/junk",
+            ".git/config",
+            "__pycache__/x.pyc",
         ):
             self.assertTrue(is_ignored(path), f"{path} must stay excluded")
             self.assertTrue(
                 is_ignored(path, override=True),
-                f"{path} must stay excluded even with the security override",
-            )
-            self.assertTrue(
-                is_ignored(path, safe_paths=["**", "zigbee2mqtt/*", "esphome/*"]),
-                f"{path} must stay excluded even when broadly allowlisted",
+                f"{path} must stay excluded in Override mode too",
             )
 
-    def test_security_override_unblocks_credentials_but_not_runtime_state(self) -> None:
-        """The override must actually bypass hard excludes (regression)."""
-        self.assertTrue(is_ignored("secrets.yaml"))
-        self.assertFalse(is_ignored("secrets.yaml", override=True))
-        self.assertTrue(is_ignored("ssl/live/private_key.pem"))
-        self.assertFalse(is_ignored("ssl/live/private_key.pem", override=True))
-
-    def test_override_does_not_raise_sensitive_warnings(self) -> None:
+    def test_runtime_floor_beats_the_content_scan(self) -> None:
+        """A database is dropped on the runtime floor, not on any secret check."""
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            (root / "secrets.yaml").write_text("token: abc123\n", encoding="utf-8")
-            self.assertIn("secrets.yaml", build_hash_index(root, override=True))
-            self.assertEqual(scan_sensitive_files(root, override=True), [])
+            (root / "thing.db").write_text("password: x", encoding="utf-8")
+            self.assertNotIn("thing.db", build_hash_index(root, override=True))
 
-    def test_override_is_still_filtered_by_gitignore(self) -> None:
-        """Sanity: the allowlist does not bypass .gitignore, which runs later."""
+    def test_override_bypasses_security_patterns(self) -> None:
+        for path in ("secrets.yaml", ".env", "ssl/live/private_key.pem"):
+            self.assertTrue(is_ignored(path), path)
+            self.assertFalse(is_ignored(path, override=True), path)
+
+    def test_ssh_is_security_not_runtime(self) -> None:
+        """Consistent with id_rsa: reachable by Override, blocked by default."""
+        self.assertIn(".ssh", SECURITY_DIRS)
+        self.assertTrue(is_ignored(".ssh/config"))
+        self.assertFalse(is_ignored(".ssh/config", override=True))
+
+    def test_override_bypasses_name_heuristics(self) -> None:
+        self.assertTrue(is_ignored("homeassistant/sensor_password.yaml"))
+        self.assertFalse(is_ignored("homeassistant/sensor_password.yaml", override=True))
+
+    def test_content_scan_is_skipped_when_overridden(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "kitchen.yaml").write_text('wifi:\n  password: "x"\n', encoding="utf-8")
+            self.assertEqual(build_hash_index(root), {})
+            self.assertIn("kitchen.yaml", build_hash_index(root, override=True))
+
+    def test_no_built_in_allowlist(self) -> None:
+        """Built-in safe config paths were removed: getting credentials through
+        is now an explicit choice, not a hard-coded exception."""
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             (root / "esphome").mkdir()
-            (root / "esphome" / "kitchen.yaml").write_text("wifi:\n  password: x\n", encoding="utf-8")
-            index = build_hash_index(root)
-            self.assertIn("esphome/kitchen.yaml", index)
+            (root / "esphome" / "kitchen.yaml").write_text('wifi:\n  password: "x"\n', encoding="utf-8")
+            self.assertNotIn("esphome/kitchen.yaml", build_hash_index(root))
+            self.assertIn("esphome/kitchen.yaml", build_hash_index(root, override=True))
+
+    def test_no_user_supplied_allowlist_still_bypasses(self) -> None:
+        """Regression: hashing takes no allowlist argument any more, so there is
+        no way for a path to be trusted while the checks are on."""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "secrets.yaml").write_text("token: abc123\n", encoding="utf-8")
+            self.assertNotIn("secrets.yaml", build_hash_index(root))
+            self.assertIn("secrets.yaml", build_hash_index(root, override=True))
+
 
 
 if __name__ == "__main__":

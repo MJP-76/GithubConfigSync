@@ -115,17 +115,13 @@ If you find this project useful, and would like to help support its continued de
 - This app is designed as a polished operator UI layer and can be wired to deeper sync logic incrementally.
 - Security-focused safeguards are in place: private repositories are strongly recommended, sensitive-path filtering is active, and two-way sync warnings are visible.
 
-### Safe config paths and `.gitignore`
+### Sync Selection and `.gitignore`
 
-ESPHome and Zigbee2MQTT configs are allowlisted by default (`esphome/*.yaml`, `zigbee2mqtt/*.yaml`) because they embed credentials inline but are configuration, not runtime state. Add your own patterns in **Settings → 6. Safe config paths**, one glob per line.
+**Settings → 5. Sync Selection** holds the three modes: **Whitelist** (only what you pick, security checks on), **Blacklist** (default folders, security checks on) and **Override** (only what you pick, security checks off). Nothing selected means nothing synced.
 
-Databases, WAL/SHM files, logs, lockfiles, caches and `.storage` are always excluded — the allowlist and the global security override cannot re-enable them.
+The add-on reads and writes `/config/.gitignore`, offered under **Recommended .gitignore entries** in that section. Use it to keep unwanted trees such as `custom_components/` out of version control.
 
-The add-on reads and writes `/config/.gitignore`; see **Settings → 8. Recommended .gitignore entries**. Use it to keep unwanted trees such as `custom_components/` out of version control.
-- The add-on repository metadata is minimal and valid for Home Assistant add-on store ingestion.
-- New repository creation defaults blank name/description fields to a humanized repository name.
-- Release track: stable releases on `main`, dev releases on `dev` repo.
-- Versioning rule: keep numeric `x.y.z` versions and use stable releases on `main` with dev releases on `dev`.
+Runtime artifacts — databases, WAL/SHM, logs, lockfiles, caches and `.storage` — are never synced, and `.gitignore` always wins, whatever the mode.
 
 ## Verification notes
 
