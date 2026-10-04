@@ -6,47 +6,44 @@ The full 71-release history lives in
 [GitHub Releases](https://github.com/MJP-76/GithubConfigSync/releases)).
 The last 5 releases are kept at the top, per the project's changelog rules.
 
-## 1.6.21
+## 1.7.0
 
-- **Fix**: Rapid selection changes were still lost on reload. A reload cancels any fetch still in flight, so the queued save behind the first pick never reached the server. Options are now flushed with `navigator.sendBeacon` on `pagehide`/`beforeunload`, which survives page teardown. The payload builder moved out of `saveOptions` so the flush and the normal save share it.
+First stable release of the sync selection rework, consolidating the 1.6.16-1.6.21 pre-releases.
 
-## 1.6.20
+### Sync Selection
 
-- **Fix**: Selections were still being lost on reload. Save was debounced by 900ms, and with no Save button to fall back on, picking a folder and reloading before the timer fired discarded it - which is exactly what a picker is normally followed by. Explicit Select/Remove now commits immediately; the debounce stays for typing into fields.
+Mount points, recommended `.gitignore` entries and dry run are now one section, and its options follow the mode.
 
-## 1.6.19
+| Mode | What you pick | Security checks |
+|---|---|---|
+| **Whitelist** | files and folders you select - nothing selected syncs nothing | on |
+| **Blacklist** | the default folders | on |
+| **Override** | files and folders you select | **off** |
 
-- **UI**: The mount tick boxes are gone. The sync picker is now the single place paths are chosen - it already showed every mount as a top-level row, so the checkboxes duplicated it. `include_*` is now derived from the selection on save rather than being a control of its own.
-- **Fix**: Selecting a whole mount in the tree did nothing. `_mount_has_selection` only matched the slash form (`media/`), so the exact name `media` never counted and `/media` was never walked. The old tick box was the only thing that worked, which is why the duplication was invisible.
-- **Fix**: Picking paths in the tree never saved them. There is no Save button - options only persist through autosave, which was wired to form controls and not to the picker - so selections were lost unless another control happened to be touched afterwards.
-- **Performance**: The configuration root is no longer hashed when nothing selected lives inside it. A mount-only selection previously ran a full SHA-256 over `/config` and discarded every digest at the selection filter. Path resolution still treats `/config` as the base in all cases.
-- **Migration**: Ticked mounts become explicit selections, so existing installs keep syncing them once `include_*` stops being read as a control.
-- **Docs**: Documented the sync picker - expanding folders, taking a folder wholesale or a single file, glob entry, browsable mount points, and that databases/logs/.storage are never offered for selection.
-- **UI**: The Danger Zone now points to Override mode for syncing files that the security checks would block, since that control moved with the mode dropdown.
+- **The sync picker replaces the drill-down browser.** Folders expand and collapse in place, mount points are browsable, and every row can be selected wholesale or individually. A path or glob can also be typed directly.
+- **The mount tick boxes are gone.** The picker is now the single selector; `include_*` is derived from the selection on save.
+- **Breaking:** the built-in `esphome/*.yaml` / `zigbee2mqtt/*.yaml` allowlist is removed. It bypassed the security checks in every mode, which contradicted what the modes are for. To sync credential-bearing config, select it under **Override**.
+- The Danger Zone's security override moved to the mode dropdown; the card now points there and keeps its destructive operations.
 
-## 1.6.18
+### Security
 
-- **Feature**: The sync picker is now a real tree. Config folder and mount points expand and collapse in place, so you can dive into subfolders without losing your place, while still selecting any folder wholesale from its own row.
-- **Feature**: Mount points (`/addon_configs`, `/media`, `/share`, `/ssl`, `/backup`) are browsable too, so selections can be granular - `media/photos` rather than all of `/media`.
-- **Fix**: A mount root is now walked whenever any selected path lives under it. Previously a granular pick inside an un-ticked mount was silently dropped, because the root was never traversed.
-- **Fix**: The `/api/sync/tree` route was bound to a helper function rather than the endpoint view, which returned raw `Path` objects and failed to serialise - the picker could not load at all.
+- **The runtime floor is absolute.** Databases, WAL/SHM, logs, lockfiles, caches, `.storage`, `.git` and `node_modules` are excluded in every mode - no mode can re-enable them, because this add-on syncs configuration rather than backing it up.
+- **`.gitignore` always wins**, in every mode.
+- `.ssh` was reclassified from runtime to credential, so Override reaches it consistently with `id_rsa`.
+- The sensitive-file report covers only paths you selected, so it describes what was blocked rather than everything on disk that looks sensitive.
 
-## 1.6.17
+### Fixes
 
-- **Feature**: The Override warning now names exactly what is about to be published - `Publishing N selections: /config (whole folder), media ...` - and updates as you edit the selection. Override and Whitelist take the same list, so this makes the difference between them visible at the moment it matters: switching modes carries your existing selection across with the checks now off.
+- Selecting a whole mount in the tree did nothing - `_mount_has_selection` matched only the slash form, so the exact name never counted and the root was never walked.
+- Picking paths never saved them: there is no Save button, so the 900ms debounce meant a reload inside that window discarded the pick.
+- Rapid selection changes were lost on reload, because a reload cancels any fetch still in flight. Options now flush with `sendBeacon` on `pagehide`/`beforeunload`.
+- An unselected `/config` was hashed and then discarded; a mount-only selection used to SHA-256 the whole config tree.
+- `/config/www` was walked twice - once as part of `/config`, once as its own root.
+- `/api/sync/tree` was bound to a helper rather than the endpoint view, so the picker could not load at all.
 
-## 1.6.16
+### Migration
 
-- **Breaking**: The built-in `esphome/*.yaml` / `zigbee2mqtt/*.yaml` allowlist is removed. It bypassed the security checks in every mode, which contradicted what the modes are for. To sync credential-bearing config, select it under **Override**.
-- **Feature**: The sync mode dropdown becomes three modes, consolidated with mount points, `.gitignore` and dry run into a single **Sync Selection** section whose options change with the mode:
-  - **Whitelist** - only the files/folders you select; nothing selected syncs nothing; security checks stay on
-  - **Blacklist** - the default folders; security checks stay on (unchanged behaviour)
-  - **Override** - only the files/folders you select; security checks off (replaces the Danger Zone checkbox)
-- **Feature**: File/folder picker for `/config`, with one-click whole-config selection and glob entries such as `zigbee2mqtt/*.yaml`.
-- **Hardening**: The runtime floor is explicit and absolute. Databases, WAL/SHM, logs, lockfiles, caches, `.storage`, `.git` and `node_modules` are excluded in all three modes - there is no mode that will sync them, because this add-on syncs configuration rather than backing it up. Your `.gitignore` also always wins.
-- **Fix**: `.ssh` was classified as a runtime artifact while `id_rsa` was classified as a credential path, so Override could sync one but not the other. `.ssh` is now consistently a credential path.
-- **Fix**: `/config/www` was walked twice, once as part of `/config` and once as its own root.
-- **Migration**: Existing installs are seeded with the config root so their sync does not silently go quiet, and the Danger Zone checkbox becomes Override mode.
+Existing installs are seeded with the config root so their sync does not silently go quiet, saved mount ticks become explicit selections, and the Danger Zone checkbox becomes Override mode.
 
 ## 1.6.15
 
