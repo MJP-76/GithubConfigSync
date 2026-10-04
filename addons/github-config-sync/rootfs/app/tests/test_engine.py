@@ -690,8 +690,47 @@ class SyncSelectionModesTests(unittest.TestCase):
             include_media=True,
         )
         engine = SyncEngine(config, previous_hash_index={})
+        labels = [label for label, _ in engine._root_map]
+
+        walked = [label for label, _ in engine._walkable_roots()]
+
         self.assertIn("media", engine._selections)
-        self.assertIn("", engine._root_map[0][0])
+        self.assertIn("media", walked)
+        self.assertIn("", labels)  # still the base every path resolves against
+        # Nothing was picked inside /config, so it is not walked - hashing it
+        # only to discard every digest would be wasted work.
+        self.assertNotIn("", walked)
+
+    def test_config_root_is_walked_when_anything_inside_it_is_selected(self) -> None:
+        for selection in (".", "esphome", "www"):
+            with self.subTest(selection=selection):
+                config = SyncConfig(
+                    repository="owner/repo",
+                    branch="main",
+                    token="token",
+                    config_root=str(self.root),
+                    dry_run=True,
+                    sync_mode="whitelist",
+                    sync_paths=(selection,),
+                )
+                engine = SyncEngine(config, previous_hash_index={})
+                walked = [label for label, _ in engine._walkable_roots()]
+                self.assertIn("", walked, f"{selection} lives inside /config")
+                self.assertNotIn("media", walked)
+
+    def test_mount_only_selection_does_not_walk_the_config_root(self) -> None:
+        config = SyncConfig(
+            repository="owner/repo",
+            branch="main",
+            token="token",
+            config_root=str(self.root),
+            dry_run=True,
+            sync_mode="override",
+            sync_paths=("media/photos",),
+        )
+        engine = SyncEngine(config, previous_hash_index={})
+
+        self.assertEqual([label for label, _ in engine._walkable_roots()], ["media"])
 
     def test_mount_root_is_walked_for_a_granular_selection(self) -> None:
         """Selecting media/photos must still walk /media, even though the whole

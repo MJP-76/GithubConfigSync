@@ -88,7 +88,7 @@ class SyncEngine:
             self._root_map = [
                 item
                 for item in self._root_map
-                if item[0] == "" or self._root_enabled(item[0]) or self._mount_has_selection(item[0])
+                if item[0] == "" or self._root_needed(item[0])
             ]
         self._github = GitHubClient(
             repository=config.repository,
@@ -633,6 +633,22 @@ class SyncEngine:
     def _path_selected(self, key: str) -> bool:
         return any(_selection_matches(selection, key) for selection in self._selections)
 
+    def _walkable_roots(self) -> list[tuple[str, Path]]:
+        """Roots worth scanning for the current selection.
+
+        Kept separate from ``_root_map``, which is what path resolution checks.
+        The config root stays in the map either way, but is only walked when
+        something selected lives inside it - otherwise a mount-only selection
+        would hash the entire config tree and discard every digest.
+        """
+        return [item for item in self._root_map if self._root_needed(item[0])]
+
+    def _root_needed(self, name: str) -> bool:
+        """Whether a root has to be walked for the current selection."""
+        if name == "":
+            return any(_mount_prefix(str(sel)) == "" for sel in self._selections)
+        return self._root_enabled(name) or self._mount_has_selection(name)
+
     def _mount_has_selection(self, name: str) -> bool:
         """True when a selected path lives under this mount.
 
@@ -663,7 +679,8 @@ class SyncEngine:
         )
         ignore_matcher = GitIgnoreMatcher.from_file(self._config_root / ".gitignore")
         index: dict[str, str] = {}
-        for prefix, root in self._root_map:
+        roots = self._walkable_roots() if selection_mode else self._root_map
+        for prefix, root in roots:
             if not root.exists():
                 continue
             current = build_hash_index(root, override=override)

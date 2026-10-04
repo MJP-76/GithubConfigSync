@@ -119,6 +119,8 @@ If you find this project useful, and would like to help support its continued de
 
 **Settings → 5. Sync Selection** holds the three modes: **Whitelist** (only what you pick, security checks on), **Blacklist** (default folders, security checks on) and **Override** (only what you pick, security checks off). Nothing selected means nothing synced.
 
+Pick paths in the tree beside it — folders expand in place, and **Select** takes either a whole folder or a single file. Type a glob directly for anything quicker to enter than click.
+
 The add-on reads and writes `/config/.gitignore`, offered under **Recommended .gitignore entries** in that section. Use it to keep unwanted trees such as `custom_components/` out of version control.
 
 Runtime artifacts — databases, WAL/SHM, logs, lockfiles, caches and `.storage` — are never synced, and `.gitignore` always wins, whatever the mode.

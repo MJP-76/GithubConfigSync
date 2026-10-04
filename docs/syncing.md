@@ -91,6 +91,20 @@ GithubConfigSync is provided as-is. By using this add-on, you acknowledge and ag
 - **Blacklist** — no selection needed. Walks the default folders with the usual ignores plus the security checks.
 - **Override** — for deliberately syncing something the checks would block, such as ESPHome or Zigbee2MQTT configs that embed wifi passwords and API keys inline. Explicitly opt-in; see the disclaimer above.
 
+### The sync picker
+
+**What to sync** is a tree. The configuration folder and each mount point sit at the top level, and any folder expands in place — so you can dive into `esphome/` and pick one file without losing sight of the rest.
+
+- **Select** on a folder takes it wholesale, recursively; **Select** on a file takes just that file.
+- **`▸`** expands a folder, **`▾`** collapses it. Children load the first time you open them.
+- The field under the tree takes a path or glob directly — `zigbee2mqtt/*.yaml` — for anything quicker to type than click.
+- Mount points are browsable too, so `media/photos` can be picked without taking all of `/media`.
+- Everything selected is listed under **Selected**, with **Remove** on each row.
+
+Selecting nothing syncs nothing. Under **Override**, the warning above the tree names exactly what will be published and updates as you edit, so the result is visible before you run.
+
+Databases, WAL/SHM, logs, lockfiles, caches and `.storage` never appear in the tree — no mode can select them, so showing them would be misleading. Files whose *names* look credential-bearing carry a **looks sensitive** marker; that is a hint, not a block, and it is only decisive in Whitelist and Blacklist.
+
 Regardless of mode:
 
 - Runtime artifacts are never synced — databases, WAL/SHM files, logs, lockfiles, caches, `.storage`, `.git`, `node_modules`. No mode can re-enable them.

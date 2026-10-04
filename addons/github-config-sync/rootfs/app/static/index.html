@@ -621,6 +621,11 @@
           <p class="subtle" style="margin-top: 10px; margin-bottom: 10px">
             Clean Upload re-uploads every file from the current local config, deleting files on GitHub that no longer exist locally. Clean Repo deletes only files that are missing from the local config and leaves everything else untouched. Reset Repo empties the remote repository, replaces its whole history, and removes all releases and tags — use it to start fresh.
           </p>
+          <p class="subtle" style="margin-bottom: 10px; color: var(--err)">
+            To sync files that the security checks would block — credentials in an ESPHome or
+            Zigbee2MQTT config, for example — use <strong>Override</strong> in Sync Selection above.
+            That control lives with the mode now, not here.
+          </p>
           <div class="row">
             <button id="cleanSyncBtn">Clean Upload</button>
             <button id="cleanRepoBtn" class="secondary">Clean Repo</button>

@@ -6,6 +6,12 @@ The full 71-release history lives in
 [GitHub Releases](https://github.com/MJP-76/GithubConfigSync/releases)).
 The last 5 releases are kept at the top, per the project's changelog rules.
 
+## 1.6.19
+
+- **Performance**: The configuration root is no longer hashed when nothing selected lives inside it. A mount-only selection previously ran a full SHA-256 over `/config` and discarded every digest at the selection filter. Path resolution still treats `/config` as the base in all cases.
+- **Docs**: Documented the sync picker - expanding folders, taking a folder wholesale or a single file, glob entry, browsable mount points, and that databases/logs/.storage are never offered for selection.
+- **UI**: The Danger Zone now points to Override mode for syncing files that the security checks would block, since that control moved with the mode dropdown.
+
 ## 1.6.18
 
 - **Feature**: The sync picker is now a real tree. Config folder and mount points expand and collapse in place, so you can dive into subfolders without losing your place, while still selecting any folder wholesale from its own row.
