@@ -6,6 +6,10 @@ The full 71-release history lives in
 [GitHub Releases](https://github.com/MJP-76/GithubConfigSync/releases)).
 The last 5 releases are kept at the top, per the project's changelog rules.
 
+## 1.6.17
+
+- **Feature**: The Override warning now names exactly what is about to be published - `Publishing N selections: /config (whole folder), media ...` - and updates as you edit the selection. Override and Whitelist take the same list, so this makes the difference between them visible at the moment it matters: switching modes carries your existing selection across with the checks now off.
+
 ## 1.6.16
 
 - **Breaking**: The built-in `esphome/*.yaml` / `zigbee2mqtt/*.yaml` allowlist is removed. It bypassed the security checks in every mode, which contradicted what the modes are for. To sync credential-bearing config, select it under **Override**.

@@ -456,6 +456,7 @@
 
           <div id="overrideWarning" style="display: none; margin-top: 10px; padding: 10px; border: 1px solid var(--err); border-radius: 6px">
             <strong style="color: var(--err)">Security checks are off in this mode.</strong>
+            <p id="overrideSelection" style="margin: 6px 0 0; color: var(--err); font-weight: 600"></p>
             <p class="subtle" style="margin: 6px 0 0; color: var(--err)">
               Anything you select here is synced even if it contains passwords, keys or tokens, and
               the sensitive-file warning is suppressed. <strong>You assume all risks</strong> and the
@@ -676,6 +677,7 @@
         syncMode: document.getElementById("syncMode"),
         syncModeHelp: document.getElementById("syncModeHelp"),
         overrideWarning: document.getElementById("overrideWarning"),
+        overrideSelection: document.getElementById("overrideSelection"),
         syncSelectionPanel: document.getElementById("syncSelectionPanel"),
         blacklistPanel: document.getElementById("blacklistPanel"),
         mountPointsPanel: document.getElementById("mountPointsPanel"),
@@ -1599,10 +1601,28 @@
         return el.syncMode ? el.syncMode.value : "whitelist";
       }
 
+      function renderOverrideWarning() {
+        if (!el.overrideSelection) return;
+        if (currentMode() !== "override") {
+          el.overrideSelection.textContent = "";
+          return;
+        }
+        if (!selectedPaths.length) {
+          el.overrideSelection.textContent = "Nothing selected - this will sync no files.";
+          return;
+        }
+        const names = selectedPaths.map((p) => (p === "." ? "/config (whole folder)" : p));
+        const shown = names.slice(0, 6).join(", ");
+        const rest = names.length > 6 ? ` and ${names.length - 6} more` : "";
+        el.overrideSelection.textContent =
+          `Publishing ${names.length} selection${names.length === 1 ? "" : "s"}: ${shown}${rest}`;
+      }
+
       function applySyncMode() {
         const mode = currentMode();
         const picking = mode !== "blacklist";
         if (el.syncModeHelp) el.syncModeHelp.textContent = MODE_HELP[mode] || "";
+        renderOverrideWarning();
         if (el.overrideWarning) el.overrideWarning.style.display = mode === "override" ? "" : "none";
         if (el.syncSelectionPanel) el.syncSelectionPanel.style.display = picking ? "" : "none";
         if (el.mountPointsPanel) el.mountPointsPanel.style.display = picking ? "" : "none";
@@ -1619,6 +1639,7 @@
           note.style.margin = "0";
           note.textContent = "Nothing selected — this mode will sync no files.";
           box.appendChild(note);
+          renderOverrideWarning();
           return;
         }
         for (const path of selectedPaths) {
@@ -1639,6 +1660,7 @@
           row.append(label, remove);
           box.appendChild(row);
         }
+        renderOverrideWarning();
       }
 
       function addPath(value) {
