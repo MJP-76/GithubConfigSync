@@ -650,13 +650,15 @@ class SyncEngine:
         return self._root_enabled(name) or self._mount_has_selection(name)
 
     def _mount_has_selection(self, name: str) -> bool:
-        """True when a selected path lives under this mount.
+        """True when a selected path is this mount or lives under it.
 
-        Selecting a granular path such as ``media/photos`` must still get the
-        ``/media`` root walked, even though the whole mount was never ticked.
+        Selecting the mount itself (``media``) or a subtree of it
+        (``media/photos``) must both get ``/media`` walked. Matching only on
+        the slash form left the tree's own whole-mount Select doing nothing,
+        because the exact name never matched.
         """
         prefix = f"{name}/"
-        return any(str(sel).startswith(prefix) for sel in self._selections)
+        return any(str(sel) == name or str(sel).startswith(prefix) for sel in self._selections)
 
     def _build_hash_index(self) -> dict[str, str]:
         mode = getattr(self._config, "sync_mode", SYNC_MODE_WHITELIST)

@@ -504,16 +504,6 @@
             </p>
           </div>
 
-          <div id="mountPointsPanel" style="margin-top: 12px">
-            <div class="muted" style="font-size: 0.8rem; margin-bottom: 6px">Mount points outside /config</div>
-            <div class="grid">
-              <label><input id="includeAddonConfigs" type="checkbox" /> Include /addon_configs</label>
-              <label><input id="includeMedia" type="checkbox" /> Include /media</label>
-              <label><input id="includeShare" type="checkbox" /> Include /share</label>
-              <label><input id="includeSsl" type="checkbox" /> Include /ssl</label>
-              <label><input id="includeBackups" type="checkbox" /> Include /backup or /backups</label>
-            </div>
-          </div>
 
           <details id="gitignoreSection" style="margin-top: 12px">
             <summary style="cursor: pointer; color: var(--muted)">Recommended .gitignore entries</summary>
@@ -667,11 +657,6 @@
         dayFri: document.getElementById("dayFri"),
         daySat: document.getElementById("daySat"),
         daySun: document.getElementById("daySun"),
-        includeAddonConfigs: document.getElementById("includeAddonConfigs"),
-        includeMedia: document.getElementById("includeMedia"),
-        includeShare: document.getElementById("includeShare"),
-        includeSsl: document.getElementById("includeSsl"),
-        includeBackups: document.getElementById("includeBackups"),
         includePreReleases: document.getElementById("includePreReleases"),
         updateSection: document.getElementById("updateSection"),
         updateBadge: document.getElementById("updateBadge"),
@@ -681,7 +666,6 @@
         overrideSelection: document.getElementById("overrideSelection"),
         syncSelectionPanel: document.getElementById("syncSelectionPanel"),
         blacklistPanel: document.getElementById("blacklistPanel"),
-        mountPointsPanel: document.getElementById("mountPointsPanel"),
         treeList: document.getElementById("treeList"),
         treePathInput: document.getElementById("treePathInput"),
         addPathBtn: document.getElementById("addPathBtn"),
@@ -1030,11 +1014,6 @@
         el.autoSyncTime.value = data.auto_sync_time || "03:00";
         el.autoSyncCreateRelease.checked = Boolean(data.auto_sync_create_release !== false);
         toggleAutoSyncOptions();
-        el.includeAddonConfigs.checked = Boolean(data.include_addon_configs);
-        el.includeMedia.checked = Boolean(data.include_media);
-        el.includeShare.checked = Boolean(data.include_share);
-        el.includeSsl.checked = Boolean(data.include_ssl);
-        el.includeBackups.checked = Boolean(data.include_backups);
         el.includePreReleases.checked = Boolean(data.include_pre_releases);
         loadedOptions = data;
         el.syncMode.value = data.sync_mode || "whitelist";
@@ -1317,11 +1296,13 @@
             auto_sync_days: getSelectedDays(),
             auto_sync_time: el.autoSyncTime.value || "03:00",
             auto_sync_create_release: el.autoSyncCreateRelease.checked,
-            include_addon_configs: el.includeAddonConfigs.checked,
-            include_media: el.includeMedia.checked,
-            include_share: el.includeShare.checked,
-            include_ssl: el.includeSsl.checked,
-            include_backups: el.includeBackups.checked,
+            // Derived from the selection: the tree is the only place mounts
+            // are chosen, so these keys are mirrors rather than controls.
+            include_addon_configs: mountSelected("addon_configs"),
+            include_media: mountSelected("media"),
+            include_share: mountSelected("share"),
+            include_ssl: mountSelected("ssl"),
+            include_backups: mountSelected("backups"),
             include_www: Boolean(loadedOptions.include_www),
             include_pre_releases: el.includePreReleases.checked,
             sync_mode: el.syncMode.value,
@@ -1595,6 +1576,10 @@
       let treePath = "";
       let loadedOptions = {};
 
+      function mountSelected(name) {
+        return selectedPaths.some((p) => p === name || p.startsWith(name + "/"));
+      }
+
       function currentMode() {
         return el.syncMode ? el.syncMode.value : "whitelist";
       }
@@ -1623,7 +1608,6 @@
         renderOverrideWarning();
         if (el.overrideWarning) el.overrideWarning.style.display = mode === "override" ? "" : "none";
         if (el.syncSelectionPanel) el.syncSelectionPanel.style.display = picking ? "" : "none";
-        if (el.mountPointsPanel) el.mountPointsPanel.style.display = picking ? "" : "none";
         if (el.blacklistPanel) el.blacklistPanel.style.display = picking ? "none" : "";
       }
 
@@ -1654,6 +1638,7 @@
           remove.addEventListener("click", () => {
             selectedPaths = selectedPaths.filter((p) => p !== path);
             renderSelection();
+            scheduleAutoSave();
           });
           row.append(label, remove);
           box.appendChild(row);
@@ -1668,6 +1653,7 @@
         if (path && !selectedPaths.includes(path)) selectedPaths.push(path);
         if (el.treePathInput) el.treePathInput.value = "";
         renderSelection();
+        scheduleAutoSave();
       }
 
       async function fetchTree(path) {
@@ -1803,11 +1789,6 @@
         el.syncMode,
         el.versionRetention,
         el.dryRun,
-        el.includeAddonConfigs,
-        el.includeMedia,
-        el.includeShare,
-        el.includeSsl,
-        el.includeBackups,
         el.includePreReleases,
         el.existingRepoRiskAck,
         el.autoSyncEnabled,

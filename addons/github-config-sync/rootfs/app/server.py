@@ -367,12 +367,16 @@ DEFAULT_STATE: dict[str, Any] = {
 def _migrate_options() -> None:
     """Bring options written by older versions forward.
 
-    Two changes are unsafe to apply lazily:
+    Three changes are unsafe to apply lazily:
 
     * ``sync_paths`` is new, and whitelist with an empty selection now syncs
       nothing. An existing install must be seeded with the config root, or its
       sync silently becomes a no-op the moment it upgrades.
     * the Danger Zone checkbox is gone; what it selected is now override mode.
+    * the mount tick boxes are gone. From here on ``include_*`` is derived from
+      ``sync_paths`` on save, so every ticked mount has to become an explicit
+      selection first - otherwise the first save drops it and /media goes
+      quiet.
     """
     from sync.engine import MOUNT_KEYS  # local import keeps module load order tidy
 
@@ -382,17 +386,24 @@ def _migrate_options() -> None:
     updates: dict[str, Any] = {}
 
     already_pickable = "sync_paths" in supervisor or "sync_paths" in webui
+    paths = list(_parse_path_list(effective.get("sync_paths")))
+
+    seeded_fresh = False
     if not already_pickable and str(effective.get("github_repository", "")).strip():
-        seeded = ["."]
-        seeded.extend(name for name in MOUNT_KEYS if effective.get(f"include_{name}", False))
-        updates["sync_paths"] = "\n".join(seeded)
+        paths.insert(0, ".")
+        seeded_fresh = True
+
+    changed = seeded_fresh
+    for name in MOUNT_KEYS:
+        if effective.get(f"include_{name}", False) and name not in paths:
+            paths.append(name)
+            changed = True
+
+    if changed:
+        updates["sync_paths"] = "\n".join(paths)
 
     if effective.get("security_override_all_filters") and str(effective.get("sync_mode", "")) != "override":
         updates["sync_mode"] = "override"
-        if not updates.get("sync_paths"):
-            updates["sync_paths"] = "\n".join(
-                ["."] + [n for n in MOUNT_KEYS if effective.get(f"include_{n}", False)]
-            )
 
     if not updates:
         return

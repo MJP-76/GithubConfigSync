@@ -4,7 +4,11 @@
 
 ## 1.6.19
 
+- **UI**: The mount tick boxes are gone. The sync picker is now the single place paths are chosen - it already showed every mount as a top-level row, so the checkboxes duplicated it. `include_*` is now derived from the selection on save rather than being a control of its own.
+- **Fix**: Selecting a whole mount in the tree did nothing. `_mount_has_selection` only matched the slash form (`media/`), so the exact name `media` never counted and `/media` was never walked. The old tick box was the only thing that worked, which is why the duplication was invisible.
+- **Fix**: Picking paths in the tree never saved them. There is no Save button - options only persist through autosave, which was wired to form controls and not to the picker - so selections were lost unless another control happened to be touched afterwards.
 - **Performance**: The configuration root is no longer hashed when nothing selected lives inside it. A mount-only selection previously ran a full SHA-256 over `/config` and discarded every digest at the selection filter. Path resolution still treats `/config` as the base in all cases.
+- **Migration**: Ticked mounts become explicit selections, so existing installs keep syncing them once `include_*` stops being read as a control.
 - **Docs**: Documented the sync picker - expanding folders, taking a folder wholesale or a single file, glob entry, browsable mount points, and that databases/logs/.storage are never offered for selection.
 - **UI**: The Danger Zone now points to Override mode for syncing files that the security checks would block, since that control moved with the mode dropdown.
 

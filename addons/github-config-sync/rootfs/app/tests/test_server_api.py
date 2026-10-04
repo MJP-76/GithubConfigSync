@@ -283,6 +283,47 @@ class ServerApiTests(unittest.TestCase):
         stored = json.loads(server.WEBUI_OPTIONS_PATH.read_text(encoding="utf-8"))
         self.assertEqual(stored["sync_paths"], ".\nmedia")
 
+    def test_migration_turns_ticked_mounts_into_selections(self) -> None:
+        """include_* stopped being a control, so a saved tick has to become an
+        explicit selection - otherwise the first save drops the mount and
+        /media goes quiet with nothing to explain it."""
+        server.SUPERVISOR_OPTIONS_PATH.write_text(
+            json.dumps(
+                {
+                    "github_repository": "owner/repo",
+                    "github_branch": "main",
+                    "sync_paths": ".",
+                    "include_media": True,
+                    "include_share": True,
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        server._migrate_options()
+
+        stored = json.loads(server.WEBUI_OPTIONS_PATH.read_text(encoding="utf-8"))
+        self.assertEqual(stored["sync_paths"], ".\nmedia\nshare")
+
+    def test_migration_leaves_a_fully_reconciled_install_untouched(self) -> None:
+        server.SUPERVISOR_OPTIONS_PATH.write_text(
+            json.dumps(
+                {
+                    "github_repository": "owner/repo",
+                    "github_branch": "main",
+                    "sync_paths": ".\nmedia",
+                    "include_media": True,
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        server._migrate_options()
+
+        self.assertFalse(server.WEBUI_OPTIONS_PATH.exists())
+        stored = json.loads(server.SUPERVISOR_OPTIONS_PATH.read_text(encoding="utf-8"))
+        self.assertEqual(stored["sync_paths"], ".\nmedia")  # no duplicate appended
+
     def test_migration_leaves_a_fresh_install_alone(self) -> None:
         server._migrate_options()
         self.assertFalse(server.WEBUI_OPTIONS_PATH.exists())
