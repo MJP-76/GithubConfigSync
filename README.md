@@ -121,11 +121,35 @@ GithubConfigSync is provided as-is. By using this add-on, you acknowledge and ag
 - **Overrides of recommended safety filters are strictly opt-in.** If such options are enabled, you do so entirely at your own risk and must ensure you understand the implications (especially when using public repositories).
 - **Private repositories are strongly recommended** if your configuration contains any sensitive data (credentials, tokens, keys, or device identifiers). Even with private repositories, syncing sensitive files carries inherent risk.
 
-### Safe config paths
+### Safe config paths (targeted allowlist)
 
-Certain config paths are allowed to sync even if they might contain credentials (safe, non-runtime configs), without needing to enable the security override:
+Some configuration files trip the secret filters even though they are configuration rather than runtime state — ESPHome and Zigbee2MQTT configs embed wifi passwords, API keys and encryption keys inline. Those are allowlisted so they sync normally.
 
-- `esphome/*.yaml`, `esphome/**/*.yaml`
-- `zigbee2mqtt/configuration.yaml`, `zigbee2mqtt/*.yaml`
+Built in and always active:
 
-Runtime artifacts (databases, WAL/SHM, logs, locks, caches, `.storage`, `.git`, `node_modules`) are always excluded regardless of overrides.
+- `esphome/*.yaml`
+- `zigbee2mqtt/*.yaml`
+
+You can add your own patterns in **Settings → 6. Safe config paths**, one glob per line. `*` matches across directories, so `esphome/*.yaml` covers subfolders too, and matching is case-insensitive.
+
+Allowlisted paths bypass both the name-based and content-based secret checks, and are never listed in the sensitive-files warning.
+
+This cannot re-enable runtime artifacts. Databases, WAL/SHM files, logs, lockfiles, caches, `.storage`, `.git` and `node_modules` stay excluded regardless of the allowlist or the global security override — they have no restore value and only add churn.
+
+The allowlist does **not** bypass your `.gitignore`. That is applied separately and still wins.
+
+### The `.gitignore` file
+
+The add-on reads and writes a single `.gitignore` at the root of your Home Assistant configuration directory:
+
+```
+/config/.gitignore
+```
+
+Create it with the File Editor add-on under `config`, or via the add-on's own **Settings → 8. Recommended .gitignore entries** section, which can write the recommended defaults for you. Use it to keep things you do not want under version control — for example `custom_components/`, which mostly holds HACS-installed integrations:
+
+```
+custom_components/
+```
+
+Anything matched there is skipped during sync. Note this is separate from the secret filters above: `.gitignore` is your choice, the secret filters are the add-on's safety net.

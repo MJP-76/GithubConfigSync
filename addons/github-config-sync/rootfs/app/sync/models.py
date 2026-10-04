@@ -19,6 +19,7 @@ class SyncConfig:
     include_addon_configs: bool = False
     sync_mode: str = "whitelist"
     security_override_all_filters: bool = False
+    safe_config_paths: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)

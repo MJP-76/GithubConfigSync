@@ -2,6 +2,14 @@
 
 ## Latest Releases
 
+## 1.6.15
+
+- **Fix**: Safe config paths were still dropped by the content-based secret scan. ESPHome and Zigbee2MQTT configs embed `password:`/`api_key:` inline, so allowlisted files were excluded despite matching the allowlist. Allowlisted paths now bypass both name and content checks and are no longer reported as sensitive.
+- **Fix**: The "Override all security filters" option did not actually bypass hard excludes. The `override` flag was accepted but never applied, so `secrets.yaml`, `*.pem` and similar stayed blocked even with the option enabled. The security override now works as documented.
+- **Feature**: Safe config paths are now user-editable via **Settings -> 6. Safe config paths** (new `safe_config_paths` option, one glob per line, case-insensitive, `*` matches across directories). Built-in entries are always active.
+- **Hardening**: Runtime artifacts (databases, WAL/SHM, logs, lockfiles, caches, `.storage`, `.git`, `node_modules`) are now a distinct tier that neither the allowlist nor the security override can re-enable.
+- **Docs**: Documented the `/config/.gitignore` location and how it interacts with the allowlist.
+
 ## 1.6.14
 
 - **Feature**: Add targeted allowlist for safe config paths (esphome/*.yaml, esphome/**/*.yaml, zigbee2mqtt/configuration.yaml, zigbee2mqtt/*.yaml) so ESPHome/Zigbee2MQTT configs bypass sensitive-file heuristics without requiring a global override. Runtime artifacts (DBs/WAL/SHM, logs, locks, caches) remain excluded.

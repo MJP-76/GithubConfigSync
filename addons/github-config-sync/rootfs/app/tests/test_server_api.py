@@ -148,6 +148,70 @@ class ServerApiTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(body["auth_method"], "device_flow")
 
+    def test_safe_config_paths_round_trip_and_reach_sync_config(self) -> None:
+        self._write_options(
+            {
+                "github_repository": "owner/repo",
+                "github_branch": "main",
+                "github_token": "token",
+                "dry_run": True,
+                "safe_config_paths": "blueprints/*.yaml\ncustom/*.yaml",
+            }
+        )
+
+        body = self.client.get("/api/options").get_json()
+        self.assertEqual(body["safe_config_paths"], "blueprints/*.yaml\ncustom/*.yaml")
+
+        config = server._sync_config(server._merge_options())
+        self.assertEqual(config.safe_config_paths, ("blueprints/*.yaml", "custom/*.yaml"))
+
+    def test_safe_config_paths_parse_handles_commas_blanks_and_duplicates(self) -> None:
+        self.assertEqual(
+            server._parse_safe_config_paths(" a/*.yaml, ,b/*.yaml\na/*.yaml\n"),
+            ("a/*.yaml", "b/*.yaml"),
+        )
+        self.assertEqual(server._parse_safe_config_paths(None), ())
+        self.assertEqual(server._parse_safe_config_paths(""), ())
+
+    def _valid_options_payload(self, **overrides: object) -> dict:
+        payload = {
+            "repo_mode": "existing",
+            "github_repository": "owner/repo",
+            "github_branch": "main",
+            "github_token": "t",
+            "version_retention_count": 10,
+            "dry_run": True,
+            "auto_sync_enabled": False,
+            "auto_sync_create_release": False,
+            "auth_method": "device_flow",
+            "sync_mode": "whitelist",
+            "include_addon_configs": False,
+            "include_media": False,
+            "include_share": False,
+            "include_ssl": False,
+            "include_backups": False,
+            "include_www": False,
+            "include_pre_releases": False,
+        }
+        payload.update(overrides)
+        return payload
+
+    def test_safe_config_paths_rejects_absolute_and_traversal_patterns(self) -> None:
+        for bad in ("/etc/passwd", "..\\secrets", "../outside/*.yaml", "a\\b/*.yaml"):
+            valid, message = server._validate_payload(
+                self._valid_options_payload(safe_config_paths=bad)
+            )
+            self.assertFalse(valid, f"{bad} should be rejected")
+            self.assertIn("safe_config_paths", message or "")
+
+    def test_safe_config_paths_accepts_valid_relative_globs(self) -> None:
+        valid, message = server._validate_payload(
+            self._valid_options_payload(
+                safe_config_paths="esphome/*.yaml\nblueprints/**/*.yaml"
+            )
+        )
+        self.assertTrue(valid, message)
+
     def test_start_device_flow_returns_verification_data(self) -> None:
         self._write_options({"github_client_id": "client-id", "github_branch": "main"})
         with patch("sync.github_client.GitHubClient.start_device_flow") as start_flow:

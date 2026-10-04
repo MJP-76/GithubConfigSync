@@ -114,6 +114,14 @@ If you find this project useful, and would like to help support its continued de
 - Dry run is enabled by default to avoid accidental pushes.
 - This app is designed as a polished operator UI layer and can be wired to deeper sync logic incrementally.
 - Security-focused safeguards are in place: private repositories are strongly recommended, sensitive-path filtering is active, and two-way sync warnings are visible.
+
+### Safe config paths and `.gitignore`
+
+ESPHome and Zigbee2MQTT configs are allowlisted by default (`esphome/*.yaml`, `zigbee2mqtt/*.yaml`) because they embed credentials inline but are configuration, not runtime state. Add your own patterns in **Settings → 6. Safe config paths**, one glob per line.
+
+Databases, WAL/SHM files, logs, lockfiles, caches and `.storage` are always excluded — the allowlist and the global security override cannot re-enable them.
+
+The add-on reads and writes `/config/.gitignore`; see **Settings → 8. Recommended .gitignore entries**. Use it to keep unwanted trees such as `custom_components/` out of version control.
 - The add-on repository metadata is minimal and valid for Home Assistant add-on store ingestion.
 - New repository creation defaults blank name/description fields to a humanized repository name.
 - Release track: stable releases on `main`, dev releases on `dev` repo.

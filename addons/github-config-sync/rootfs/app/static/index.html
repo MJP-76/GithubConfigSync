@@ -455,8 +455,33 @@
             </p>
           </div>
         </details>
+        <div id="safePathsSection" style="margin-top: 12px; padding: 10px; border: 1px solid var(--border); border-radius: 6px;">
+          <div class="section-title">6. Safe config paths (targeted allowlist)</div>
+          <p class="subtle" style="margin: 6px 0 10px">
+            Config files that normally trip the secret filters, but are configuration rather than
+            runtime state — ESPHome and Zigbee2MQTT configs embed wifi passwords and API keys inline.
+            Matching files are always synced, and are never listed as sensitive.
+          </p>
+          <label for="safeConfigPaths" style="display: block; margin-bottom: 6px;">
+            <span>Additional paths to allow (one glob per line):</span>
+          </label>
+          <textarea
+            id="safeConfigPaths"
+            rows="4"
+            spellcheck="false"
+            placeholder="homeassistant/*.yaml&#10;blueprints/**/*.yaml"
+            style="width: 100%; font-family: var(--mono, monospace); font-size: 0.85rem;"
+          ></textarea>
+          <p class="subtle" style="margin: 8px 0 0">
+            <code>*</code> matches across directories, so <code>esphome/*.yaml</code> covers
+            subfolders too. Already built in: <code>esphome/*.yaml</code> and
+            <code>zigbee2mqtt/*.yaml</code> — listing them again is harmless.
+            This cannot re-enable databases, WAL/SHM files, logs, lockfiles, caches or
+            <code>.storage</code>, which stay excluded regardless.
+          </p>
+        </div>
         <details id="mountPointsSection" style="margin-top: 12px">
-          <summary style="cursor: pointer; color: var(--muted)">6. Mount points to sync</summary>
+          <summary style="cursor: pointer; color: var(--muted)">7. Mount points to sync</summary>
           <div class="grid" style="margin-top: 10px">
             <label><input id="includeAddonConfigs" type="checkbox" /> Include /addon_configs</label>
             <label><input id="includeMedia" type="checkbox" /> Include /media</label>
@@ -467,7 +492,7 @@
           </div>
         </details>
         <details id="gitignoreSection" style="margin-top: 12px">
-          <summary style="cursor: pointer; color: var(--muted)">7. Recommended .gitignore entries</summary>
+          <summary style="cursor: pointer; color: var(--muted)">8. Recommended .gitignore entries</summary>
           <p class="subtle" style="margin-bottom: 10px">
             These are safe defaults for Home Assistant. They are read from your local .gitignore and can be added with one click.
           </p>
@@ -487,7 +512,7 @@
           </div>
         </details>
         <details id="dryRunSection" style="margin-top: 12px">
-          <summary style="cursor: pointer; color: var(--muted)">8. Dry run mode (no push)</summary>
+          <summary style="cursor: pointer; color: var(--muted)">9. Dry run mode (no push)</summary>
           <div style="margin-top: 10px; padding: 10px; border: 1px solid var(--border); border-radius: 6px;">
             <div class="row">
               <input id="dryRun" type="checkbox" />
@@ -499,7 +524,7 @@
           </div>
         </details>
         <details id="updateSection" style="margin-top: 12px">
-          <summary style="cursor: pointer; color: var(--muted)">9. Add-on updates <span id="updateBadge" class="pill status">Up to date</span></summary>
+          <summary style="cursor: pointer; color: var(--muted)">10. Add-on updates <span id="updateBadge" class="pill status">Up to date</span></summary>
           <div style="margin-top: 10px; padding: 10px; border: 1px solid var(--border); border-radius: 6px;">
             <div class="row">
               <input id="includePreReleases" type="checkbox" />
@@ -630,6 +655,7 @@
         updateSection: document.getElementById("updateSection"),
         updateBadge: document.getElementById("updateBadge"),
         syncMode: document.getElementById("syncMode"),
+        safeConfigPaths: document.getElementById("safeConfigPaths"),
         dryRun: document.getElementById("dryRun"),
         schedulerStatus: document.getElementById("schedulerStatus"),
         runtime: document.getElementById("runtime"),
@@ -984,6 +1010,7 @@
         el.includeWww.checked = Boolean(data.include_www);
         el.includePreReleases.checked = Boolean(data.include_pre_releases);
         el.syncMode.value = data.sync_mode || "whitelist";
+        if (el.safeConfigPaths) el.safeConfigPaths.value = data.safe_config_paths || "";
         applyRepoMode();
         updateAuthMethodHelp();
       }
@@ -1265,6 +1292,7 @@
             include_www: el.includeWww.checked,
             include_pre_releases: el.includePreReleases.checked,
             sync_mode: el.syncMode.value,
+            safe_config_paths: el.safeConfigPaths ? el.safeConfigPaths.value : "",
           };
           await fetchJson(apiUrl("/api/options"), { method: "POST", body: JSON.stringify(payload) });
           setStatus("Settings saved");

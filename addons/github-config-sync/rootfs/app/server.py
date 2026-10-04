@@ -20,7 +20,7 @@ from flask import Flask, jsonify, request, send_from_directory
 from sync import SyncConfig, SyncEngine, SyncPlan
 from sync.errors import SyncError
 from sync.github_client import GitHubClient
-from sync.hashing import IGNORE_PATTERNS
+from sync.hashing import IGNORE_PATTERNS, MAX_SAFE_CONFIG_PATHS
 
 def _read_addon_version() -> str:
     """Read version from the add-on config.yaml (single source of truth)."""
@@ -85,8 +85,37 @@ SUPERVISOR_OPTION_KEYS = frozenset(
         "include_pre_releases",
         "sync_mode",
         "security_override_all_filters",
+        "safe_config_paths",
     }
 )
+
+
+def _parse_safe_config_paths(raw: Any) -> tuple[str, ...]:
+    """Normalise the safe config path allowlist into a tuple of glob patterns.
+
+    Accepts a multiline string (as typed in the UI) or a list, splitting on
+    newlines and commas, and drops blanks and duplicates while preserving order.
+    """
+    if raw is None:
+        return ()
+    if isinstance(raw, (list, tuple)):
+        candidates = [str(item) for item in raw]
+    else:
+        candidates = re.split(r"[,\n]", str(raw))
+    seen: set[str] = set()
+    patterns: list[str] = []
+    for candidate in candidates:
+        pattern = candidate.strip()
+        if not pattern or pattern in seen:
+            continue
+        seen.add(pattern)
+        patterns.append(pattern)
+    return tuple(patterns)
+
+
+def _safe_config_paths_to_text(raw: Any) -> str:
+    """Canonical newline-separated text form of the safe config path allowlist."""
+    return "\n".join(_parse_safe_config_paths(raw))
 
 
 def _is_private_ip(ip: str) -> bool:
@@ -214,6 +243,7 @@ DEFAULT_OPTIONS: dict[str, Any] = {
     "include_www": False,
     "include_pre_releases": False,
     "sync_mode": "whitelist",
+    "safe_config_paths": "",
 }
 
 
@@ -247,6 +277,7 @@ def _repo_sync_config(options: dict[str, Any], repository: str) -> SyncConfig:
         include_addon_configs=bool(options.get("include_addon_configs", False)),
         sync_mode=str(options.get("sync_mode", "whitelist")),
         security_override_all_filters=bool(options.get("security_override_all_filters", False)),
+        safe_config_paths=_parse_safe_config_paths(options.get("safe_config_paths")),
     )
 
 
@@ -503,6 +534,15 @@ def _validate_payload(payload: dict[str, Any]) -> tuple[bool, str | None]:
     sync_mode = str(payload.get("sync_mode", "whitelist")).strip()
     if sync_mode not in ("whitelist", "blacklist"):
         return False, "sync_mode must be whitelist or blacklist"
+
+    safe_paths = _parse_safe_config_paths(payload.get("safe_config_paths"))
+    if len(safe_paths) > MAX_SAFE_CONFIG_PATHS:
+        return False, f"safe_config_paths accepts at most {MAX_SAFE_CONFIG_PATHS} patterns"
+    for pattern in safe_paths:
+        if pattern.startswith("/") or "\\" in pattern:
+            return False, f"safe_config_paths entry '{pattern}' must be a relative path using forward slashes"
+        if ".." in Path(pattern).parts:
+            return False, f"safe_config_paths entry '{pattern}' must not contain '..'"
 
     for key in (
         "include_addon_configs",
@@ -883,6 +923,7 @@ def _sync_config(options: dict[str, Any]) -> SyncConfig:
         include_addon_configs=bool(options.get("include_addon_configs", False)),
         sync_mode=str(options.get("sync_mode", "whitelist")),
         security_override_all_filters=bool(options.get("security_override_all_filters", False)),
+        safe_config_paths=_parse_safe_config_paths(options.get("safe_config_paths")),
     )
 
 
@@ -1089,6 +1130,8 @@ class _SyncScheduler:
                 include_www=bool(options.get("include_www", False)),
                 include_addon_configs=bool(options.get("include_addon_configs", False)),
                 sync_mode=str(options.get("sync_mode", "whitelist")),
+                security_override_all_filters=bool(options.get("security_override_all_filters", False)),
+                safe_config_paths=_parse_safe_config_paths(options.get("safe_config_paths")),
             )
             now = dt.datetime.now(dt.timezone.utc)
             local_now = now.astimezone()
@@ -1326,7 +1369,9 @@ def trigger_manual_sync():
 def get_options():
     if not _require_auth():
         return jsonify({"ok": False, "error": "Unauthorized"}), 401
-    return jsonify(_mask_token(_merge_options()))
+    options = _merge_options()
+    options["safe_config_paths"] = _safe_config_paths_to_text(options.get("safe_config_paths"))
+    return jsonify(_mask_token(options))
 
 
 def _apply_token_update(raw: object, current: Any) -> str:
@@ -1378,6 +1423,7 @@ def set_options():
         "include_pre_releases": payload.get("include_pre_releases", False),
         "sync_mode": str(payload.get("sync_mode", "whitelist")).strip() or "whitelist",
         "security_override_all_filters": bool(payload.get("security_override_all_filters", False)),
+        "safe_config_paths": _safe_config_paths_to_text(payload.get("safe_config_paths")),
     }
 
     valid, message = _validate_payload(candidate)
@@ -1732,6 +1778,8 @@ def create_repo():
                 include_www=bool(options.get("include_www", False)),
                 include_addon_configs=bool(options.get("include_addon_configs", False)),
                 sync_mode=str(options.get("sync_mode", "whitelist")),
+                security_override_all_filters=bool(options.get("security_override_all_filters", False)),
+                safe_config_paths=_parse_safe_config_paths(options.get("safe_config_paths")),
             ),
             previous_hash_index={},
         )
