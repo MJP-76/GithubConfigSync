@@ -67,6 +67,14 @@ IGNORE_PATTERNS = (
     "id_ed25519",
     "id_ed25519.pub",
 )
+
+SAFE_CONFIG_PATHS = (
+    "esphome/*.yaml",
+    "esphome/**/*.yaml",
+    "zigbee2mqtt/configuration.yaml",
+    "zigbee2mqtt/*.yaml",
+)
+
 SENSITIVE_PATTERNS = (
     ".storage/",
     "secrets.yaml",
@@ -156,6 +164,15 @@ def _gitignore_rule_matches(relative: str, dir_only: bool, pattern: str) -> bool
     return any(fnmatch.fnmatchcase(part, pattern) for part in relative.split("/"))
 
 
+
+def _is_safe_config_path(relative_path: str) -> bool:
+    normalized = relative_path.replace("\\", "/")
+    for pattern in SAFE_CONFIG_PATHS:
+        if fnmatch.fnmatch(normalized, pattern) or fnmatch.fnmatch(normalized.lower(), pattern):
+            return True
+    return False
+
+
 def _is_hard_ignored(relative_path: str, override: bool = False) -> bool:
     """Ignore based on ignore dirs/patterns/sensitive substrings only.
 
@@ -171,6 +188,8 @@ def _is_hard_ignored(relative_path: str, override: bool = False) -> bool:
 
 
 def is_ignored(relative_path: str, override: bool = False) -> bool:
+    if _is_safe_config_path(relative_path):
+        return False  # Never ignore explicitly allowed safe config files
     if _is_hard_ignored(relative_path, override=override):
         return True
     if override:
