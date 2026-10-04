@@ -6,6 +6,10 @@ The full 71-release history lives in
 [GitHub Releases](https://github.com/MJP-76/GithubConfigSync/releases)).
 The last 5 releases are kept at the top, per the project's changelog rules.
 
+## 1.6.21
+
+- **Fix**: Rapid selection changes were still lost on reload. A reload cancels any fetch still in flight, so the queued save behind the first pick never reached the server. Options are now flushed with `navigator.sendBeacon` on `pagehide`/`beforeunload`, which survives page teardown. The payload builder moved out of `saveOptions` so the flush and the normal save share it.
+
 ## 1.6.20
 
 - **Fix**: Selections were still being lost on reload. Save was debounced by 900ms, and with no Save button to fall back on, picking a folder and reloading before the timer fired discarded it - which is exactly what a picker is normally followed by. Explicit Select/Remove now commits immediately; the debounce stays for typing into fields.
