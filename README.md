@@ -120,3 +120,12 @@ GithubConfigSync is provided as-is. By using this add-on, you acknowledge and ag
 - **The maintainer accepts no responsibility** for any data loss, credential exposure, configuration corruption, or other consequences arising from the use of this add-on, including use of any advanced/override features.
 - **Overrides of recommended safety filters are strictly opt-in.** If such options are enabled, you do so entirely at your own risk and must ensure you understand the implications (especially when using public repositories).
 - **Private repositories are strongly recommended** if your configuration contains any sensitive data (credentials, tokens, keys, or device identifiers). Even with private repositories, syncing sensitive files carries inherent risk.
+
+### Safe config paths
+
+Certain config paths are allowed to sync even if they might contain credentials (safe, non-runtime configs), without needing to enable the security override:
+
+- `esphome/*.yaml`, `esphome/**/*.yaml`
+- `zigbee2mqtt/configuration.yaml`, `zigbee2mqtt/*.yaml`
+
+Runtime artifacts (databases, WAL/SHM, logs, locks, caches, `.storage`, `.git`, `node_modules`) are always excluded regardless of overrides.
