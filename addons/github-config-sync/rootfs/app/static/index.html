@@ -469,18 +469,14 @@
           <div id="syncSelectionPanel" style="margin-top: 12px; padding: 10px; border: 1px solid var(--border); border-radius: 6px">
             <div class="row" style="justify-content: space-between; align-items: center; margin-bottom: 8px">
               <strong>What to sync</strong>
-              <span class="row" style="gap: 6px">
-                <button id="selectConfigRootBtn" class="secondary" type="button">Select whole config folder</button>
-              </span>
+              <span class="muted" style="font-size: 0.75rem">Expand to dive in, or Select to take the whole folder</span>
             </div>
 
-            <div id="treePath" class="muted" style="font-size: 0.8rem; margin-bottom: 6px">config/</div>
-            <div id="treeList" class="ignore-list" style="max-height: 240px; overflow-y: auto"></div>
+            <div id="treeList" class="ignore-list" style="max-height: 300px; overflow-y: auto"></div>
 
             <div class="row" style="gap: 8px; margin-top: 8px">
-              <input id="treePathInput" placeholder="esphome/ or zigbee2mqtt/*.yaml" style="flex: 1" />
+              <input id="treePathInput" placeholder="or type a path/glob: zigbee2mqtt/*.yaml" style="flex: 1" />
               <button id="addPathBtn" class="secondary" type="button">Add</button>
-              <button id="treeUpBtn" class="secondary" type="button">Up</button>
             </div>
 
             <div class="muted" style="margin-top: 10px; font-size: 0.8rem">Selected:</div>
@@ -682,11 +678,8 @@
         blacklistPanel: document.getElementById("blacklistPanel"),
         mountPointsPanel: document.getElementById("mountPointsPanel"),
         treeList: document.getElementById("treeList"),
-        treePath: document.getElementById("treePath"),
-        treeUpBtn: document.getElementById("treeUpBtn"),
         treePathInput: document.getElementById("treePathInput"),
         addPathBtn: document.getElementById("addPathBtn"),
-        selectConfigRootBtn: document.getElementById("selectConfigRootBtn"),
         selectedPathsList: document.getElementById("selectedPathsList"),
         dryRun: document.getElementById("dryRun"),
         schedulerStatus: document.getElementById("schedulerStatus"),
@@ -1046,7 +1039,7 @@
           .filter(Boolean);
         applySyncMode();
         renderSelection();
-        loadTree("");
+        loadTreeRoots();
         applyRepoMode();
         updateAuthMethodHelp();
       }
@@ -1672,70 +1665,122 @@
         renderSelection();
       }
 
-      async function loadTree(path) {
+      async function fetchTree(path) {
+        return fetchJson(apiUrl("/api/sync/tree?path=" + encodeURIComponent(path)));
+      }
+
+      const TREE_ICONS = {
+        root: "\u{1F3E0}",
+        mount: "\u{1F4E6}",
+        dir: "\u{1F4C1}",
+        file: "\u{1F4C4}",
+      };
+
+      function treeNode(entry, depth) {
+        const node = document.createElement("div");
+        node.className = "tree-node";
+
+        const row = document.createElement("div");
+        row.className = "row";
+        row.style.justifyContent = "space-between";
+        row.style.padding = "3px 0";
+        row.style.paddingLeft = depth * 14 + "px";
+
+        const left = document.createElement("span");
+        left.className = "row";
+        left.style.gap = "6px";
+
+        const expandable = entry.type !== "file";
+        let chevron = null;
+        if (expandable) {
+          chevron = document.createElement("button");
+          chevron.type = "button";
+          chevron.className = "secondary";
+          chevron.textContent = "\u25B8";
+          chevron.style.padding = "0 7px";
+          chevron.style.lineHeight = "1";
+          left.appendChild(chevron);
+        } else {
+          const pad = document.createElement("span");
+          pad.style.display = "inline-block";
+          pad.style.width = "22px";
+          left.appendChild(pad);
+        }
+
+        const label = document.createElement("span");
+        label.textContent = (TREE_ICONS[entry.type] || TREE_ICONS.dir) + " " + (entry.label || entry.name);
+        left.appendChild(label);
+
+        if (entry.suspicious) {
+          const warn = document.createElement("span");
+          warn.className = "pill status";
+          warn.style.color = "var(--err)";
+          warn.textContent = "looks sensitive";
+          left.appendChild(warn);
+        }
+
+        const pick = document.createElement("button");
+        pick.type = "button";
+        pick.className = "secondary";
+        pick.textContent = "Select";
+        pick.addEventListener("click", () => addPath(entry.select));
+
+        row.append(left, pick);
+        node.appendChild(row);
+
+        if (expandable) {
+          const children = document.createElement("div");
+          children.hidden = true;
+          node.appendChild(children);
+          const state = { entry, children, chevron, depth, loaded: false };
+          chevron.addEventListener("click", () => toggleTreeNode(state));
+        }
+        return node;
+      }
+
+      function toggleTreeNode(state) {
+        const opening = state.children.hidden;
+        if (opening && !state.loaded) {
+          state.loaded = true;
+          state.children.textContent = "Loading\u2026";
+          fetchTree(state.entry.path)
+            .then((data) => {
+              state.children.innerHTML = "";
+              const entries = data.entries || [];
+              if (!entries.length) {
+                const empty = document.createElement("p");
+                empty.className = "subtle";
+                empty.style.margin = "0";
+                empty.textContent = "Empty folder.";
+                state.children.appendChild(empty);
+                return;
+              }
+              for (const child of entries) {
+                state.children.appendChild(treeNode(child, state.depth + 1));
+              }
+            })
+            .catch((error) => {
+              state.children.textContent = "Could not load folder: " + error;
+            });
+        }
+        state.children.hidden = !opening;
+        state.chevron.textContent = opening ? "\u25BE" : "\u25B8";
+      }
+
+      async function loadTreeRoots() {
         if (!el.treeList) return;
-        treePath = path || "";
-        if (el.treePath) el.treePath.textContent = "config/" + (treePath ? treePath + "/" : "");
-        if (el.treeUpBtn) el.treeUpBtn.disabled = !treePath;
+        el.treeList.innerHTML = "";
         try {
-          const data = await fetchJson(apiUrl("/api/sync/tree?path=" + encodeURIComponent(treePath)));
-          el.treeList.innerHTML = "";
-          const entries = data.entries || [];
-          if (!entries.length) {
-            const empty = document.createElement("p");
-            empty.className = "subtle";
-            empty.style.margin = "0";
-            empty.textContent = "Empty folder.";
-            el.treeList.appendChild(empty);
-            return;
-          }
-          for (const entry of entries) {
-            const row = document.createElement("div");
-            row.className = "row";
-            row.style.justifyContent = "space-between";
-            row.style.padding = "3px 0";
-            const left = document.createElement("span");
-            left.className = "row";
-            left.style.gap = "8px";
-            const label = document.createElement("span");
-            label.textContent = (entry.type === "dir" ? "\u{1F4C1} " : "\u{1F4C4} ") + entry.name;
-            left.appendChild(label);
-            if (entry.suspicious) {
-              const warn = document.createElement("span");
-              warn.className = "pill status";
-              warn.style.color = "var(--err)";
-              warn.textContent = "looks sensitive";
-              left.appendChild(warn);
-            }
-            row.appendChild(left);
-            const actions = document.createElement("span");
-            actions.className = "row";
-            actions.style.gap = "6px";
-            if (entry.type === "dir") {
-              const open = document.createElement("button");
-              open.type = "button";
-              open.className = "secondary";
-              open.textContent = "Open";
-              open.addEventListener("click", () => loadTree(entry.path));
-              actions.appendChild(open);
-            }
-            const pick = document.createElement("button");
-            pick.type = "button";
-            pick.className = "secondary";
-            pick.textContent = "Select";
-            pick.addEventListener("click", () => addPath(entry.path));
-            actions.appendChild(pick);
-            row.appendChild(actions);
-            el.treeList.appendChild(row);
+          const data = await fetchTree("");
+          for (const entry of data.entries || []) {
+            el.treeList.appendChild(treeNode(entry, 0));
           }
         } catch (error) {
-          el.treeList.textContent = "Could not load folder: " + error;
+          el.treeList.textContent = "Could not load folders: " + error;
         }
       }
 
       if (el.syncMode) el.syncMode.addEventListener("change", applySyncMode);
-      if (el.selectConfigRootBtn)
-        el.selectConfigRootBtn.addEventListener("click", () => addPath("."));
       if (el.addPathBtn)
         el.addPathBtn.addEventListener("click", () => addPath(el.treePathInput && el.treePathInput.value));
       if (el.treePathInput)
@@ -1744,12 +1789,6 @@
             event.preventDefault();
             addPath(el.treePathInput.value);
           }
-        });
-      if (el.treeUpBtn)
-        el.treeUpBtn.addEventListener("click", () => {
-          const parts = treePath.split("/").filter(Boolean);
-          parts.pop();
-          loadTree(parts.join("/"));
         });
 
       [

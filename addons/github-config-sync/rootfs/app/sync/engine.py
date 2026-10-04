@@ -88,7 +88,7 @@ class SyncEngine:
             self._root_map = [
                 item
                 for item in self._root_map
-                if item[0] == "" or self._root_enabled(item[0])
+                if item[0] == "" or self._root_enabled(item[0]) or self._mount_has_selection(item[0])
             ]
         self._github = GitHubClient(
             repository=config.repository,
@@ -632,6 +632,15 @@ class SyncEngine:
 
     def _path_selected(self, key: str) -> bool:
         return any(_selection_matches(selection, key) for selection in self._selections)
+
+    def _mount_has_selection(self, name: str) -> bool:
+        """True when a selected path lives under this mount.
+
+        Selecting a granular path such as ``media/photos`` must still get the
+        ``/media`` root walked, even though the whole mount was never ticked.
+        """
+        prefix = f"{name}/"
+        return any(str(sel).startswith(prefix) for sel in self._selections)
 
     def _build_hash_index(self) -> dict[str, str]:
         mode = getattr(self._config, "sync_mode", SYNC_MODE_WHITELIST)

@@ -693,6 +693,40 @@ class SyncSelectionModesTests(unittest.TestCase):
         self.assertIn("media", engine._selections)
         self.assertIn("", engine._root_map[0][0])
 
+    def test_mount_root_is_walked_for_a_granular_selection(self) -> None:
+        """Selecting media/photos must still walk /media, even though the whole
+        mount was never ticked - otherwise the pick is silently dropped."""
+        config = SyncConfig(
+            repository="owner/repo",
+            branch="main",
+            token="token",
+            config_root=str(self.root),
+            dry_run=True,
+            sync_mode="whitelist",
+            sync_paths=("media/photos",),
+        )
+        engine = SyncEngine(config, previous_hash_index={})
+        labels = [label for label, _ in engine._root_map]
+
+        self.assertIn("media", labels)
+        self.assertNotIn("share", labels)
+        self.assertTrue(engine._mount_has_selection("media"))
+        self.assertFalse(engine._mount_has_selection("share"))
+
+    def test_whole_mount_selection_comes_from_the_tick_box(self) -> None:
+        config = SyncConfig(
+            repository="owner/repo",
+            branch="main",
+            token="token",
+            config_root=str(self.root),
+            dry_run=True,
+            sync_mode="whitelist",
+            include_media=True,
+        )
+        engine = SyncEngine(config, previous_hash_index={})
+        self.assertIn("media", engine._selections)
+        self.assertIn("media", [label for label, _ in engine._root_map])
+
     def test_www_is_not_a_separate_root(self) -> None:
         """www lives under /config, so it used to be walked twice."""
         (self.root / "www").mkdir()

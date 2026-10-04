@@ -6,6 +6,13 @@ The full 71-release history lives in
 [GitHub Releases](https://github.com/MJP-76/GithubConfigSync/releases)).
 The last 5 releases are kept at the top, per the project's changelog rules.
 
+## 1.6.18
+
+- **Feature**: The sync picker is now a real tree. Config folder and mount points expand and collapse in place, so you can dive into subfolders without losing your place, while still selecting any folder wholesale from its own row.
+- **Feature**: Mount points (`/addon_configs`, `/media`, `/share`, `/ssl`, `/backup`) are browsable too, so selections can be granular - `media/photos` rather than all of `/media`.
+- **Fix**: A mount root is now walked whenever any selected path lives under it. Previously a granular pick inside an un-ticked mount was silently dropped, because the root was never traversed.
+- **Fix**: The `/api/sync/tree` route was bound to a helper function rather than the endpoint view, which returned raw `Path` objects and failed to serialise - the picker could not load at all.
+
 ## 1.6.17
 
 - **Feature**: The Override warning now names exactly what is about to be published - `Publishing N selections: /config (whole folder), media ...` - and updates as you edit the selection. Override and Whitelist take the same list, so this makes the difference between them visible at the moment it matters: switching modes carries your existing selection across with the checks now off.

@@ -306,36 +306,80 @@ class ServerApiTests(unittest.TestCase):
         self.assertEqual(stored["sync_mode"], "override")
         self.assertEqual(stored["sync_paths"], ".")
 
-    def test_tree_lists_entries_and_omits_runtime_directories(self) -> None:
+    def test_tree_top_level_lists_every_root(self) -> None:
+        """The picker shows config and all mounts at once, so each can be
+        expanded without drilling out and back."""
+        body = self.client.get("/api/sync/tree?path=").get_json()
+
+        self.assertTrue(body["ok"])
+        self.assertEqual(
+            [e["path"] for e in body["entries"]],
+            ["config", "addon_configs", "media", "share", "ssl", "backups"],
+        )
+        self.assertEqual(body["entries"][0]["type"], "root")
+        self.assertEqual(body["entries"][0]["select"], ".")
+        for mount in body["entries"][1:]:
+            self.assertEqual(mount["type"], "mount")
+            self.assertEqual(mount["select"], mount["path"])
+
+    def test_tree_lists_config_children_and_omits_runtime_directories(self) -> None:
         (self._config_root / "esphome").mkdir()
         (self._config_root / "esphome" / "kitchen.yaml").write_text("x: 1\n", encoding="utf-8")
         (self._config_root / "node_modules").mkdir()
         (self._config_root / "home-assistant.log").write_text("noise\n", encoding="utf-8")
 
-        body = self.client.get("/api/sync/tree?path=").get_json()
+        body = self.client.get("/api/sync/tree?path=config").get_json()
 
-        self.assertTrue(body["ok"])
-        names = [entry["name"] for entry in body["entries"]]
-        self.assertIn("esphome", names)
-        self.assertNotIn("node_modules", names)
-        self.assertNotIn("home-assistant.log", names)
+        entries = {e["name"]: e for e in body["entries"]}
+        self.assertIn("esphome", entries)
+        self.assertNotIn("node_modules", entries)
+        self.assertNotIn("home-assistant.log", entries)
+        self.assertEqual(entries["esphome"]["path"], "config/esphome")
+        self.assertEqual(entries["esphome"]["select"], "esphome")
 
-        child = self.client.get("/api/sync/tree?path=esphome").get_json()
+        child = self.client.get("/api/sync/tree?path=config/esphome").get_json()
         self.assertEqual(
-            [(e["name"], e["type"]) for e in child["entries"]],
-            [("kitchen.yaml", "file")],
+            [(e["name"], e["select"]) for e in child["entries"]],
+            [("kitchen.yaml", "esphome/kitchen.yaml")],
         )
-        self.assertEqual(child["parent"], "")
+        self.assertEqual(child["parent"], "config")
+
+    def test_tree_mounts_expose_granular_selection_paths(self) -> None:
+        """A mount keeps its prefix in sync_paths, so media/photos selects only
+        that subtree while still getting /media walked."""
+        mount_root = Path(self._tmp.name) / "media"
+        (mount_root / "photos" / "2026").mkdir(parents=True)
+        (mount_root / "photos" / "2026" / "x.jpg").write_bytes(b"x")
+
+        real = server._sync_tree_roots
+
+        def fake():
+            roots = real()
+            roots["media"] = mount_root
+            return roots
+
+        server._sync_tree_roots = fake
+        self.addCleanup(setattr, server, "_sync_tree_roots", real)
+
+        top = self.client.get("/api/sync/tree?path=media").get_json()
+        self.assertEqual([(e["name"], e["select"]) for e in top["entries"]], [("photos", "media/photos")])
+
+        nested = self.client.get("/api/sync/tree?path=media/photos/2026").get_json()
+        self.assertEqual(
+            [(e["name"], e["select"]) for e in nested["entries"]],
+            [("x.jpg", "media/photos/2026/x.jpg")],
+        )
 
     def test_tree_marks_suspicious_files(self) -> None:
         (self._config_root / "token_helper.yaml").write_text("x: 1\n", encoding="utf-8")
-        body = self.client.get("/api/sync/tree?path=").get_json()
+        body = self.client.get("/api/sync/tree?path=config").get_json()
         flagged = {e["name"]: e["suspicious"] for e in body["entries"]}
         self.assertTrue(flagged.get("token_helper.yaml"))
 
     def test_tree_rejects_traversal(self) -> None:
-        response = self.client.get("/api/sync/tree?path=..")
-        self.assertEqual(response.status_code, 400)
+        self.assertEqual(self.client.get("/api/sync/tree?path=..").status_code, 400)
+        self.assertEqual(self.client.get("/api/sync/tree?path=config/../..").status_code, 400)
+        self.assertEqual(self.client.get("/api/sync/tree?path=nonsense").status_code, 400)
 
     def test_start_device_flow_returns_verification_data(self) -> None:
         self._write_options({"github_client_id": "client-id", "github_branch": "main"})

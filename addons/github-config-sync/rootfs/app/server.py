@@ -1546,23 +1546,74 @@ def get_ignore_recommendations():
     )
 
 
+def _sync_tree_roots() -> dict[str, Path]:
+    """Roots the sync picker browses. The first segment of a tree path names one.
+
+    Kept as a function so CONFIG_ROOT is read per call - tests swap it - and so
+    the mounts can be redirected without editing the endpoint.
+    """
+    return {
+        "config": CONFIG_ROOT,
+        "addon_configs": Path("/addon_configs"),
+        "media": Path("/media"),
+        "share": Path("/share"),
+        "ssl": Path("/ssl"),
+        "backups": Path("/backup"),
+    }
+
+
 @app.get("/api/sync/tree")
 def get_sync_tree():
-    """Browse the config directory for the sync picker.
+    """Browse the config directory and mount points for the sync picker.
 
-    Runtime directories are omitted entirely rather than flagged: there is no
-    mode in which they can be selected, so offering them would be a lie.
+    Paths are rooted by their first segment: ``config`` walks /config and the
+    mounts walk their own roots, so ``config/esphome`` and ``media/photos`` are
+    addressed the same way. Each entry carries ``select`` - the value that goes
+    into ``sync_paths`` - so the client never has to translate.
+
+    Runtime directories are omitted rather than flagged: there is no mode in
+    which they can be selected, so offering them would be a lie.
     """
     if not _require_auth():
         return jsonify({"ok": False, "error": "Unauthorized"}), 401
     from sync.hashing import IGNORE_DIRS, SECURITY_DIRS, _is_runtime_artifact
 
+    roots = _sync_tree_roots()
+
     requested = str(request.args.get("path", "")).strip().replace("\\", "/").strip("/")
     if ".." in Path(requested).parts:
         return jsonify({"ok": False, "error": "Invalid path"}), 400
-    base = (CONFIG_ROOT / requested).resolve()
-    if not base.is_relative_to(CONFIG_ROOT.resolve()) or not base.is_dir():
+
+    if not requested:
+        # Top level: the config folder row plus every mount, so all of them can
+        # be expanded without leaving this list.
+        entries = [{"name": "config", "path": "config", "select": ".", "type": "root", "label": "/config"}]
+        entries.extend(
+            {"name": name, "path": name, "select": name, "type": "mount", "label": f"/{name}"}
+            for name in ("addon_configs", "media", "share", "ssl", "backups")
+        )
+        return jsonify({"ok": True, "path": "", "parent": None, "entries": entries})
+
+    root_name = requested.split("/", 1)[0]
+    if root_name not in roots:
+        return jsonify({"ok": False, "error": "Unknown root"}), 400
+    subpath = "/".join(requested.split("/")[1:])
+    root_dir = roots[root_name].resolve()
+    if not root_dir.is_dir():
         return jsonify({"ok": False, "error": "Not a directory"}), 400
+
+    base = (root_dir / subpath).resolve() if subpath else root_dir
+    if not base.is_relative_to(root_dir) or not base.is_dir():
+        return jsonify({"ok": False, "error": "Not a directory"}), 400
+
+    def engine_path(name: str) -> str:
+        """The value this entry maps to in sync_paths.
+
+        /config is the config root in selection terms (".") and carries no
+        prefix in the index; the mounts keep theirs.
+        """
+        joined = f"{requested}/{name}"
+        return joined if root_name != "config" else joined.removeprefix("config/")
 
     entries = []
     try:
@@ -1572,34 +1623,31 @@ def get_sync_tree():
 
     for child in sorted(children, key=lambda p: (not p.is_dir(), p.name.lower())):
         if child.name.startswith("."):
-            # Dotfiles are not browsable: .gitignore is edited in its own
-            # section, and the rest are runtime or credential directories.
+            # Dotfiles are not browsable: .gitignore has its own section, and
+            # the rest are runtime or credential directories.
             continue
-        relative = f"{requested}/{child.name}" if requested else child.name
+        select = engine_path(child.name)
         if child.is_dir():
             if child.name in IGNORE_DIRS or child.name in SECURITY_DIRS:
                 continue
-            entries.append({"name": child.name, "path": relative, "type": "dir"})
+            entries.append(
+                {"name": child.name, "path": f"{requested}/{child.name}", "select": select, "type": "dir"}
+            )
             continue
-        if _is_runtime_artifact(relative):
+        if _is_runtime_artifact(select):
             continue
         entries.append(
             {
                 "name": child.name,
-                "path": relative,
+                "path": f"{requested}/{child.name}",
+                "select": select,
                 "type": "file",
-                "suspicious": is_sensitive_candidate(relative),
+                "suspicious": is_sensitive_candidate(select),
             }
         )
 
-    return jsonify(
-        {
-            "ok": True,
-            "path": requested,
-            "parent": "/".join(requested.split("/")[:-1]) if requested else None,
-            "entries": entries,
-        }
-    )
+    parent = "/".join(requested.split("/")[:-1])
+    return jsonify({"ok": True, "path": requested, "parent": parent, "entries": entries})
 
 
 @app.post("/api/ignore/recommendations")
