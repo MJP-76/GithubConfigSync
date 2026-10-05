@@ -34,6 +34,16 @@ SELECTION_MODES = (SYNC_MODE_WHITELIST, SYNC_MODE_OVERRIDE)
 # Mounts that live outside the config directory and are selected by name.
 MOUNT_KEYS = ("addon_configs", "media", "share", "ssl", "backups")
 
+# Blacklist's default folders: the add-on configuration directory. The
+# configuration root is covered by _root_enabled, which returns True for it.
+#
+# media, share, ssl and backups are deliberately not here. Versioning them is
+# an opt-in - community practice treats them as things you choose to sync, not
+# as contents of a config repository - and a config repo that quietly grew a
+# copy of every backup and photo is a worse default than one that needs a tick
+# to include them.
+BLACKLIST_DEFAULT_ROOTS = frozenset({"addon_configs"})
+
 # The selection entry meaning "everything under /config". Stored as "." because
 # an empty string would otherwise silently mean "everything".
 WHOLE_CONFIG_ROOT = "."
@@ -719,6 +729,25 @@ class SyncEngine:
         """
         return name == self._config_prefix
 
+    def _hash_roots(self, selection_mode: bool) -> list[tuple[str, Path]]:
+        """Roots whose contents get hashed.
+
+        _root_map keeps every root regardless of mode, because path resolution
+        has to answer for a mount that is not being walked. This is the list
+        that decides what actually gets uploaded.
+        """
+        if selection_mode:
+            return self._walkable_roots()
+        # Blacklist hashes the defaults plus anything the user has explicitly
+        # enabled or selected - media, share, ssl and backups are opt-in.
+        return [
+            item
+            for item in self._root_map
+            if item[0] in BLACKLIST_DEFAULT_ROOTS
+            or self._root_enabled(item[0])
+            or self._mount_has_selection(item[0])
+        ]
+
     def _root_enabled(self, name: str) -> bool:
         if self._is_config_root(name):
             return True
@@ -829,7 +858,7 @@ class SyncEngine:
         ignore_matcher = GitIgnoreMatcher.from_file(self._config_root / ".gitignore")
         index: dict[str, str] = {}
         oversized: list[str] = []
-        roots = self._walkable_roots() if selection_mode else self._root_map
+        roots = self._hash_roots(selection_mode)
         for prefix, root in roots:
             if not root.exists():
                 continue

@@ -120,7 +120,13 @@ class SyncEngineTests(unittest.TestCase):
         self.assertNotIn("backups", roots)
         self.assertNotIn("share", roots)
 
-    def test_blacklist_mode_syncs_all_roots_regardless_of_toggles(self) -> None:
+    def test_every_root_stays_available_for_path_resolution(self) -> None:
+        """_root_map keeps all six even when blacklist does not hash them.
+
+        Resolution has to answer for a mount that is not being walked -
+        otherwise a path belonging to /media could not be resolved at all -
+        so the map and the walk are deliberately different lists.
+        """
         config = SyncConfig(
             repository="owner/repo",
             branch="main",
@@ -135,6 +141,45 @@ class SyncEngineTests(unittest.TestCase):
         self.assertEqual(
             [label for label, _ in engine._root_map],
             ["", "addon_configs", "media", "share", "ssl", "backups"],
+        )
+
+    def test_blacklist_hashes_only_the_default_folders(self) -> None:
+        """media, share, ssl and backups are opt-in, not defaults.
+
+        Versioning a copy of every backup and photo is a worse default than
+        one that needs a tick to include them, and it is not what people
+        version-control their Home Assistant config to do.
+        """
+        config = SyncConfig(
+            repository="owner/repo",
+            branch="main",
+            token="token",
+            config_root="/config",
+            dry_run=True,
+            sync_mode="blacklist",
+            repo_layout="flat",
+        )
+        engine = SyncEngine(config, previous_hash_index={})
+        self.assertEqual(
+            sorted(label for label, _ in engine._hash_roots(selection_mode=False)),
+            ["", "addon_configs"],
+        )
+
+    def test_blacklist_picks_up_a_mount_the_user_selected(self) -> None:
+        config = SyncConfig(
+            repository="owner/repo",
+            branch="main",
+            token="token",
+            config_root="/config",
+            dry_run=True,
+            sync_mode="blacklist",
+            sync_paths=("media",),
+            repo_layout="flat",
+        )
+        engine = SyncEngine(config, previous_hash_index={})
+        self.assertEqual(
+            sorted(label for label, _ in engine._hash_roots(selection_mode=False)),
+            ["", "addon_configs", "media"],
         )
 
     def test_run_dry_run_returns_counts_without_github_calls(self) -> None:
@@ -591,22 +636,31 @@ class SyncEngineTests(unittest.TestCase):
                 dry_run=False,
                 include_www=False,
             )
-            plan = SyncPlan(
-                added=[p for p, _ in _seed_index(config).items()],
-                changed=[],
-                removed=[],
-                total_files=0,
-            )
-            fake_client = MagicMock()
+            fake_client = _batch_client()
             fake_client.get_content.return_value = None
 
             with patch("sync.engine.GitHubClient", return_value=fake_client):
                 engine = SyncEngine(config, previous_hash_index={})
+                plan, _ = engine.plan()
                 result = engine.run(plan)
 
+            # Assert on what was staged, not on the call counts of the per-file
+            # API: batching stopped using put_content in 1.7.2, so counting them
+            # measured nothing but "there was nothing to upload".
             self.assertIn("Sync completed", result.message)
-            self.assertEqual(fake_client.put_content.call_count, len(plan.added))
-            self.assertEqual(fake_client.delete_content.call_count, 0)
+            staged = {entry["path"] for entry in _staged_entries(fake_client)}
+            # Matched by suffix: this test is about www being inside the config
+            # root, not about which layout prefix it lands under, and pinning a
+            # prefix here would make the default layout the thing under test.
+            self.assertTrue(
+                any(path.endswith("www/community/card.js.gz") for path in staged),
+                f"www lives inside config, so it must upload; staged: {sorted(staged)}",
+            )
+            self.assertTrue(
+                any(path.endswith("configuration.yaml") for path in staged),
+                f"configuration.yaml missing from the commit; staged: {sorted(staged)}",
+            )
+            fake_client.delete_content.assert_not_called()
 
     def test_plan_honors_gitignore_patterns_from_config_root(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

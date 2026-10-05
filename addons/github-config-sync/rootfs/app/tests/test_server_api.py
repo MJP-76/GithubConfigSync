@@ -984,7 +984,7 @@ class ServerApiTests(ServerApiSetup, unittest.TestCase):
     def test_sync_mode_schema_is_pipe_separated_enum(self) -> None:
         self.assertEqual(
             self._addon_schema()["sync_mode"],
-            "list(whitelist|blacklist|override)?",
+            "list(blacklist|whitelist|override)?",
         )
 
     RE_MAP_STRING = re.compile(
@@ -2209,6 +2209,50 @@ class ModeNoteTests(unittest.TestCase):
         note = html.split("<span>Mode:</span>", 1)[1].split("</div>", 1)[0]
         note = note.split("Switching mode", 1)[1]
         self.assertLess(len(note), 400, "the note should stay short")
+
+class ModeDefaultTests(unittest.TestCase):
+    """The default mode must agree with itself everywhere it is stated.
+
+    It appears in the Supervisor schema (first value wins), the option
+    defaults, the SyncConfig dataclass, two JavaScript fallbacks and the order
+    of the dropdown. Miss one and the server applies a mode the UI is not
+    showing - which is how the Layout dropdown stayed decorative for months
+    without anything noticing.
+    """
+
+    def _read(self, *parts: str) -> str:
+        return (APP_ROOT.joinpath(*parts)).read_text(encoding="utf-8")
+
+    def test_the_supervisor_schema_states_blacklist_first(self) -> None:
+        # The first value in a Supervisor list() schema is the default applied
+        # when the option is absent.
+        schema = (APP_ROOT.parents[1] / "config.yaml").read_text(encoding="utf-8")
+        self.assertIn("sync_mode: list(blacklist|whitelist|override)?", schema)
+
+    def test_no_code_path_still_defaults_to_whitelist(self) -> None:
+        server = self._read("server.py")
+        self.assertNotIn('get("sync_mode", "whitelist")', server)
+        self.assertNotIn('or "whitelist"', server)
+        self.assertIn('"sync_mode": "blacklist"', server)
+
+    def test_the_engine_default_is_blacklist(self) -> None:
+        import dataclasses
+
+        field = next(
+            f for f in dataclasses.fields(server.SyncConfig) if f.name == "sync_mode"
+        )
+        self.assertEqual(field.default, "blacklist")
+
+    def test_the_dropdown_lists_blacklist_first(self) -> None:
+        html = self._read("static", "index.html")
+        options = re.findall(r'<option value="(whitelist|blacklist|override)"', html)
+        self.assertEqual(options, ["blacklist", "whitelist", "override"])
+
+    def test_the_javascript_fallbacks_match(self) -> None:
+        html = self._read("static", "index.html")
+        self.assertNotIn('|| "whitelist"', html)
+        self.assertNotIn(': "whitelist"', html.split("const MODE_HELP", 1)[-1])
+        self.assertIn('|| "blacklist"', html)
 
 
 if __name__ == "__main__":

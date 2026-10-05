@@ -21,7 +21,7 @@ class SyncConfig:
     include_backups: bool = False
     include_www: bool = False
     include_addon_configs: bool = False
-    sync_mode: str = "whitelist"
+    sync_mode: str = "blacklist"
     security_override_all_filters: bool = False
     safe_config_paths: tuple[str, ...] = ()
     sync_paths: tuple[str, ...] = ()

@@ -247,7 +247,7 @@ DEFAULT_OPTIONS: dict[str, Any] = {
     "include_backups": False,
     "include_www": False,
     "include_pre_releases": False,
-    "sync_mode": "whitelist",
+    "sync_mode": "blacklist",
     "safe_config_paths": "",
     "sync_paths": "",
     "repo_layout": REPO_LAYOUT_PREFIXED,
@@ -283,7 +283,7 @@ def _repo_sync_config(options: dict[str, Any], repository: str) -> SyncConfig:
         include_backups=bool(options.get("include_backups", False)),
         include_www=bool(options.get("include_www", False)),
         include_addon_configs=bool(options.get("include_addon_configs", False)),
-        sync_mode=str(options.get("sync_mode", "whitelist")),
+        sync_mode=str(options.get("sync_mode", "blacklist")),
         security_override_all_filters=bool(options.get("security_override_all_filters", False)),
         safe_config_paths=_parse_path_list(options.get("safe_config_paths")),
         sync_paths=_parse_path_list(options.get("sync_paths")),
@@ -620,7 +620,7 @@ def _validate_payload(payload: dict[str, Any]) -> tuple[bool, str | None]:
 
     if str(payload.get("auth_method", "device_flow")) not in ("device_flow", "fine_grained_pat"):
         return False, "auth_method must be device_flow or fine_grained_pat"
-    sync_mode = str(payload.get("sync_mode", "whitelist")).strip()
+    sync_mode = str(payload.get("sync_mode", "blacklist")).strip()
     if sync_mode not in SYNC_MODES:
         return False, "sync_mode must be whitelist, blacklist or override"
 
@@ -1027,7 +1027,7 @@ def _sync_config(options: dict[str, Any]) -> SyncConfig:
         include_backups=bool(options.get("include_backups", False)),
         include_www=bool(options.get("include_www", False)),
         include_addon_configs=bool(options.get("include_addon_configs", False)),
-        sync_mode=str(options.get("sync_mode", "whitelist")),
+        sync_mode=str(options.get("sync_mode", "blacklist")),
         security_override_all_filters=bool(options.get("security_override_all_filters", False)),
         safe_config_paths=_parse_path_list(options.get("safe_config_paths")),
         sync_paths=_parse_path_list(options.get("sync_paths")),
@@ -1242,7 +1242,7 @@ class _SyncScheduler:
                 include_backups=bool(options.get("include_backups", False)),
                 include_www=bool(options.get("include_www", False)),
                 include_addon_configs=bool(options.get("include_addon_configs", False)),
-                sync_mode=str(options.get("sync_mode", "whitelist")),
+                sync_mode=str(options.get("sync_mode", "blacklist")),
                 security_override_all_filters=bool(options.get("security_override_all_filters", False)),
                 safe_config_paths=_parse_path_list(options.get("safe_config_paths")),
                 sync_paths=_parse_path_list(options.get("sync_paths")),
@@ -1534,7 +1534,7 @@ def set_options():
         "include_backups": payload.get("include_backups", False),
         "include_www": payload.get("include_www", False),
         "include_pre_releases": payload.get("include_pre_releases", False),
-        "sync_mode": str(payload.get("sync_mode", "whitelist")).strip() or "whitelist",
+        "sync_mode": str(payload.get("sync_mode", "blacklist")).strip() or "blacklist",
         "security_override_all_filters": bool(payload.get("security_override_all_filters", False)),
         "safe_config_paths": _safe_config_paths_to_text(payload.get("safe_config_paths")),
         "sync_paths": _safe_config_paths_to_text(payload.get("sync_paths")),
@@ -2007,7 +2007,7 @@ def create_repo():
                 include_backups=bool(options.get("include_backups", False)),
                 include_www=bool(options.get("include_www", False)),
                 include_addon_configs=bool(options.get("include_addon_configs", False)),
-                sync_mode=str(options.get("sync_mode", "whitelist")),
+                sync_mode=str(options.get("sync_mode", "blacklist")),
                 security_override_all_filters=bool(options.get("security_override_all_filters", False)),
                 safe_config_paths=_parse_path_list(options.get("safe_config_paths")),
                 sync_paths=_parse_path_list(options.get("sync_paths")),

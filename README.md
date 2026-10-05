@@ -129,12 +129,12 @@ GithubConfigSync is provided as-is. By using this add-on, you acknowledge and ag
 
 | Mode | What you pick | Security checks |
 |---|---|---|
+| **Blacklist** *(default)* | nothing; the default folders are walked | on |
 | **Whitelist** | files and folders you select — nothing selected = nothing synced | on |
-| **Blacklist** | nothing; the default folders are walked | on |
 | **Override** | files and folders you select | off |
 
+- **Blacklist** *(the default)* — no selection needed, so a fresh install syncs instead of waiting for you to pick something. Walks `/config` and `/addon_configs` with the usual ignores plus the security checks; `media`, `share`, `ssl` and `backups` are opt-in and joined only if you have selected them. The closest thing to "sync my config, don't think about it".
 - **Whitelist** — for when you know exactly what you want tracked. Select the whole configuration folder in one click, or drill down and pick individual files and folders. The checks stay on, so a file containing a password is held back even if you selected it; it appears in the sensitive-file report instead of vanishing silently.
-- **Blacklist** — no selection needed. Walks the default folders with the usual ignores plus the security checks. The closest thing to "sync my config, don't think about it".
 - **Override** — for deliberately syncing something the checks would block. ESPHome and Zigbee2MQTT configs embed wifi passwords and API keys inline, so this is how those get version-controlled. Explicitly opt-in and carries the risks set out in the disclaimer below.
 
 #### The sync picker
@@ -157,7 +157,7 @@ In every mode:
 
 - **Runtime artifacts are never synced** — databases, WAL/SHM files, logs, lockfiles, caches, `.storage`, `.git` and `node_modules`. This add-on syncs configuration, not system state, and no mode will pull those in.
 - **Your `.gitignore` always wins.**
-- Mount points outside `/config` (`addon_configs`, `media`, `share`, `ssl`, `backups`) are ticked as a group in Whitelist and Override, and always walked in Blacklist.
+- Mount points outside `/config` (`addon_configs`, `media`, `share`, `ssl`, `backups`) are ticked as a group in Whitelist and Override. Blacklist always includes `addon_configs` alongside `/config` and picks up the other four only when you have selected them.
 
 ### The `.gitignore` file
 

@@ -55,7 +55,7 @@ schema:
   include_pre_releases: bool?
   security_override_all_filters: bool?
   safe_config_paths: str?
-  sync_mode: list(whitelist|blacklist|override)?
+  sync_mode: list(blacklist|whitelist|override)?
   sync_paths: str?
   # Where the config directory lands inside the repository. "prefixed" puts it
   # under config/ so it cannot collide with the add-on's own files; "flat"

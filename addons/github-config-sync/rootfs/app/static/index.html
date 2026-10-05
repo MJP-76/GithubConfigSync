@@ -446,8 +446,8 @@
             <label style="display: flex; align-items: center; gap: 8px">
               <span>Mode:</span>
               <select id="syncMode" style="flex: 1; max-width: 240px">
-                <option value="whitelist">Whitelist &mdash; only what I pick, security checks on</option>
                 <option value="blacklist">Blacklist &mdash; default folders, security checks on</option>
+                <option value="whitelist">Whitelist &mdash; only what I pick, security checks on</option>
                 <option value="override">Override &mdash; only what I pick, security checks off</option>
               </select>
             </label>
@@ -508,7 +508,9 @@
             </p>
             <ul class="subtle" style="margin: 0; padding-left: 18px">
               <li><code>/config</code> (everything under your configuration directory)</li>
-              <li><code>/addon_configs</code> &middot; <code>/media</code> &middot; <code>/share</code> &middot; <code>/ssl</code> &middot; <code>/backup</code></li>
+              <li><code>/addon_configs</code></li>
+              <li>Anything else you have selected &mdash; <code>/media</code>, <code>/share</code>,
+                  <code>/ssl</code> and <code>/backup</code> are opt-in, not defaults</li>
             </ul>
             <p class="subtle" style="margin: 8px 0 0">
               Files containing passwords or keys are held back here. To include them, switch to
@@ -1044,7 +1046,7 @@
         toggleAutoSyncOptions();
         el.includePreReleases.checked = Boolean(data.include_pre_releases);
         loadedOptions = data;
-        el.syncMode.value = data.sync_mode || "whitelist";
+        el.syncMode.value = data.sync_mode || "blacklist";
         if (el.migrateLayoutChk) el.migrateLayoutChk.checked = Boolean(data.migrate_layout);
         selectedPaths = String(data.sync_paths || "")
           .split(/[\n,]/)
@@ -1638,7 +1640,7 @@
         whitelist:
           "Only what you select is synced, and the security checks still apply — a file containing a password is held back even if you picked it.",
         blacklist:
-          "Nothing to select. The default folders are walked with the usual ignores and the security checks.",
+          "Nothing to select. Walks your configuration directory and add-on configurations with the usual ignores and security checks; other mounts are included only if you have selected them.",
         override:
           "Only what you select is synced, and the security checks stand aside for those paths. Databases, logs, locks and .storage still stay out.",
       };
@@ -1651,7 +1653,7 @@
       }
 
       function currentMode() {
-        return el.syncMode ? el.syncMode.value : "whitelist";
+        return el.syncMode ? el.syncMode.value : "blacklist";
       }
 
       function renderOverrideWarning() {
