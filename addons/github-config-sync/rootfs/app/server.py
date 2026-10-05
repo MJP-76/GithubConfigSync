@@ -1098,7 +1098,9 @@ def _run_sync(sync_config: SyncConfig, clean_upload: bool = False) -> tuple[int,
     result = engine.run(plan)
     if not sync_config.dry_run:
         _ensure_repo_marker(engine, sync_config.repository)
-    _save_json(HASH_INDEX_PATH, current_hash_index)
+        # A preview must not move the baseline the next real sync diffs
+        # against, or the two stop agreeing about what would change.
+        _save_json(HASH_INDEX_PATH, current_hash_index)
     return 200, scan, result.message
 
 
@@ -2083,7 +2085,10 @@ def trigger_sync():
         _append_log(f"Sync failed: {err}")
         return jsonify({"ok": False, "error": str(err), "state": state}), 502
 
-    _save_json(HASH_INDEX_PATH, current_hash_index)
+    if not sync_config.dry_run:
+        # A preview must not move the baseline the next real sync diffs
+        # against, or the two stop agreeing about what would change.
+        _save_json(HASH_INDEX_PATH, current_hash_index)
 
     state = _save_state(
         {

@@ -116,6 +116,46 @@ class ServerApiTests(unittest.TestCase):
         self.assertEqual(body["summary"]["synced_count"], 1)
         self.assertEqual(body["summary"]["deleted_count"], 0)
 
+    def test_dry_run_does_not_create_the_scan_baseline(self) -> None:
+        """A preview must not persist the scan the next real sync diffs against."""
+        (self._config_root / "a.yaml").write_text("x: 1\n", encoding="utf-8")
+        self._write_options(
+            {
+                "github_repository": "owner/repo",
+                "github_branch": "main",
+                "github_token": "token",
+                "dry_run": True,
+                "sync_paths": ".",
+            }
+        )
+
+        self.client.post("/api/sync")
+
+        self.assertFalse(server.HASH_INDEX_PATH.exists())
+
+    def test_dry_run_leaves_an_existing_baseline_untouched(self) -> None:
+        """Writing the baseline from a preview is what made the two disagree."""
+        (self._config_root / "a.yaml").write_text("x: 1\n", encoding="utf-8")
+        (self._config_root / "b.yaml").write_text("y: 2\n", encoding="utf-8")
+        baseline = {"a.yaml": "digest-a"}
+        server.HASH_INDEX_PATH.write_text(json.dumps(baseline), encoding="utf-8")
+
+        self._write_options(
+            {
+                "github_repository": "owner/repo",
+                "github_branch": "main",
+                "github_token": "token",
+                "dry_run": True,
+                "sync_paths": "a.yaml",
+            }
+        )
+        body = self.client.post("/api/sync").get_json()
+
+        self.assertEqual(body["summary"]["deleted_count"], 0)
+        self.assertEqual(
+            json.loads(server.HASH_INDEX_PATH.read_text(encoding="utf-8")), baseline
+        )
+
     def test_options_round_trip_include_addon_configs_explicit_true(self) -> None:
         self._write_options(
             {

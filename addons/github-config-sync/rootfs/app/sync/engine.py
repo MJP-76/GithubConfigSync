@@ -34,6 +34,9 @@ MOUNT_KEYS = ("addon_configs", "media", "share", "ssl", "backups")
 # The selection entry meaning "everything under /config". Stored as "." because
 # an empty string would otherwise silently mean "everything".
 WHOLE_CONFIG_ROOT = "."
+# Filesystem name of the config directory. Selections are repo-relative, so a
+# leading "/config" on an absolute path is stripped rather than searched for.
+CONFIG_ROOT_NAME = "config"
 
 
 def _mount_prefix(key: str) -> str:
@@ -42,14 +45,34 @@ def _mount_prefix(key: str) -> str:
 
 
 def _normalise_selection(raw: object) -> str | None:
-    """Normalise one selection entry, or None to drop it."""
+    """Normalise one selection entry, or None to drop it.
+
+    The picker labels roots the way the filesystem does - /config, /media,
+    /addon_configs - while selection keys are repo-relative. A leading root
+    name on an absolute path is therefore stripped instead of being left to
+    match nothing: /config came to mean the literal folder "config" and
+    selected none of the files it was meant to cover.
+
+    Only absolute paths are rewritten, so a relative "media" folder inside the
+    config directory keeps meaning that folder.
+    """
     value = str(raw or "").strip().replace("\\", "/")
+    absolute = value.startswith("/")
     while value.startswith("./"):
         value = value[2:]
     value = value.strip("/")
+    if not value:
+        return None
     if value == WHOLE_CONFIG_ROOT:
         return WHOLE_CONFIG_ROOT
-    return value or None
+    if absolute:
+        head, _, tail = value.partition("/")
+        if head == CONFIG_ROOT_NAME:
+            return tail or WHOLE_CONFIG_ROOT
+        if head in MOUNT_KEYS:
+            # Mount paths keep their prefix in the index, unlike config paths.
+            return f"{head}/{tail}" if tail else head
+    return value
 
 
 def _selection_matches(selection: str, key: str) -> bool:
@@ -83,6 +106,9 @@ class SyncEngine:
         ]
         # "www" is deliberately not a separate root: it lives inside the config
         # directory, so listing it walked every file under it a second time.
+        # Kept unfiltered: telling "out of scope" apart from "deleted" has to
+        # consider every root, including ones this selection never walks.
+        self._all_roots = list(self._root_map)
         self._selections = self._build_selections()
         if self._config.sync_mode in SELECTION_MODES:
             self._root_map = [
@@ -148,7 +174,7 @@ class SyncEngine:
         plan = SyncPlan(
             added=added,
             changed=changed,
-            removed=removed,
+            removed=self._genuinely_gone(removed),
             total_files=len(current_hash_index),
         )
         return plan, current_hash_index
@@ -568,7 +594,24 @@ class SyncEngine:
             if local_path.exists():
                 self._put_with_retry(remote_path, local_path.read_bytes(), message=f"sync: restore {remote_path}")
 
-    def _local_path_for(self, relative: str) -> Path:
+    def _genuinely_gone(self, paths: list[str]) -> list[str]:
+        """Keep only paths that are really gone, not merely out of scope.
+
+        Narrowing a selection stops the scan seeing files it used to see, and
+        the diff cannot tell that apart from a deletion. Treating it as one is
+        how changing the selection removed files from a repository, so a path
+        still sitting on disk is left where it is.
+        """
+        return [path for path in paths if not self._still_on_disk(path)]
+
+    def _still_on_disk(self, relative: str) -> bool:
+        try:
+            return self._local_path_for(relative, roots=self._all_roots).exists()
+        except (SyncError, OSError):
+            # Cannot prove it is gone, so do not remove it.
+            return True
+
+    def _local_path_for(self, relative: str, roots: list[tuple[str, Path]] | None = None) -> Path:
         if relative.startswith("media/"):
             candidate = Path("/media") / relative.removeprefix("media/")
         elif relative.startswith("share/"):
@@ -586,7 +629,7 @@ class SyncEngine:
 
         resolved = candidate.resolve()
         allowed_prefixes = tuple(
-            root.resolve() for _, root in self._root_map if root.exists()
+            root.resolve() for _, root in (roots or self._root_map) if root.exists()
         )
         if not any(resolved.is_relative_to(p) for p in allowed_prefixes):
             raise SyncError(f"Path escapes allowed sync roots: {relative}")
@@ -616,7 +659,14 @@ class SyncEngine:
         without browsing for them. Note the config root is never implied -
         whitelist with nothing selected must sync nothing.
         """
-        entries: list[str] = [str(e) for e in (getattr(self._config, "sync_paths", ()) or ())]
+        entries: list[str] = [
+            # Falsy entries are dropped before str(), or a None would become
+            # the literal selection "None" - which matches nothing and looks
+            # like a deliberate pick.
+            str(entry)
+            for entry in (getattr(self._config, "sync_paths", ()) or ())
+            if entry
+        ]
         entries.extend(str(e) for e in (getattr(self._config, "safe_config_paths", ()) or ()))
         entries.extend(name for name in MOUNT_KEYS if self._root_enabled(name))
 

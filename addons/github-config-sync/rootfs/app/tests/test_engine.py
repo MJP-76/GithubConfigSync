@@ -784,5 +784,122 @@ def _seed_index(config: SyncConfig) -> dict[str, str]:
     return {p: index[p] for p in plan.added}
 
 
+class OutOfScopeDeletionTests(unittest.TestCase):
+    """Out of scope is not the same as deleted.
+
+    The diff is "in the last scan but not this one", which cannot by itself
+    tell a file removed from disk from a file the current selection no longer
+    covers. Reading the second as a deletion removed files from a repository
+    purely because the selection changed, so only genuinely absent paths are
+    removed now.
+    """
+
+    def setUp(self) -> None:
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self._tmp = tmp
+        root = Path(tmp.name) / "config"
+        self.root = root
+        root.mkdir()
+        (root / "configuration.yaml").write_text("homeassistant:\n", encoding="utf-8")
+        for name in ("template", "modbus", "mqtt"):
+            (root / f"{name}.yaml").write_text(f"{name}:\n  - x\n", encoding="utf-8")
+        (root / "esphome").mkdir()
+        (root / "esphome" / "living.yaml").write_text("sensor:\n  - y\n", encoding="utf-8")
+        # a real mount directory, so out-of-scope mount paths can be resolved
+        self.addons = Path(tmp.name) / "addon_configs"
+        (self.addons / "my_addon").mkdir(parents=True)
+        (self.addons / "my_addon" / "config.yaml").write_text("key: value\n", encoding="utf-8")
+
+    def _engine(self, mode, sync_paths, previous=None, **kwargs):
+        config = SyncConfig(
+            repository="owner/repo",
+            branch="main",
+            token="token",
+            config_root=str(self.root),
+            addon_config_root=str(self.addons),
+            dry_run=True,
+            sync_mode=mode,
+            sync_paths=tuple(sync_paths),
+            **kwargs,
+        )
+        return SyncEngine(config, previous_hash_index=previous or {})
+
+    def _previous_full_scan(self):
+        """The index a completed sync of the whole config root leaves behind."""
+        _, index = self._engine("override", ["."]).plan()
+        return dict(index)
+
+    def test_narrowing_selection_does_not_delete_out_of_scope_files(self):
+        previous = self._previous_full_scan()
+        self.assertTrue(previous, "expected a non-empty previous scan")
+        plan, index = self._engine("override", ["esphome"], previous).plan()
+        self.assertEqual(plan.removed, [])
+        # still scanned and synced, just not re-added: it was in the last scan
+        self.assertIn("esphome/living.yaml", index)
+
+    def test_empty_selection_does_not_delete_anything_still_on_disk(self):
+        previous = self._previous_full_scan()
+        plan, _ = self._engine("override", [], previous).plan()
+        self.assertEqual(plan.removed, [])
+
+    def test_file_actually_deleted_from_disk_is_still_removed(self):
+        previous = self._previous_full_scan()
+        (self.root / "template.yaml").unlink()
+        plan, _ = self._engine("override", ["."], previous).plan()
+        self.assertEqual(plan.removed, ["template.yaml"])
+
+    def test_out_of_scope_mount_file_still_on_disk_is_left_alone(self):
+        previous = self._previous_full_scan()
+        previous["addon_configs/my_addon/config.yaml"] = "digest"
+        plan, _ = self._engine(
+            "override", ["."], previous, include_addon_configs=False
+        ).plan()
+        self.assertEqual(plan.removed, [])
+
+    def test_out_of_scope_mount_file_deleted_from_disk_is_removed(self):
+        previous = self._previous_full_scan()
+        previous["addon_configs/my_addon/config.yaml"] = "digest"
+        (self.addons / "my_addon" / "config.yaml").unlink()
+        plan, _ = self._engine(
+            "override", ["."], previous, include_addon_configs=False
+        ).plan()
+        self.assertEqual(plan.removed, ["addon_configs/my_addon/config.yaml"])
+
+    def test_clean_repo_still_deletes_out_of_scope_paths(self):
+        """Clean Repo is an explicit destructive action, so it is unchanged."""
+        previous = self._previous_full_scan()
+        plan, _ = self._engine("override", ["esphome"], previous).plan()
+        clean, _ = self._engine("override", ["esphome"], previous).clean_plan()
+        self.assertEqual(plan.removed, [])
+        self.assertTrue(clean.removed)
+
+    def test_absolute_config_path_selects_the_config_root(self):
+        engine = self._engine("override", ["/config"])
+        self.assertEqual(engine._selections, (".",))
+        self.assertTrue(engine._path_selected("template.yaml"))
+        self.assertFalse(engine._path_selected("media/photo.jpg"))
+
+    def test_absolute_mount_path_keeps_its_prefix(self):
+        engine = self._engine("override", ["/media/photo.jpg"])
+        self.assertTrue(engine._path_selected("media/photo.jpg"))
+        self.assertFalse(engine._path_selected("photo.jpg"))
+
+    def test_blank_selection_is_dropped_rather_than_becoming_the_root(self):
+        engine = self._engine("override", ["", None])
+        self.assertEqual(engine._selections, ())
+        plan, index = engine.plan()
+        self.assertEqual(plan.total_files, 0)
+        self.assertEqual(index, {})
+
+    def test_relative_folder_named_like_a_mount_is_untouched(self):
+        """A "media" folder inside the config directory keeps meaning that folder."""
+        (self.root / "media").mkdir()
+        (self.root / "media" / "note.txt").write_text("hi\n", encoding="utf-8")
+        engine = self._engine("override", ["media"])
+        self.assertEqual(engine._selections, ("media",))
+        self.assertTrue(engine._path_selected("media/note.txt"))
+
+
 if __name__ == "__main__":
     unittest.main()
