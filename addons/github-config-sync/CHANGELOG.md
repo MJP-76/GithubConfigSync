@@ -2,6 +2,22 @@
 
 ## Latest Releases
 
+## 1.7.10
+
+**Stable.** This release promotes the 1.7.x line and refactors Blacklist to comply with community best practice.
+
+- **Modes are ordered by how much they ask of you:** Blacklist (nothing to choose), Whitelist (pick what matters), Override (opt out of the checks). The first option in a Supervisor `list()` schema is the default, so ordering carries the default with it.
+
+- **Blacklist is the new default.** Not for tidiness — it is the only mode that works with zero configuration. Whitelist with nothing selected syncs nothing *while reporting success*, so a fresh install previously sat waiting for someone to discover they had to tick something first. Now it syncs.
+
+- **Blacklist's default folders have been refactored to comply with best practice.** It used to walk `/config`, `/addon_configs`, `/media`, `/share`, `/ssl` and `/backup` unconditionally, which meant opting into blacklist quietly put every backup, photo and certificate in your repository. It now walks **`/config` and `/addon_configs` only**; the four mounts are joined if you select them. That is how the community versions a Home Assistant configuration — [frenck's config](https://github.com/frenck/home-assistant-config/blob/master/.gitignore) ignores everything outside the config directory, [CCOSTAN's](https://github.com/CCOSTAN/Home-AssistantConfig/blob/master/.gitignore) ignores backups explicitly, and projects that do sync `/share` or `/media` sell it as a feature you turn on.
+
+- **⚠️ Breaking if you already use Blacklist:** `media`, `share`, `ssl` and `backups` stop syncing until you select them. **Nothing is deleted** — they leave the scope of the sync and stay in your repository — but they stop updating. Select them in the tree and they resume.
+
+- **Help text:** a note under Mode now states plainly that a mode change affects the next sync only and does not remove what is already in the repository or its history, naming Clean Repo and Reset Repo as the controls for that. The redundant Override pointer is gone from the Danger Zone, and the Layout dropdown (removed in 1.7.9) stays gone.
+
+- A test pins every place the default is stated, because a default split across twelve sites is how the Layout dropdown spent months changing in the browser and never reaching disk. One test that had been passing vacuously — it asserted on a per-file API the batching path stopped using in 1.7.2 — now exercises the real commit.
+
 ## 1.7.9
 
 The Layout dropdown is gone — the migration tick box takes its place.

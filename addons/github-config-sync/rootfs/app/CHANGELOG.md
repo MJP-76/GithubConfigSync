@@ -2,6 +2,15 @@
 
 ## Latest Releases
 
+## 1.7.10
+
+**Stable.** Refactors Blacklist to comply with community best practice.
+
+- **Blacklist is now first in the list and the default** — the only mode that works with zero configuration, so a fresh install syncs instead of reporting success while syncing nothing.
+- **Blacklist's default folders refactored to comply with best practice:** it walks `/config` and `/addon_configs` only. `/media`, `/share`, `/ssl` and `/backup` are opt-in, joined if you select them — matching how the community versions a Home Assistant configuration, where anything outside the config directory is deliberately not tracked.
+- **⚠️ Breaking for existing Blacklist users:** those four mounts stop syncing until selected. Nothing is deleted — they leave scope and remain in the repository — but they stop updating.
+- A note under Mode states that a mode change affects the next sync only and never removes what is already in the repository or its history.
+
 ## 1.7.9
 
 - **The Layout dropdown is gone; the migration tick box replaces it**, sitting beside Mode in the main settings rather than in the Danger Zone. Both answered "where do files land?", and only one of them could be right.
