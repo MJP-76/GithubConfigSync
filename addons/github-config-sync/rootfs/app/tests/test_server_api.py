@@ -27,7 +27,7 @@ if importlib.util.find_spec("flask") is None:
 import server
 
 
-class ServerApiTests(unittest.TestCase):
+class ServerApiSetup:
     def setUp(self) -> None:
         os.environ["FLASK_DEBUG"] = "1"
         self._orig_supervisor_token = os.environ.pop("SUPERVISOR_TOKEN", None)
@@ -77,6 +77,7 @@ class ServerApiTests(unittest.TestCase):
     def _write_options(self, payload: dict[str, object]) -> None:
         server.WEBUI_OPTIONS_PATH.write_text(json.dumps(payload), encoding="utf-8")
 
+class ServerApiTests(ServerApiSetup, unittest.TestCase):
     def test_sync_requires_repository(self) -> None:
         self._write_options(
             {
@@ -1986,6 +1987,167 @@ class AppLoggingTests(unittest.TestCase):
         )
         self.assertIn('logging.getLogger("werkzeug").setLevel(logging.ERROR)', source)
         self.assertEqual(logging.getLogger("werkzeug").level, logging.ERROR)
+
+class ManualSyncSelectionTests(ServerApiSetup, unittest.TestCase):
+    """The Sync button must sync what the user selected.
+
+    /api/sync/manual re-created its SyncConfig from the field list a v0.2.11
+    copy had. SyncConfig has grown five fields since, and every one of them was
+    dropped: sync_paths, safe_config_paths, security_override_all_filters and
+    repo_layout. The manual sync therefore always ran whitelist with an empty
+    selection, scanned nothing and reported "Sync completed" - while the
+    scheduled sync, which never rebuilt, kept working and made the fault look
+    intermittent rather than total.
+    """
+
+    def _options(self) -> dict[str, object]:
+        return {
+            "github_repository": "owner/repo",
+            "github_branch": "main",
+            "github_token": "gho_test",
+            "dry_run": False,
+            "repo_mode": "existing",
+            "existing_repo_confirmed_for": "owner/repo",
+            "sync_mode": "whitelist",
+            "sync_paths": ".\naddon_configs",
+            "safe_config_paths": "blueprints",
+            "security_override_all_filters": True,
+            "repo_layout": "flat",
+        }
+
+    def _captured_config(self, endpoint: str) -> tuple[object, object]:
+        """POST an endpoint with SyncEngine stubbed, returning (config, response)."""
+        with patch("server.SyncEngine") as engine_cls:
+            engine = engine_cls.return_value
+            engine.plan.return_value = (
+                unittest.mock.MagicMock(
+                    added=[], changed=[], removed=[], total_files=1, oversized=[]
+                ),
+                {"a": "b"},
+            )
+            engine.clean_plan.return_value = (
+                unittest.mock.MagicMock(
+                    added=["one.txt"], changed=[], removed=[], total_files=1, oversized=[]
+                ),
+                {"one.txt": "abc"},
+            )
+            engine.clean_remote_tree.return_value = None
+            engine.sensitive_files.return_value = []
+            engine._github.probe_repository.return_value = (True, "ok")
+            engine.run.return_value = unittest.mock.MagicMock(
+                synced_count=1, deleted_count=0, skipped_count=0,
+                total_files=1, message="Sync completed.",
+            )
+            response = self.client.post(endpoint)
+        self.assertEqual(response.status_code, 200, response.get_json())
+        return engine_cls.call_args.args[0], response.get_json()
+
+    def test_the_manual_sync_keeps_every_selection_field(self) -> None:
+        self._write_options(self._options())
+
+        config, body = self._captured_config("/api/sync/manual")
+
+        self.assertTrue(body["ok"])
+        self.assertEqual(config.sync_paths, (".", "addon_configs"))
+        self.assertEqual(config.safe_config_paths, ("blueprints",))
+        self.assertTrue(config.security_override_all_filters)
+        self.assertEqual(config.repo_layout, "flat")
+        self.assertEqual(config.sync_mode, "whitelist")
+        self.assertFalse(config.dry_run)
+
+    def test_clean_upload_keeps_the_selection_and_forces_live(self) -> None:
+        """Clean must write - but must not abandon the layout to do it.
+
+        The rebuild forced dry_run off while dropping repo_layout, so on a flat
+        repository Clean Upload would have staged files under config/ beside the
+        ones already sitting at the root.
+        """
+        self._write_options(self._options())
+
+        config, body = self._captured_config("/api/sync/clean")
+
+        self.assertTrue(body["ok"])
+        self.assertFalse(config.dry_run)
+        self.assertEqual(config.sync_paths, (".", "addon_configs"))
+        self.assertEqual(config.repo_layout, "flat")
+
+    def test_the_manual_sync_actually_uploads_the_selected_file(self) -> None:
+        """End to end, with only the GitHub transport stubbed.
+
+        This is the assertion that would have caught the bug: a file the user
+        selected has to reach the plan.
+        """
+        (self._config_root / "automations.yaml").write_text("id: test", encoding="utf-8")
+        self._write_options(self._options())
+
+        client = unittest.mock.MagicMock()
+        client.get_branch_head_sha.return_value = "headsha"
+        client.get_commit_tree_sha.return_value = "basetree"
+        client.create_blob.return_value = "blob1"
+        client.create_git_tree.return_value = {"sha": "treesha"}
+        client.create_git_commit.return_value = {"sha": "commitsha"}
+        client.update_branch_ref.return_value = {"object": {"sha": "commitsha"}}
+        client.probe_repository.return_value = (True, "ok")
+
+        with patch("sync.engine.GitHubClient", return_value=client):
+            response = self.client.post("/api/sync/manual")
+
+        body = response.get_json()
+        self.assertEqual(response.status_code, 200, body)
+        self.assertTrue(body["ok"], body)
+        self.assertEqual(body["summary"]["total_files"], 1)
+        self.assertEqual(body["summary"]["synced_count"], 1)
+        self.assertEqual(body["summary"]["deleted_count"], 0)
+
+
+class ConfigConstructionTests(unittest.TestCase):
+    """No config construction outside the builders may drop a selection field.
+
+    Every one of these bugs starts the same way: someone re-creates SyncConfig
+    by copying the fields they remember, and the ones added later disappear
+    silently. A stale copy is indistinguishable from a working sync, because an
+    empty selection reports success.
+    """
+
+    FIELDS = (
+        "sync_paths",
+        "safe_config_paths",
+        "security_override_all_filters",
+        "repo_layout",
+        "sync_mode",
+    )
+
+    @staticmethod
+    def _constructions(source: str):
+        import re as _re
+
+        for match in _re.finditer(r"SyncConfig\(", source):
+            depth = 0
+            for index in range(match.end() - 1, len(source)):
+                if source[index] == "(":
+                    depth += 1
+                elif source[index] == ")":
+                    depth -= 1
+                    if depth == 0:
+                        break
+            yield source[: match.start()].count("\n") + 1, source[match.start(): index + 1]
+
+    def test_every_construction_carries_the_selection_fields(self) -> None:
+        source = (APP_ROOT / "server.py").read_text(encoding="utf-8")
+        for line, body in self._constructions(source):
+            dropped = [f for f in self.FIELDS if f not in body]
+            self.assertFalse(dropped, f"server.py:{line} drops {', '.join(dropped)}")
+
+    def test_manual_and_clean_do_not_rebuild_the_config(self) -> None:
+        source = (APP_ROOT / "server.py").read_text(encoding="utf-8")
+        manual = source.split("def trigger_manual_sync", 1)[1]
+        manual = manual.split("def ", 1)[0]
+        clean = source.split("def trigger_clean_sync", 1)[1]
+        clean = clean.split("\n@app.", 1)[0]
+        for name, body in (("manual", manual), ("clean", clean)):
+            self.assertNotIn(
+                "SyncConfig(", body, f"{name} sync re-creates SyncConfig from a stale field list"
+            )
 
 
 if __name__ == "__main__":

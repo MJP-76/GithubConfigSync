@@ -11,6 +11,7 @@ import threading
 import time
 import urllib.error
 import urllib.request
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 from urllib.parse import quote
@@ -1385,21 +1386,14 @@ def trigger_manual_sync():
 
     scan: dict[str, Any] | None = None
     try:
-        sync_config = SyncConfig(
-            repository=sync_config.repository,
-            branch=sync_config.branch,
-            token=sync_config.token,
-            config_root=sync_config.config_root,
-            addon_config_root=sync_config.addon_config_root,
-            dry_run=bool(options.get("dry_run", True)),
-            include_media=sync_config.include_media,
-            include_share=sync_config.include_share,
-            include_ssl=sync_config.include_ssl,
-            include_backups=sync_config.include_backups,
-            include_www=sync_config.include_www,
-            include_addon_configs=sync_config.include_addon_configs,
-            sync_mode=sync_config.sync_mode,
-        )
+        # No rebuild here. This block once re-created sync_config from the
+        # field list a v0.2.11 copy had, and SyncConfig has grown five fields
+        # since: sync_paths, safe_config_paths, security_override_all_filters
+        # and repo_layout were all dropped on the floor. The manual sync -
+        # the Sync button, in other words - therefore ran whitelist with an
+        # empty selection, scanned nothing and reported "Sync completed" for a
+        # run that touched no files, while the scheduled sync (which does not
+        # rebuild) kept working and made the fault look intermittent.
         engine = SyncEngine(sync_config, previous_hash_index=_load_json(HASH_INDEX_PATH, {}))
         engine.set_cancel_checker(_is_cancel_requested)
         engine.set_progress_callback(lambda payload: _save_state(_sync_progress_payload(payload)))
@@ -2152,21 +2146,11 @@ def trigger_clean_sync():
     confirmation_error = _existing_repo_confirmation_error(options)
     if confirmation_error:
         return jsonify({"ok": False, "error": confirmation_error}), 400
-    sync_config = SyncConfig(
-        repository=sync_config.repository,
-        branch=sync_config.branch,
-        token=sync_config.token,
-        config_root=sync_config.config_root,
-        addon_config_root=sync_config.addon_config_root,
-        dry_run=False,
-        include_media=sync_config.include_media,
-        include_share=sync_config.include_share,
-        include_ssl=sync_config.include_ssl,
-        include_backups=sync_config.include_backups,
-        include_www=sync_config.include_www,
-        include_addon_configs=sync_config.include_addon_configs,
-        sync_mode=sync_config.sync_mode,
-    )
+    # Only dry_run changes here, and only it changes: this is an explicit
+    # request to write. Rebuilding the config to force dry_run off dropped
+    # repo_layout as well, so on a flat repository Clean Upload would have
+    # staged files under config/ beside the ones already at the root.
+    sync_config = replace(sync_config, dry_run=False)
     started = dt.datetime.now(dt.timezone.utc).isoformat()
     _save_state({"status": "running", "last_run": started, "last_error": None, **_clear_sync_progress_state()})
     _set_cancel_requested(False)
