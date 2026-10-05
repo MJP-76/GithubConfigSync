@@ -2,6 +2,20 @@
 
 ## Latest Releases
 
+## 1.7.7
+
+A one-shot way to bring an existing repository onto the structured layout — plus the bug that meant your Layout choice was never being saved.
+
+- **New: "Migrate from flat layout to structured".** A tick box in the Danger Zone. Tick it and your next sync clears the repository root of everything that now lives under `config/`, as part of that sync's **single commit** — not a separate operation that could fail halfway and leave the two halves inconsistent. It keeps this add-on's own `.github-config-sync-addon.json`, `README.md` and `repository.yaml`, and is only available while Layout is `prefixed`. Afterwards it writes `.github-config-sync-migrated.json` to the repository root and the tick box greys out permanently. The marker lives in the repository rather than in local state, so it survives a reinstall and is visible in the repo itself.
+
+- **The Layout dropdown has never worked.** `repo_layout` was missing from the options the UI posts, and options are replaced wholesale on every save — so the value was erased the moment you made it and the layout silently reverted to the `prefixed` default. Your repository could be restructured without anybody choosing it. A payload that omits the key now keeps what is stored rather than resetting it.
+
+- **The migration reads the repository, not your scan baseline.** A baseline only ever records what a previous sync saw, so after a run that scanned nothing, *every* operation reading it returned an empty plan while looking successful. That is how root-level leftovers became unreachable by normal sync, Clean Repo and Migrate Layout alike. The repository is the authority on its own contents.
+
+- **The new option reaches every config the add-on builds**, and a dry run previews the migration without writing the marker or spending the tick box.
+
+**If you want a flat repository:** set **Layout** to `Flat` before your next sync (it now actually saves). **If you want it structured:** leave Layout on `Prefixed` and tick the migration box.
+
 ## 1.7.6
 
 Fixes the Sync button, which was reporting success without syncing anything.

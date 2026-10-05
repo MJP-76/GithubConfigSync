@@ -6,6 +6,14 @@ The full 71-release history lives in
 [GitHub Releases](https://github.com/MJP-76/GithubConfigSync/releases)).
 The last 5 releases are kept at the top, per the project's changelog rules.
 
+## 1.7.7
+
+- **New: one-shot "Migrate from flat layout to structured" tick box.** Tick it and the next sync clears the repository root of everything that now lives under `config/`, in that sync's single commit, keeping this add-on's own marker, `README.md` and `repository.yaml`. It then writes `.github-config-sync-migrated.json` to the repository root and greys itself out permanently. Requires Layout to be `prefixed`.
+
+- **The Layout dropdown has never worked.** `repo_layout` was missing from the options the UI posts and options are replaced wholesale on save, so the choice was erased immediately and the layout reverted to the `prefixed` default. A payload without the key now keeps what is stored.
+
+- **The migration reads the repository rather than the scan baseline.** A baseline only holds what a previous sync recorded, so after a run that scanned nothing every operation reading it returned an empty plan while appearing to succeed — which is why normal sync, Clean Repo and Migrate Layout were all no-ops.
+
 ## 1.7.6
 
 Fixes the Sync button, which was reporting success without syncing anything.
