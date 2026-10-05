@@ -2,6 +2,10 @@
 
 ## Latest Releases
 
+## 1.7.8
+
+- **An idle sync no longer commits.** The repository marker was written unconditionally, and GitHub's contents API creates a commit whether or not the bytes differ — so a sync that upserted and deleted nothing still produced a `sync: add repo marker` commit. The marker is now compared first and written only when it differs.
+
 ## 1.7.7
 
 - **New: one-shot "Migrate from flat layout to structured" tick box.** Tick it and the next sync clears the repository root of everything that now lives under `config/`, in that sync's single commit, keeping this add-on's own marker, `README.md` and `repository.yaml`. It then writes `.github-config-sync-migrated.json` to the repository root and greys itself out permanently. Requires Layout to be `prefixed`.

@@ -2,6 +2,12 @@
 
 ## Latest Releases
 
+## 1.7.8
+
+A small release: a sync that changes nothing no longer leaves a commit behind.
+
+- **An idle sync no longer commits.** The repository marker was written unconditionally, and GitHub's contents API creates a commit whether or not the bytes differ — so a sync that upserted 0 files and deleted 0 still produced a `sync: add repo marker` commit, dirtying a history it had just left clean. The marker content is static, so it is now compared first and written only when it differs. Anything that cannot be compared is written rather than trusted, because a wrong marker would silently disable the migration tick box.
+
 ## 1.7.7
 
 A one-shot way to bring an existing repository onto the structured layout — plus the bug that meant your Layout choice was never being saved.
