@@ -1713,6 +1713,58 @@ class EmptySelectionRefusalTests(unittest.TestCase):
         message = self._run(self._engine("whitelist", sync_paths=(".",)))
         self.assertIn("Sync completed", message)
 
+class AddonConfigsRootTests(unittest.TestCase):
+    """Blacklist names addon_configs as a default folder, so its path must exist.
+
+    The path was chosen from include_addon_configs, which the UI derives from
+    whether you ticked the folder - so the only way to have it synced was to
+    select it, in a mode whose entire promise is that you select nothing. A
+    blacklist user ticks nothing, the flag stays False, the path became
+    /__missing_addon_configs__, and the root that _hash_roots had just chosen
+    for walking failed exists() and was skipped. Every other mount's path was
+    unconditional; this one alone was double-gated.
+    """
+
+    def setUp(self) -> None:
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        base = Path(self._tmp.name)
+        self.config = base / "config"
+        self.addons = base / "addon_configs" / "some_addon"
+        self.config.mkdir()
+        self.addons.mkdir(parents=True)
+        (self.config / "configuration.yaml").write_text("id: 1", encoding="utf-8")
+        (self.addons / "settings.yaml").write_text("enabled: true", encoding="utf-8")
+
+    def _plan(self, mode: str, sync_paths=(), include: bool = False):
+        engine = SyncEngine(
+            SyncConfig(
+                repository="owner/repo", branch="main", token="token",
+                config_root=str(self.config), dry_run=False, sync_mode=mode,
+                sync_paths=tuple(sync_paths), include_addon_configs=include,
+                addon_config_root=str(self.addons.parent),
+                # Flat: this test asserts config-root paths by name.
+                repo_layout="flat",
+            ),
+            previous_hash_index={},
+        )
+        plan, index = engine.plan()
+        return plan, index
+
+    def test_blacklist_walks_it_even_when_nothing_is_selected(self) -> None:
+        _, index = self._plan("blacklist", sync_paths=())
+        self.assertIn("addon_configs/some_addon/settings.yaml", index)
+
+    def test_whitelist_scopes_it_to_the_selection(self) -> None:
+        """Selecting only the config root must not drag addon_configs in."""
+        _, index = self._plan("whitelist", sync_paths=(".",))
+        self.assertNotIn("addon_configs/some_addon/settings.yaml", index)
+        self.assertIn("configuration.yaml", index)
+
+    def test_whitelist_includes_it_when_selected(self) -> None:
+        _, index = self._plan("whitelist", sync_paths=(".", "addon_configs"), include=True)
+        self.assertIn("addon_configs/some_addon/settings.yaml", index)
+
 
 if __name__ == "__main__":
     unittest.main()
