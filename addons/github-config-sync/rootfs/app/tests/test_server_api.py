@@ -2262,6 +2262,31 @@ class ModeDefaultTests(unittest.TestCase):
         self.assertNotIn(': "whitelist"', html.split("const MODE_HELP", 1)[-1])
         self.assertIn('|| "blacklist"', html)
 
+class BlacklistPanelTests(unittest.TestCase):
+    """Blacklist hides the picker, so it must not talk about selecting.
+
+    The panel that says "Anything else you have selected" is the only thing
+    on screen in that mode - the tree and the selected-paths list are both
+    hidden by applySyncMode() - so the sentence described a state the reader
+    could neither see nor change. The carry-over behaviour it referred to is
+    real and stays; it is documented in docs/syncing.md, where someone can
+    act on it.
+    """
+
+    def _panel(self) -> str:
+        html = (APP_ROOT / "static" / "index.html").read_text(encoding="utf-8")
+        return html.split('id="blacklistPanel"', 1)[1].split("</div>", 1)[0]
+
+    def test_the_panel_does_not_ask_about_selections(self) -> None:
+        panel = self._panel()
+        self.assertNotIn("you have selected", panel)
+        self.assertNotIn("/media", panel)
+
+    def test_it_still_names_the_default_folders(self) -> None:
+        panel = self._panel()
+        self.assertIn("/config", panel)
+        self.assertIn("/addon_configs", panel)
+
 
 if __name__ == "__main__":
     unittest.main()

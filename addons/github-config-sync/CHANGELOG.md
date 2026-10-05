@@ -2,6 +2,20 @@
 
 ## Latest Releases
 
+## 1.7.11
+
+Three fixes. One of them is a behaviour change you will notice.
+
+- **A selection mode with nothing selected now refuses instead of reporting success.** Whitelist and Override with an empty selection stop before scanning, and used to return `Sync completed. Upserted 0, deleted 0` — byte for byte what a healthy sync with nothing to do looks like. The product already refused when an empty scan had *deletions* pending; the half where nothing is pending was unguarded, so a broken selection and a quiet day were indistinguishable. It now fails with `Refusing to sync: nothing is selected`, and names the way out. Dry runs refuse too.
+  **You will see this as a change:** anyone whose selection was silently empty gets a failure where they used to get a success. That is the point — the message says what to do.
+
+- **Blacklist can actually sync `addon_configs` now.** Its path was chosen from `include_addon_configs`, which the UI derives from whether you ticked the folder — so the only way to have it synced was to select it, in the mode whose entire promise is that you select nothing. A blacklist user ticks nothing, the path became a directory that does not exist, and the walk dropped the root it had just chosen. The path is now unconditional, like `media`, `share`, `ssl` and `backups` already were, and the flag keeps only its original job of deciding whether it is walked.
+  If you use Blacklist, files under `/addon_configs/<slug>/` may appear in your repository after updating.
+
+- **Blacklist's help no longer talks about selecting.** The picker — tree and selected list alike — is hidden in that mode, so a line reading "anything else you have selected" described a state the reader could neither see nor change from where it was shown. The carry-over it referred to is real and unchanged: mounts chosen in Whitelist or Override keep syncing after a switch. That is documented in the sync docs, where it can be acted on.
+
+- A test that raced the thread it had just cancelled no longer does, which was the intermittent suite failure.
+
 ## 1.7.10
 
 **Stable.** This release promotes the 1.7.x line and refactors Blacklist to comply with community best practice.

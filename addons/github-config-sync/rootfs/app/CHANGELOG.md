@@ -2,6 +2,13 @@
 
 ## Latest Releases
 
+## 1.7.11
+
+- **A selection mode with nothing selected now refuses instead of reporting success.** It used to return `Sync completed. Upserted 0, deleted 0` — identical to a healthy sync with nothing to do. It now fails with `Refusing to sync: nothing is selected`, in live and dry run alike. **Visible change:** anyone whose selection was silently empty gets a failure where they used to get a success.
+- **Blacklist can actually sync `addon_configs`.** Its path was gated on a flag derived from whether you ticked it, which a blacklist user rightly never does, so the root was walked and then dropped. The path is now unconditional like every other mount. Files under `/addon_configs/` may appear after updating if you use Blacklist.
+- **Blacklist's help no longer mentions selecting** — the picker is hidden in that mode. The carry-over behaviour is unchanged.
+- Fixed an intermittent test failure.
+
 ## 1.7.10
 
 **Stable.** Refactors Blacklist to comply with community best practice.
