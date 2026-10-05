@@ -8,7 +8,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Callable
 
 from .errors import SyncError
@@ -20,11 +20,162 @@ OAUTH_BASE = "https://github.com"
 ADDON_REPO_MARKER_PATH = ".github-config-sync-addon.json"
 
 
+@dataclass
+class _RateGate:
+    """Backoff state for one client, shared by that client's worker threads.
+
+    This used to be module-global, so one client's rate limit stalled every other
+    client in the process. That was not hypothetical. The add-on's own update
+    check runs unauthenticated, and unauthenticated requests draw on GitHub's
+    60/hour per-IP budget rather than the authenticated one. When that budget
+    was spent, the half-hour backoff that check opened held up every fully
+    authenticated sync behind it - a sync would report itself running while
+    waiting on a limit it had not hit and had no way to clear.
+    """
+
+    lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
+    until: float = 0.0
+    reason: str = ""
+    remaining: int | None = None
+    reset_at: float | None = None
+    cancel_check: Callable[[], bool] | None = None
+    progress: Callable[[dict[str, object]], None] | None = None
+
+    def register_hooks(
+        self,
+        cancel_check: Callable[[], bool] | None = None,
+        progress: Callable[[dict[str, object]], None] | None = None,
+    ) -> None:
+        """Wire the watchdog's cancel and progress signals (clear with None)."""
+        self.cancel_check = cancel_check
+        self.progress = progress
+
+    def reset(self) -> None:
+        """Clear gate state. A sync clears this when it finishes."""
+        with self.lock:
+            self.until = 0.0
+            self.reason = ""
+            self.remaining = None
+            self.reset_at = None
+
+    def wait(self) -> float:
+        with self.lock:
+            return max(0.0, self.until - time.time())
+
+    def open(self, wait_seconds: float, reason: str = "") -> None:
+        until = time.time() + wait_seconds
+        with self.lock:
+            self.until = max(self.until, until)
+            self.reason = reason
+        if self.progress is not None:
+            self.progress(
+                {
+                    "action": "waiting",
+                    "wait_seconds": wait_seconds,
+                    "reason": reason,
+                    "until": until,
+                }
+            )
+
+    def note_headers(self, headers: Any) -> None:
+        if headers is None:
+            return
+        remaining_raw = headers.get("X-RateLimit-Remaining")
+        reset_raw = headers.get("X-RateLimit-Reset")
+        if remaining_raw is None and reset_raw is None:
+            return
+        try:
+            remaining = int(remaining_raw) if remaining_raw is not None else None
+            reset_at = float(reset_raw) if reset_raw is not None else None
+        except (ValueError, TypeError):
+            return
+        with self.lock:
+            if remaining is not None:
+                self.remaining = remaining
+            if reset_at is not None:
+                self.reset_at = reset_at
+
+    def sleep(self, seconds: float) -> None:
+        """Sleep for ``seconds``, bailing early with a SyncError on cancellation."""
+        if seconds <= 0:
+            return
+        if self.cancel_check is None:
+            time.sleep(seconds)
+            return
+        deadline = time.time() + seconds
+        while True:
+            if self.cancel_check():
+                raise SyncError("Sync cancelled during GitHub rate-limit wait")
+            now = time.time()
+            if now >= deadline:
+                return
+            time.sleep(min(0.25, deadline - now))
+
+    def wait_out(self) -> None:
+        """Hold this thread until this client's gate clears, staggered on release.
+
+        Waiters used to sleep the whole remaining wait and then all fire at once.
+        """
+        announced = False
+        rounds = 0
+        stagger = _thread_stagger()
+        while rounds < _GATE_MAX_ROUNDS:
+            wait = self.wait()
+            if wait <= 0:
+                break
+            rounds += 1
+            if not announced:
+                _LOGGER.warning("GitHub rate limit still active, waiting %.0fs", wait)
+                announced = True
+            self.sleep(wait)
+        if rounds:
+            self.sleep(stagger)
+
+    def wait_for_budget(self) -> None:
+        """Pause before sending when the core budget is nearly exhausted."""
+        with self.lock:
+            remaining = self.remaining
+            reset_at = self.reset_at
+        if (
+            remaining is None
+            or reset_at is None
+            or remaining > _PREEMPTIVE_REMAINING_MIN
+        ):
+            return
+        wait = reset_at - time.time()
+        if wait <= 0:
+            return
+        _LOGGER.warning(
+            "GitHub core rate limit nearly exhausted (remaining=%d), pausing %.0fs until reset",
+            remaining,
+            wait,
+        )
+        self.sleep(min(wait, _MAX_RATE_LIMIT_WAIT))
+
+
 @dataclass(frozen=True)
 class GitHubClient:
     repository: str
     branch: str
     token: str
+    # Auxiliary clients ask for isolation. They run unauthenticated, so they
+    # share GitHub's much smaller 60/hour per-IP budget, and a long backoff
+    # opened for one of them used to hold up every authenticated sync in the
+    # process. An isolated client gives up on a rate limit instead of sleeping
+    # through it, which is all its callers could act on anyway - they catch the
+    # error, report it and carry on.
+    isolate_rate_limits: bool = False
+    gate: _RateGate = field(default_factory=_RateGate, compare=False, repr=False)
+
+    def register_rate_limit_hooks(
+        self,
+        cancel_check: Callable[[], bool] | None = None,
+        progress: Callable[[dict[str, object]], None] | None = None,
+    ) -> None:
+        self.gate.register_hooks(cancel_check=cancel_check, progress=progress)
+
+    def reset_rate_gate(self) -> None:
+        self.gate.reset()
 
     @property
     def _base(self) -> str:
@@ -348,8 +499,8 @@ class GitHubClient:
         transient_errors = 0
         rate_limit_errors = 0
         while True:
-            _wait_for_rate_gate()
-            _wait_for_core_budget()
+            self.gate.wait_out()
+            self.gate.wait_for_budget()
             data = None
             headers = dict(self._headers)
             if payload is not None:
@@ -358,7 +509,7 @@ class GitHubClient:
             request = urllib.request.Request(url, method=method, data=data, headers=headers)
             try:
                 with urllib.request.urlopen(request, timeout=timeout) as response:
-                    _note_rate_headers(response.headers)
+                    self.gate.note_headers(response.headers)
                     body = response.read().decode("utf-8")
                     return json.loads(body) if body else {}
             except urllib.error.HTTPError as err:
@@ -366,6 +517,21 @@ class GitHubClient:
                 wait = _rate_limit_wait_from(err, body)
                 if wait is not None:
                     rate_limit_errors += 1
+                    if self.isolate_rate_limits:
+                        # Auxiliary work must never park a request thread for
+                        # half an hour on a limit the core sync does not share.
+                        _LOGGER.warning(
+                            "GitHub rate limit HTTP %d on %s %s, not retrying this "
+                            "auxiliary request: %s",
+                            err.code,
+                            method,
+                            url,
+                            _body_excerpt(body),
+                        )
+                        raise SyncError(
+                            f"GitHub rate limit HTTP {err.code} for {method} {url}: "
+                            f"{_body_excerpt(body)}"
+                        ) from err
                     _LOGGER.warning(
                         "GitHub rate limit HTTP %d on %s %s, waiting %.0fs before retry "
                         "(attempt %d/%d): %s",
@@ -383,7 +549,7 @@ class GitHubClient:
                             f"{rate_limit_errors} attempts. GitHub said: "
                             f"{_body_excerpt(body)}"
                         ) from err
-                    _open_rate_gate(wait, reason=f"HTTP {err.code}")
+                    self.gate.open(wait, reason=f"HTTP {err.code}")
                     continue
                 if err.code in (500, 502, 503, 504):
                     transient_errors += 1
@@ -396,7 +562,7 @@ class GitHubClient:
                         transient_errors,
                         wait,
                     )
-                    _interruptible_sleep(wait)
+                    self.gate.sleep(wait)
                     continue
                 raise SyncError(f"GitHub API error HTTP {err.code} for {method} {url}: {body}") from err
             except urllib.error.URLError as err:
@@ -473,40 +639,6 @@ _GATE_STAGGER_MAX = 8.0
 # catches one re-armed while this thread slept.
 _GATE_MAX_ROUNDS = 3
 
-# Module-level watchdog state shared by every GitHubClient instance (the client
-# itself is a frozen dataclass, and several worker threads can be mid-request at
-# once). When any request draws a rate limit, a gate opens that all threads wait
-# on, so the batch backs off as a unit and retries until it clears (or the sync
-# is cancelled) instead of stampeding the API or giving up after a few attempts.
-_RATE_GATE_LOCK = threading.Lock()
-_RATE_GATE_UNTIL: float = 0.0
-_RATE_GATE_REASON: str = ""
-_RATE_REMAINING: int | None = None
-_RATE_RESET: float | None = None
-_RATE_CANCEL_CHECK: Callable[[], bool] | None = None
-_RATE_PROGRESS: Callable[[dict[str, object]], None] | None = None
-
-
-def register_rate_limit_hooks(
-    cancel_check: Callable[[], bool] | None = None,
-    progress: Callable[[dict[str, object]], None] | None = None,
-) -> None:
-    """Wire the watchdog's cancel and progress signals (clear by passing None)."""
-    global _RATE_CANCEL_CHECK, _RATE_PROGRESS
-    _RATE_CANCEL_CHECK = cancel_check
-    _RATE_PROGRESS = progress
-
-
-def reset_rate_limit_gate() -> None:
-    """Clear gate state (used by tests and after a sync finishes)."""
-    global _RATE_GATE_UNTIL, _RATE_GATE_REASON, _RATE_REMAINING, _RATE_RESET
-    with _RATE_GATE_LOCK:
-        _RATE_GATE_UNTIL = 0.0
-        _RATE_GATE_REASON = ""
-        _RATE_REMAINING = None
-        _RATE_RESET = None
-
-
 def _body_excerpt(body: str, limit: int = 220) -> str:
     """A short single-line view of a GitHub error body.
 
@@ -554,66 +686,9 @@ def _rate_limit_wait_from(err: urllib.error.HTTPError, body: str) -> float | Non
     return _parse_rate_limit_wait(err, 0)
 
 
-def _note_rate_headers(headers: Any) -> None:
-    global _RATE_REMAINING, _RATE_RESET
-    if headers is None:
-        return
-    remaining_raw = headers.get("X-RateLimit-Remaining")
-    reset_raw = headers.get("X-RateLimit-Reset")
-    if remaining_raw is None and reset_raw is None:
-        return
-    try:
-        remaining = int(remaining_raw) if remaining_raw is not None else None
-        reset = float(reset_raw) if reset_raw is not None else None
-    except (ValueError, TypeError):
-        return
-    with _RATE_GATE_LOCK:
-        if remaining is not None:
-            _RATE_REMAINING = remaining
-        if reset is not None:
-            _RATE_RESET = reset
-
-
-def _open_rate_gate(wait_seconds: float, reason: str = "") -> None:
-    global _RATE_GATE_UNTIL, _RATE_GATE_REASON
-    until = time.time() + wait_seconds
-    with _RATE_GATE_LOCK:
-        _RATE_GATE_UNTIL = max(_RATE_GATE_UNTIL, until)
-        _RATE_GATE_REASON = reason
-    progress = _RATE_PROGRESS
-    if progress is not None:
-        progress(
-            {
-                "action": "waiting",
-                "wait_seconds": wait_seconds,
-                "reason": reason,
-                "until": until,
-            }
-        )
-
-
-def _gate_wait() -> float:
-    with _RATE_GATE_LOCK:
-        return max(0.0, _RATE_GATE_UNTIL - time.time())
-
-
-def _interruptible_sleep(seconds: float) -> None:
-    """Sleep for ``seconds``, bailing early with a SyncError on cancellation."""
-    if seconds <= 0:
-        return
-    if _RATE_CANCEL_CHECK is None:
-        time.sleep(seconds)
-        return
-    deadline = time.time() + seconds
-    while True:
-        if _RATE_CANCEL_CHECK():
-            raise SyncError("Sync cancelled during GitHub rate-limit wait")
-        now = time.time()
-        if now >= deadline:
-            return
-        time.sleep(min(0.25, deadline - now))
-
-
+# Per-thread release offsets are handed out from a counter held here rather than
+# derived from get_ident(), which is pointer-aligned on aarch64 and so would
+# return the same slot for every thread.
 _GATE_STAGGER_SLOTS = 16
 _GATE_STAGGER_ATTR = "_github_rate_limit_stagger"
 _GATE_STAGGER_LOCK = threading.Lock()
@@ -641,40 +716,3 @@ def _thread_stagger() -> float:
     return offset
 
 
-def _wait_for_rate_gate() -> None:
-    """Hold this thread until the shared rate-limit gate clears.
-
-    Waiters used to sleep the whole remaining wait and then all fire at once.
-    """
-    announced = False
-    rounds = 0
-    stagger = _thread_stagger()
-    while rounds < _GATE_MAX_ROUNDS:
-        wait = _gate_wait()
-        if wait <= 0:
-            break
-        rounds += 1
-        if not announced:
-            _LOGGER.warning("GitHub rate limit still active, waiting %.0fs", wait)
-            announced = True
-        _interruptible_sleep(wait)
-    if rounds:
-        _interruptible_sleep(stagger)
-
-
-def _wait_for_core_budget() -> None:
-    """Pause before sending when the core budget is nearly exhausted."""
-    with _RATE_GATE_LOCK:
-        remaining = _RATE_REMAINING
-        reset = _RATE_RESET
-    if remaining is None or reset is None or remaining > _PREEMPTIVE_REMAINING_MIN:
-        return
-    wait = reset - time.time()
-    if wait <= 0:
-        return
-    _LOGGER.warning(
-        "GitHub core rate limit nearly exhausted (remaining=%d), pausing %.0fs until reset",
-        remaining,
-        wait,
-    )
-    _interruptible_sleep(min(wait, _MAX_RATE_LIMIT_WAIT))

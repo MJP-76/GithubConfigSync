@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Callable
 
 from .errors import SyncError
-from .github_client import GitHubClient, register_rate_limit_hooks, reset_rate_limit_gate
+from .github_client import GitHubClient
 
 _LOGGER = logging.getLogger(__name__)
 from .hashing import GitIgnoreMatcher, build_hash_index, diff_hash_indexes, scan_sensitive_files
@@ -155,7 +155,7 @@ class SyncEngine:
         needs to know how to cancel those waits and how to surface a "waiting"
         progress payload so the UI shows the pause instead of a frozen bar.
         """
-        register_rate_limit_hooks(
+        self._github.register_rate_limit_hooks(
             cancel_check=self._cancel_requested,
             progress=self._report_rate_limit_wait,
         )
@@ -302,7 +302,7 @@ class SyncEngine:
             raise
         finally:
             # Never leave a stale gate behind for the next run to wait on.
-            reset_rate_limit_gate()
+            self._github.reset_rate_gate()
         _LOGGER.info(
             "Sync finished in %.1fs: %s",
             time.monotonic() - started,

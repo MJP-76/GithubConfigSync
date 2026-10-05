@@ -790,7 +790,15 @@ def _addon_update_check(options: dict[str, Any]) -> dict[str, Any]:
 
     logger = logging.getLogger(__name__)
     try:
-        client = GitHubClient(repository=ADDON_SOURCE_REPO, branch="main", token="")
+        # Unauthenticated: this checks the add-on's public repo, so it cannot
+        # use the user's token, and unauthenticated requests share a 60/hour
+        # per-IP budget. It must never park a sync on that budget.
+        client = GitHubClient(
+            repository=ADDON_SOURCE_REPO,
+            branch="main",
+            token="",
+            isolate_rate_limits=True,
+        )
         releases = client.list_releases(per_page=20)
         versions: list[tuple[tuple[int, ...], dict[str, Any]]] = []
         for release in releases:

@@ -56,13 +56,11 @@ def _client(repository: str = "owner/repo") -> GitHubClient:
 
 
 class TransportTests(unittest.TestCase):
-    def setUp(self) -> None:
-        github_client.reset_rate_limit_gate()
-        github_client.register_rate_limit_hooks()
+    """Each client owns its rate-limit gate, so these need no global reset.
 
-    def tearDown(self) -> None:
-        github_client.reset_rate_limit_gate()
-        github_client.register_rate_limit_hooks()
+    The gate used to be module-global and every test had to clear it in setUp.
+    A test that forgot to leaked a half-hour backoff into the next one.
+    """
 
     def test_get_returns_decoded_json(self) -> None:
         client = _client()
@@ -214,7 +212,7 @@ class TransportTests(unittest.TestCase):
 
     def test_rate_limit_wait_aborts_on_cancel_hook(self) -> None:
         client = _client()
-        github_client.register_rate_limit_hooks(cancel_check=lambda: True)
+        client.register_rate_limit_hooks(cancel_check=lambda: True)
         with patch("sync.github_client.time.sleep"):
             with patch(
                 "sync.github_client.urllib.request.urlopen",
@@ -390,9 +388,12 @@ class ContentTests(unittest.TestCase):
             self.assertEqual(_client().get_content("a/b.yaml"), {"sha": "s1"})
 
     def test_get_content_raises_on_non_404(self) -> None:
-        with patch("sync.github_client.urllib.request.urlopen", side_effect=_http_error(500, b'{"message":"boom"}')):
-            with self.assertRaises(SyncError):
-                _client().get_content("a/b.yaml")
+        # The 5xx backoff is 1+2+4+8s. Patch the sleep: this asserts the error,
+        # not that the test suite is slow.
+        with patch("sync.github_client.time.sleep"):
+            with patch("sync.github_client.urllib.request.urlopen", side_effect=_http_error(500, b'{"message":"boom"}')):
+                with self.assertRaises(SyncError):
+                    _client().get_content("a/b.yaml")
 
     def test_put_content_encodes_base64(self) -> None:
         with patch(
@@ -589,9 +590,10 @@ class ReleaseTests(unittest.TestCase):
             _client().delete_tag("v1.0.0")
         mock_urlopen.assert_called_once()
 
-        with patch("sync.github_client.urllib.request.urlopen", side_effect=_http_error(500, b'{}')):
-            with self.assertRaises(SyncError):
-                _client().delete_tag("v1.0.0")
+        with patch("sync.github_client.time.sleep"):
+            with patch("sync.github_client.urllib.request.urlopen", side_effect=_http_error(500, b'{}')):
+                with self.assertRaises(SyncError):
+                    _client().delete_tag("v1.0.0")
 
 
 class HelperTests(unittest.TestCase):
@@ -671,15 +673,74 @@ class GateReleaseTests(unittest.TestCase):
 
     def test_the_gate_wait_cannot_spin_forever(self) -> None:
         """A sleep that returns early must not hang the caller in a tight loop."""
-        github_client.reset_rate_limit_gate()
-        self.addCleanup(github_client.reset_rate_limit_gate)
-        # The cancel checker is module-global as well, and a leftover one from
-        # another test aborts the wait before it can be observed.
-        github_client.register_rate_limit_hooks()
-        self.addCleanup(github_client.register_rate_limit_hooks)
-        github_client._open_rate_gate(3600.0, reason="test")
+        client = _client()
+        client.gate.open(3600.0, reason="test")
 
         with patch("sync.github_client.time.sleep") as mock_sleep:
-            github_client._wait_for_rate_gate()
+            client.gate.wait_out()
 
         self.assertEqual(mock_sleep.call_count, github_client._GATE_MAX_ROUNDS)
+
+
+class GateIsolationTests(unittest.TestCase):
+    """Auxiliary work must not be able to stall authenticated work.
+
+    The add-on's update check runs unauthenticated against a public repository,
+    so it shares GitHub's 60/hour per-IP budget rather than the authenticated
+    one. When that budget was spent it opened a half-hour backoff that a
+    module-global gate applied to every client in the process, and a fully
+    authenticated sync would sit behind it reporting itself as running while
+    waiting on a limit it had not hit and could not clear.
+    """
+
+    def test_a_gate_opened_by_one_client_does_not_reach_another(self) -> None:
+        auxiliary = _client("MJP-76/GithubConfigSync")
+        syncing = _client("owner/config")
+        auxiliary.gate.open(3600.0, reason="unauthenticated budget spent")
+
+        self.assertAlmostEqual(auxiliary.gate.wait(), 3600.0, delta=1.0)
+        self.assertEqual(syncing.gate.wait(), 0.0)
+
+    def test_an_isolated_client_gives_up_instead_of_sleeping(self) -> None:
+        client = GitHubClient(
+            repository="owner/repo", branch="main", token="", isolate_rate_limits=True
+        )
+        with patch("sync.github_client.time.sleep") as mock_sleep:
+            with patch(
+                "sync.github_client.urllib.request.urlopen",
+                side_effect=_http_error(403, b'{"message":"API rate limit exceeded"}'),
+            ) as mock_urlopen:
+                with self.assertRaises(SyncError) as ctx:
+                    client._request_any("GET", "https://api.github.com/x")
+
+        # One attempt, no sleep, and no shared gate left for anyone else.
+        self.assertEqual(mock_urlopen.call_count, 1)
+        self.assertEqual(mock_sleep.call_count, 0)
+        self.assertEqual(client.gate.wait(), 0.0)
+        self.assertIn("rate limit", str(ctx.exception))
+
+    def test_a_normal_client_still_backs_off_and_retries(self) -> None:
+        """Isolation is opt-in. The syncing client must keep its retry ceiling."""
+        client = _client()
+        with patch("sync.github_client.time.sleep"):
+            with patch(
+                "sync.github_client.urllib.request.urlopen",
+                side_effect=_http_error(429, b"{}", retry_after="900"),
+            ) as mock_urlopen:
+                with self.assertRaises(SyncError):
+                    client._request_any("GET", "https://api.github.com/x")
+
+        self.assertEqual(mock_urlopen.call_count, 4)
+        self.assertGreater(client.gate.wait(), 0.0)
+
+
+class UpdateCheckClientTests(unittest.TestCase):
+    """The production wiring, so the isolation flag cannot go missing quietly."""
+
+    def test_the_update_check_client_is_unauthenticated_and_isolated(self) -> None:
+        source = (Path(__file__).resolve().parents[1] / "server.py").read_text(
+            encoding="utf-8"
+        )
+        call = source[source.index("releases = client.list_releases") - 400 : source.index("releases = client.list_releases")]
+        self.assertIn("token=\"\"", call)
+        self.assertIn("isolate_rate_limits=True", call)

@@ -2,6 +2,18 @@
 
 ## Latest Releases
 
+## 1.7.5
+
+Fixes the cause of a sync that hangs while reporting itself as running.
+
+- **One client's rate limit could stall every other client.** The backoff state was module-global, so any request that drew a rate limit made *every* GitHub client in the process wait on it - including clients that had hit no limit of their own and could not have cleared it.
+
+- **In practice the add-on was stalling itself.** Its update check runs unauthenticated, because it reads the add-on's public repository and so cannot use your token. Unauthenticated requests share GitHub's much smaller 60/hour per-IP budget. When that was spent, the update check opened a backoff of roughly half an hour, and authenticated syncs queued behind it - reporting "running", waiting on a limit they had not hit. The 403 body says so outright: *"API rate limit exceeded... Authenticated requests get a higher rate limit."*
+
+- The backoff state now belongs to each client. The update check additionally gives up on a rate limit rather than sleeping through one - it is optional work, its caller caches the failure and carries on, and nothing is gained by parking it for half an hour. Syncs that hit a real limit still back off and retry exactly as before.
+
+  This should be the last of the rate-limit work. 1.7.3 capped the retry loop and made sure a sync always clears its gate; this removes the reason the gate was opening at all.
+
 ## 1.7.4
 
 Fixes 1.7.3's own logging, which never reached the log.

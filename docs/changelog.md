@@ -6,6 +6,16 @@ The full 71-release history lives in
 [GitHub Releases](https://github.com/MJP-76/GithubConfigSync/releases)).
 The last 5 releases are kept at the top, per the project's changelog rules.
 
+## 1.7.5
+
+Fixes the cause of a sync that hangs while reporting itself as running.
+
+- **One client's rate limit could stall every other client.** The backoff state was module-global, so any request that drew a rate limit made *every* GitHub client in the process wait on it, including clients that had hit no limit of their own and could not clear it.
+
+- **In practice the add-on was stalling itself.** Its update check runs unauthenticated, because it reads the add-on's public repository and cannot use your token, and unauthenticated requests share GitHub's much smaller 60/hour per-IP budget. When that was spent, the update check opened a backoff of roughly half an hour and authenticated syncs queued behind it, reporting "running" while waiting on a limit they had not hit.
+
+- The backoff state now belongs to each client, and the update check gives up on a rate limit rather than sleeping through one. Syncs that hit a real limit still back off and retry exactly as before.
+
 ## 1.7.4
 
 Fixes 1.7.3's own logging, which never reached the log.
