@@ -1088,7 +1088,15 @@ class ServerApiTests(ServerApiSetup, unittest.TestCase):
 
         self.assertEqual(len(created), 2)
         self.assertIs(scheduler._timer, second)
-        self.assertFalse(first.is_alive())
+        self.assertIsNot(first, second)
+        # cancel() sets the timer's finished event, which is settled the moment
+        # restart() returns. Asserting instead that the thread has already
+        # exited races with it waking up to notice the cancel - that race is
+        # what made this test fail intermittently under a loaded suite, and it
+        # is the difference between "the old timer was cancelled" (what is
+        # being tested) and "the old timer's thread has finished scheduling"
+        # (an implementation detail of threading).
+        self.assertTrue(first.finished.is_set())
         self.assertTrue(second.is_alive())
 
     def test_scheduler_restart_during_inflight_poll_does_not_arm_second_timer(self) -> None:
