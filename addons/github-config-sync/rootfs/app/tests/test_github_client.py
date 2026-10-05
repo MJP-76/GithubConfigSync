@@ -4,6 +4,7 @@ import base64
 import io
 import json
 import sys
+import threading
 import time
 import unittest
 import urllib.error
@@ -145,21 +146,53 @@ class TransportTests(unittest.TestCase):
 
         self.assertEqual(result, {"ok": True})
         self.assertEqual(mock_urlopen.call_count, 2)
-        waiting = mock_sleep.call_args.args[0]
-        self.assertGreaterEqual(waiting, 1.0)
-        self.assertLessEqual(waiting, 300)
+        # Any sleep may now be last (the release stagger is), so look for the
+        # one that honoured X-RateLimit-Reset rather than assuming its position.
+        waits = [call.args[0] for call in mock_sleep.call_args_list if call.args]
+        self.assertTrue(
+            any(1.0 <= w <= 300 for w in waits),
+            f"expected a wait near the reset time, got {waits}",
+        )
 
-    def test_rate_limit_without_reset_retries_beyond_five_until_success(self) -> None:
+    def test_rate_limit_that_never_clears_fails_instead_of_retrying_forever(self) -> None:
+        """A refusal retrying cannot fix has to surface, not spin silently.
+
+        The request loop had no ceiling, so a permanently-refused request
+        retried for hours: no error, no result, repository untouched, and
+        nothing in the log saying why. Honouring the wait is still correct -
+        giving up before the wait GitHub asked for would fail healthy syncs.
+        """
         client = _client()
         responses = [
-            _http_error(403, b'{"message":"API rate limit exceeded"}') for _ in range(7)
-        ] + [FakeResponse(b'{"ok":true}')]
+            _http_error(403, b'{"message":"API rate limit exceeded for 198.51.100.9."}')
+            for _ in range(8)
+        ]
         with patch("sync.github_client.time.sleep"):
-            with patch("sync.github_client.urllib.request.urlopen", side_effect=responses) as mock_urlopen:
-                result = client._request_any("GET", "https://api.github.com/x")
+            with patch(
+                "sync.github_client.urllib.request.urlopen", side_effect=responses
+            ) as mock_urlopen:
+                with self.assertRaises(SyncError) as caught:
+                    client._request_any("GET", "https://api.github.com/x")
 
-        self.assertEqual(result, {"ok": True})
-        self.assertEqual(mock_urlopen.call_count, 8)  # past the old 5-retry cap
+        # The initial attempt plus the retry ceiling, and not one more.
+        self.assertEqual(
+            mock_urlopen.call_count, github_client._RATE_LIMIT_MAX_RETRIES + 1
+        )
+        # GitHub's own explanation has to survive into the error, or the failure
+        # is exactly as undiagnosable as the hang it replaced.
+        self.assertIn("API rate limit exceeded", str(caught.exception))
+
+    def test_a_rate_limit_body_that_names_the_offending_token_is_kept(self) -> None:
+        """Distinguishes an exhausted quota from a token that cannot reach the repo."""
+        client = _client()
+        body = b'{"message":"Resource not accessible by integration"}'
+        responses = [_http_error(403, body) for _ in range(8)]
+        with patch("sync.github_client.time.sleep"):
+            with patch("sync.github_client.urllib.request.urlopen", side_effect=responses):
+                with self.assertRaises(SyncError) as caught:
+                    client._request_any("GET", "https://api.github.com/repos/o/r/git/blobs")
+
+        self.assertIn("Resource not accessible by integration", str(caught.exception))
 
     def test_rate_limit_429_with_retry_after_waits_then_succeeds(self) -> None:
         client = _client()
@@ -599,3 +632,54 @@ class HelperTests(unittest.TestCase):
         self.assertEqual(github_client._parse_rate_limit_wait(_http_error(403, b'{}'), attempt=0), 60.0)
         self.assertEqual(github_client._parse_rate_limit_wait(_http_error(403, b'{}'), attempt=1), 60.0)
         self.assertEqual(github_client._parse_rate_limit_wait(_http_error(403, b'{}'), attempt=3), 60.0)
+
+
+class GateReleaseTests(unittest.TestCase):
+    """Waiters must not all fire at GitHub on the same instant.
+
+    Releasing them together is what draws a secondary rate limit, which re-arms
+    the gate and starts the cycle again - so the backoff could never converge.
+    """
+
+    def test_the_release_offset_stays_within_its_window(self) -> None:
+        for _ in range(50):
+            offset = github_client._thread_stagger()
+            self.assertGreaterEqual(offset, 0.0)
+            self.assertLess(offset, github_client._GATE_STAGGER_MAX)
+
+    def test_concurrent_threads_get_differing_offsets(self) -> None:
+        offsets: list[float] = []
+        lock = threading.Lock()
+
+        def sample() -> None:
+            value = github_client._thread_stagger()
+            with lock:
+                offsets.append(value)
+
+        threads = [threading.Thread(target=sample) for _ in range(8)]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+
+        self.assertEqual(len(offsets), 8)
+        # Every live thread must get its own slot. This is the assertion that
+        # catches a stagger which reads as present but does nothing: a version
+        # keyed on get_ident() % 16 returns 0.0 for every thread on aarch64,
+        # because that value is pointer-aligned.
+        self.assertEqual(len(set(offsets)), 8)
+
+    def test_the_gate_wait_cannot_spin_forever(self) -> None:
+        """A sleep that returns early must not hang the caller in a tight loop."""
+        github_client.reset_rate_limit_gate()
+        self.addCleanup(github_client.reset_rate_limit_gate)
+        # The cancel checker is module-global as well, and a leftover one from
+        # another test aborts the wait before it can be observed.
+        github_client.register_rate_limit_hooks()
+        self.addCleanup(github_client.register_rate_limit_hooks)
+        github_client._open_rate_gate(3600.0, reason="test")
+
+        with patch("sync.github_client.time.sleep") as mock_sleep:
+            github_client._wait_for_rate_gate()
+
+        self.assertEqual(mock_sleep.call_count, github_client._GATE_MAX_ROUNDS)

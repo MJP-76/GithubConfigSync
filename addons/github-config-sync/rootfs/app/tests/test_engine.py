@@ -12,6 +12,7 @@ if str(APP_ROOT) not in sys.path:
 
 from sync.engine import SyncEngine
 from sync.errors import SyncError
+from sync.github_client import _gate_wait, _open_rate_gate, reset_rate_limit_gate
 from sync.hashing import MAX_SYNCABLE_BYTES
 from sync.models import SyncConfig, SyncPlan
 
@@ -1393,6 +1394,91 @@ class SingleCommitTests(unittest.TestCase):
         message = client.create_git_commit.call_args.kwargs["message"]
         self.assertIn("update 2 files", message)
         self.assertIn("remove 1 file", message)
+
+
+class RateGateLifecycleTests(unittest.TestCase):
+    """A finished sync must not leave the shared rate-limit gate open.
+
+    The gate is module-global and otherwise only clears as time passes, so a run
+    that was cancelled or that gave up after the retry ceiling left it open. The
+    next run - a manual one especially - then waited on a gate belonging to a
+    sync that had already finished, reporting itself as running while doing
+    nothing at all.
+    """
+
+    def setUp(self) -> None:
+        reset_rate_limit_gate()
+        self.addCleanup(reset_rate_limit_gate)
+
+    def _engine(self, root: Path) -> SyncEngine:
+        return SyncEngine(
+            SyncConfig(
+                repository="owner/repo",
+                branch="main",
+                token="token",
+                config_root=str(root),
+                dry_run=False,
+                sync_mode="whitelist",
+                repo_layout="flat",
+            ),
+            previous_hash_index={},
+        )
+
+    def test_a_completed_sync_leaves_no_gate_behind(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "a.yaml").write_text("a", encoding="utf-8")
+            _open_rate_gate(3600.0, reason="test")
+            self.assertGreater(_gate_wait(), 0.0)
+
+            with patch("sync.engine.GitHubClient", return_value=_batch_client()):
+                self._engine(root).run(SyncPlan(added=["a.yaml"], changed=[], removed=[], total_files=1))
+
+            self.assertEqual(_gate_wait(), 0.0)
+
+    def test_a_failed_sync_also_leaves_no_gate_behind(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "a.yaml").write_text("a", encoding="utf-8")
+            _open_rate_gate(3600.0, reason="test")
+
+            client = _batch_client()
+            client.create_git_tree.side_effect = SyncError("boom")
+            with patch("sync.engine.GitHubClient", return_value=client):
+                with self.assertRaises(SyncError):
+                    self._engine(root).run(SyncPlan(added=["a.yaml"], changed=[], removed=[], total_files=1))
+
+            self.assertEqual(_gate_wait(), 0.0)
+
+    def test_a_sync_says_what_it_is_doing_and_how_it_ended(self) -> None:
+        """A sync that starts, runs and finishes has to be visible in the log."""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "a.yaml").write_text("a", encoding="utf-8")
+            with patch("sync.engine.GitHubClient", return_value=_batch_client()):
+                with self.assertLogs("sync.engine", level="INFO") as captured:
+                    self._engine(root).run(SyncPlan(added=["a.yaml"], changed=[], removed=[], total_files=1))
+
+        text = "\n".join(captured.output)
+        self.assertIn("Sync starting", text)
+        self.assertIn("owner/repo", text)
+        self.assertIn("Sync finished", text)
+        self.assertIn("Upserted 1", text)
+
+    def test_a_failure_is_logged_with_its_reason(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "a.yaml").write_text("a", encoding="utf-8")
+            client = _batch_client()
+            client.create_git_tree.side_effect = SyncError("tree refused")
+            with patch("sync.engine.GitHubClient", return_value=client):
+                with self.assertLogs("sync.engine", level="ERROR") as captured:
+                    with self.assertRaises(SyncError):
+                        self._engine(root).run(SyncPlan(added=["a.yaml"], changed=[], removed=[], total_files=1))
+
+        text = "\n".join(captured.output)
+        self.assertIn("Sync failed", text)
+        self.assertIn("tree refused", text)
 
 
 if __name__ == "__main__":

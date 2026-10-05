@@ -1,11 +1,15 @@
 from __future__ import annotations
 
 import fnmatch
+import logging
+import time
 from pathlib import Path
 from typing import Callable
 
 from .errors import SyncError
-from .github_client import GitHubClient, register_rate_limit_hooks
+from .github_client import GitHubClient, register_rate_limit_hooks, reset_rate_limit_gate
+
+_LOGGER = logging.getLogger(__name__)
 from .hashing import GitIgnoreMatcher, build_hash_index, diff_hash_indexes, scan_sensitive_files
 from .models import SyncConfig, SyncPlan, SyncResult
 
@@ -259,13 +263,61 @@ class SyncEngine:
         return plan, current_hash_index, {"left_behind": left_behind, "conflicts": conflicts}
 
     def run(self, plan: SyncPlan) -> SyncResult:
+        """Apply a plan, logging the outcome and always clearing the rate gate.
+
+        The gate is module-global and otherwise only clears as time passes, so
+        a run that was cancelled or that gave up after the retry ceiling left it
+        open. The next run - including a manual one - then sat waiting on a gate
+        from a sync that had already finished, reporting itself as running while
+        doing nothing.
+
+        Logging here rather than inside the body means the dry run, the cancel
+        path and the failure path are all covered by one place, and a sync that
+        starts, succeeds or fails is visible in the add-on log at all.
+        """
+        started = time.monotonic()
+        upsert_paths = [*plan.added, *plan.changed]
+        removed_paths = list(plan.removed)
+        _LOGGER.info(
+            "Sync starting (%s) for %s@%s: %d file(s) in scope, "
+            "%d to upsert, %d to delete, %d oversized",
+            "dry run" if self._config.dry_run else "live",
+            self._config.repository,
+            self._config.branch,
+            plan.total_files,
+            len(upsert_paths),
+            len(removed_paths),
+            len(plan.oversized),
+        )
+        try:
+            result = self._run_plan(plan, upsert_paths, removed_paths)
+        except Exception as err:
+            _LOGGER.error(
+                "Sync failed after %.1fs for %s: %s: %s",
+                time.monotonic() - started,
+                self._config.repository,
+                type(err).__name__,
+                err,
+            )
+            raise
+        finally:
+            # Never leave a stale gate behind for the next run to wait on.
+            reset_rate_limit_gate()
+        _LOGGER.info(
+            "Sync finished in %.1fs: %s",
+            time.monotonic() - started,
+            result.message,
+        )
+        return result
+
+    def _run_plan(
+        self, plan: SyncPlan, upsert_paths: list[str], removed_paths: list[str]
+    ) -> SyncResult:
         if plan.removed and plan.total_files == 0:
             raise SyncError(
                 "Refusing to delete remote files: the local scan found no files. "
                 "Nothing on GitHub was changed."
             )
-        upsert_paths = [*plan.added, *plan.changed]
-        removed_paths = list(plan.removed)
         self._progress_callback(
             {
                 "status": "running",
@@ -342,7 +394,6 @@ class SyncEngine:
         )
 
     def _put_with_retry(self, relative: str, content: bytes, message: str | None = None, retries: int = 3) -> None:
-        import time
         remote = self._github.get_content(relative)
         sha = remote.get("sha") if remote else None
         commit_message = message or f"sync: update {relative}"
@@ -590,8 +641,6 @@ class SyncEngine:
                     return synced_count, skipped_count, True
                 if attempt == 2:
                     raise
-                import time
-
                 time.sleep(0.5 * (attempt + 1))
         raise last_err  # type: ignore[misc]  # pragma: no cover
 

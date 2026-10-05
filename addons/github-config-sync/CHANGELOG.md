@@ -2,6 +2,21 @@
 
 ## Latest Releases
 
+## 1.7.3
+
+Fixes a sync that reports itself as running and then does nothing.
+
+### The stuck-sync cause
+
+- **The rate-limit gate outlived the sync that opened it.** The gate is module-global and cleared only as time passed over - `reset_rate_limit_gate()` was called from tests and nowhere else, despite its own docstring saying it was used "after a sync finishes". A sync that was cancelled, or that gave up, left the gate open, and the next run then sat waiting on a gate belonging to a sync that had already finished: status "running", no requests, no progress, no way out but restarting the add-on. Every sync now clears the gate when it ends, whether it succeeded, failed or was cancelled.
+
+### Bounded, diagnosable rate limiting
+
+- **A rate limit that does not clear now fails instead of retrying forever.** The request loop had no attempt ceiling, so a permanently refused request retried for hours - no error, no result, repository untouched, and nothing in the log saying why. It now honours the wait GitHub asks for, three times, then raises a real error. Failing visibly after the wait was requested is deliberate: giving up sooner would break syncs that only needed to pause.
+- **GitHub's own explanation is logged and carried into the error.** The 403 body was discarded, so an exhausted quota was indistinguishable from a token that cannot reach the repository - and those need opposite fixes. One truncated line now settles it.
+- **Waiters are no longer released in lockstep.** When the gate cleared, every waiting thread fired at GitHub simultaneously, which is what draws a secondary rate limit; that re-armed the gate and repeated indefinitely, so the backoff could not converge. Each thread now waits the gate out and then adds a short offset of its own.
+- **Syncs are logged.** There were no log calls at all in the sync engine or server, so a sync that started, ran, succeeded or failed produced no output whatsoever - the add-on's entire job was invisible in its own log. Start, outcome, counts and duration are now recorded, and a failure is logged with its reason.
+
 ## 1.7.2
 
 Prefixed repository layout, a size cap, and selection by picking only.

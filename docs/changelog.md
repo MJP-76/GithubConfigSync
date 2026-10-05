@@ -6,6 +6,16 @@ The full 71-release history lives in
 [GitHub Releases](https://github.com/MJP-76/GithubConfigSync/releases)).
 The last 5 releases are kept at the top, per the project's changelog rules.
 
+## 1.7.3
+
+Fixes a sync that reports itself as running and then does nothing.
+
+- **The rate-limit gate outlived the sync that opened it.** It was module-global and cleared only as time passed over; a cancelled or failed sync left it open, and the next run - a manual one especially - sat waiting on it, reporting "running" while making no requests at all. Only a restart cleared it. Every sync now clears the gate when it ends, however it ends.
+- **A rate limit that does not clear fails instead of retrying forever.** The request loop had no ceiling, so a permanently refused request retried for hours with no error and no explanation. It now honours the wait GitHub asks for, three times, then raises.
+- **GitHub's explanation is logged and kept in the error**, so an exhausted quota can be told apart from a token that cannot reach the repository.
+- **Waiters are no longer released in lockstep.** They fired simultaneously, which draws a secondary rate limit that re-arms the gate, so the backoff could never converge.
+- **Syncs are logged.** There were no log calls in the sync engine or server at all, so a sync starting, running, succeeding or failing produced no output. Start, outcome, counts and duration are now recorded.
+
 ## 1.7.2
 
 Prefixed repository layout, a size cap, and selection by picking only.

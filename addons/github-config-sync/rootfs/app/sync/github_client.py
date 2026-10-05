@@ -346,6 +346,7 @@ class GitHubClient:
 
     def _request_any(self, method: str, url: str, payload: dict[str, Any] | None = None, timeout: int = 60) -> Any:
         transient_errors = 0
+        rate_limit_errors = 0
         while True:
             _wait_for_rate_gate()
             _wait_for_core_budget()
@@ -364,11 +365,24 @@ class GitHubClient:
                 body = err.read().decode("utf-8", errors="ignore")
                 wait = _rate_limit_wait_from(err, body)
                 if wait is not None:
+                    rate_limit_errors += 1
                     _LOGGER.warning(
-                        "GitHub rate limit HTTP %d, waiting %.0fs before retry",
+                        "GitHub rate limit HTTP %d on %s %s, waiting %.0fs before retry "
+                        "(attempt %d/%d): %s",
                         err.code,
+                        method,
+                        url,
                         wait,
+                        rate_limit_errors,
+                        _RATE_LIMIT_MAX_RETRIES,
+                        _body_excerpt(body),
                     )
+                    if rate_limit_errors > _RATE_LIMIT_MAX_RETRIES:
+                        raise SyncError(
+                            f"GitHub rate limit did not clear for {method} {url} after "
+                            f"{rate_limit_errors} attempts. GitHub said: "
+                            f"{_body_excerpt(body)}"
+                        ) from err
                     _open_rate_gate(wait, reason=f"HTTP {err.code}")
                     continue
                 if err.code in (500, 502, 503, 504):
@@ -444,6 +458,21 @@ def _parse_rate_limit_wait(err: urllib.error.HTTPError, attempt: int) -> float:
 _MAX_RATE_LIMIT_WAIT = 3600.0
 _PREEMPTIVE_REMAINING_MIN = 1
 
+# A rate limit that does not clear is a permanent failure, not a slow sync.
+# The retry loop had no ceiling, so a request that was refused for a reason
+# retrying cannot fix spun for hours: no error, no result, repository
+# untouched, and nothing in the log to explain why.
+_RATE_LIMIT_MAX_RETRIES = 3
+
+# Released together, every waiter fires at GitHub on the same instant, which is
+# what draws a secondary rate limit. The gate then re-armed and the whole cycle
+# repeated, so the backoff could never converge. Each thread waits the gate out
+# and then adds a short offset of its own.
+_GATE_STAGGER_MAX = 8.0
+# Bounded so this cannot spin: one round normally covers the gate, and a second
+# catches one re-armed while this thread slept.
+_GATE_MAX_ROUNDS = 3
+
 # Module-level watchdog state shared by every GitHubClient instance (the client
 # itself is a frozen dataclass, and several worker threads can be mid-request at
 # once). When any request draws a rate limit, a gate opens that all threads wait
@@ -476,6 +505,21 @@ def reset_rate_limit_gate() -> None:
         _RATE_GATE_REASON = ""
         _RATE_REMAINING = None
         _RATE_RESET = None
+
+
+def _body_excerpt(body: str, limit: int = 220) -> str:
+    """A short single-line view of a GitHub error body.
+
+    The body is the only thing that distinguishes an exhausted quota from a
+    token that cannot reach the repository, and those need opposite fixes. It
+    was being discarded, which left a five-hour stall unexplained.
+    """
+    collapsed = " ".join((body or "").split())
+    if not collapsed:
+        return "(empty response body)"
+    if len(collapsed) > limit:
+        return collapsed[:limit] + "..."
+    return collapsed
 
 
 def _rate_limit_wait_from(err: urllib.error.HTTPError, body: str) -> float | None:
@@ -570,12 +614,52 @@ def _interruptible_sleep(seconds: float) -> None:
         time.sleep(min(0.25, deadline - now))
 
 
+_GATE_STAGGER_SLOTS = 16
+_GATE_STAGGER_ATTR = "_github_rate_limit_stagger"
+_GATE_STAGGER_LOCK = threading.Lock()
+_GATE_STAGGER_NEXT = 0
+
+
+def _thread_stagger() -> float:
+    """A stable per-thread release offset, spread across the stagger window.
+
+    The offset is kept on the Thread object, so it needs no registry here and
+    dies with the thread that owns it. It is handed out from a counter rather
+    than derived from ``get_ident()``: on aarch64 that value is pointer-aligned,
+    so ``get_ident() % 16`` is zero for every thread and would have disabled
+    this silently - the stagger would read as working while staggering nothing.
+    """
+    global _GATE_STAGGER_NEXT
+    thread = threading.current_thread()
+    offset = getattr(thread, _GATE_STAGGER_ATTR, None)
+    if offset is None:
+        with _GATE_STAGGER_LOCK:
+            slot = _GATE_STAGGER_NEXT % _GATE_STAGGER_SLOTS
+            _GATE_STAGGER_NEXT += 1
+        offset = slot / _GATE_STAGGER_SLOTS * _GATE_STAGGER_MAX
+        setattr(thread, _GATE_STAGGER_ATTR, offset)
+    return offset
+
+
 def _wait_for_rate_gate() -> None:
-    wait = _gate_wait()
-    if wait <= 0:
-        return
-    _LOGGER.warning("GitHub rate limit still active, waiting %.0fs", wait)
-    _interruptible_sleep(wait)
+    """Hold this thread until the shared rate-limit gate clears.
+
+    Waiters used to sleep the whole remaining wait and then all fire at once.
+    """
+    announced = False
+    rounds = 0
+    stagger = _thread_stagger()
+    while rounds < _GATE_MAX_ROUNDS:
+        wait = _gate_wait()
+        if wait <= 0:
+            break
+        rounds += 1
+        if not announced:
+            _LOGGER.warning("GitHub rate limit still active, waiting %.0fs", wait)
+            announced = True
+        _interruptible_sleep(wait)
+    if rounds:
+        _interruptible_sleep(stagger)
 
 
 def _wait_for_core_budget() -> None:
