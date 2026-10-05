@@ -15,6 +15,7 @@ A one-shot way to bring an existing repository onto the structured layout — pl
 - **The new option reaches every config the add-on builds**, and a dry run previews the migration without writing the marker or spending the tick box.
 
 **If you want a flat repository:** set **Layout** to `Flat` before your next sync (it now actually saves). **If you want it structured:** leave Layout on `Prefixed` and tick the migration box.
+- **The `Migrate Layout` button is gone.** The tick box supersedes it, and by 1.7.7 it had become a silent no-op: it read the scan baseline, and after a run that scanned nothing the baseline held no root paths at all, so it reported success while moving nothing. Its whole job now belongs to the tick box, which reads the repository instead.
 
 ## 1.7.6
 

@@ -256,58 +256,6 @@ class SyncEngine:
         )
         return plan, current_hash_index
 
-    def layout_migration(self) -> tuple[SyncPlan, dict[str, str], dict[str, list[str]]]:
-        """Move an existing flat repository onto the prefixed layout.
-
-        A normal sync cannot do this. Once the config prefix is on, the scanner
-        only ever sees ``config/...`` keys and the old root files look like
-        files the user deleted - which the out-of-scope fix now, correctly,
-        refuses to remove. That protection is doing its job; this is the
-        deliberate way to say "these really are moving".
-
-        Only a file that is still on disk *and* in the current scan is moved,
-        and only when its destination is free. Anything else is reported and
-        left exactly where it is, so a half-finished migration never loses a
-        file or overwrites one.
-        """
-        if not self._config_prefix:
-            raise SyncError(
-                "Migration only applies to the prefixed layout. This repository "
-                "is already configured to sync at the repository root."
-            )
-        current_hash_index = self._build_hash_index()
-        added: list[str] = []
-        removed: list[str] = []
-        conflicts: list[str] = []
-        left_behind: list[str] = []
-
-        for old in sorted(self._previous_hash_index):
-            if _mount_prefix(old) != "":
-                continue  # already prefixed, or a mount that never moved
-            new = f"{self._config_prefix}/{old}"
-            if old in current_hash_index:
-                left_behind.append(old)
-                continue
-            if new not in current_hash_index:
-                # Gone from disk, or out of scope. Not ours to move.
-                left_behind.append(old)
-                continue
-            if new in self._previous_hash_index:
-                # Both paths are already in the repo; moving would overwrite.
-                conflicts.append(old)
-                continue
-            added.append(new)
-            removed.append(old)
-
-        plan = SyncPlan(
-            added=added,
-            changed=[],
-            removed=removed,
-            total_files=len(current_hash_index),
-            oversized=list(self._oversized),
-        )
-        return plan, current_hash_index, {"left_behind": left_behind, "conflicts": conflicts}
-
     def run(self, plan: SyncPlan) -> SyncResult:
         """Apply a plan, logging the outcome and always clearing the rate gate.
 

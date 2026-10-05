@@ -9,6 +9,7 @@
 - **The Layout dropdown has never worked.** `repo_layout` was missing from the options the UI posts and options are replaced wholesale on save, so the choice was erased immediately and the layout reverted to the `prefixed` default. A payload without the key now keeps what is stored.
 
 - **The migration reads the repository rather than the scan baseline.** A baseline only holds what a previous sync recorded, so after a run that scanned nothing every operation reading it returned an empty plan while appearing to succeed — which is why normal sync, Clean Repo and Migrate Layout were all no-ops.
+- **The `Migrate Layout` button is gone.** The tick box supersedes it, and by 1.7.7 it had become a silent no-op: it read the scan baseline, and after a run that scanned nothing the baseline held no root paths at all, so it reported success while moving nothing. Its whole job now belongs to the tick box, which reads the repository instead.
 
 ## 1.7.6
 

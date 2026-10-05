@@ -28,13 +28,12 @@ mount-point control to include it, with `.gitignore` patterns such as the HACS
 |---|---|
 | **Clean Upload** | Re-upload every local file and remove anything on the remote that is no longer local |
 | **Clean Repo** | Delete only remote files that are genuinely missing from your local config, and leave everything else untouched |
-| **Migrate Layout** | Move a repository synced before 1.7.2 onto the prefixed layout, putting your config under `config/` |
 | **Migrate from flat layout to structured** (tick box) | One-shot: clear the repository root so config lives only under `config/`, then grey itself out |
 
-**Migrate Layout** is the only one that deletes remote paths which still exist
-locally, so it never runs on its own. Dry-run it first to see the exact list,
-and it reports by name anything it left in place or skipped because `config/`
-already held that file.
+**Migrate from flat layout to structured** is the only one that deletes remote
+paths which still exist locally, so it never runs on its own — you have to tick
+it, and it is spent after one sync. Run a dry run first: it previews the exact
+list of paths that would be removed and writes nothing.
 
 The first two are destructive. The repository picker includes safety checks to
 help you avoid accidentally overwriting the wrong repository.
@@ -152,7 +151,7 @@ GithubConfigSync is provided as-is. By using this add-on, you acknowledge and ag
 
 **What to sync** is a tree. The configuration folder and each mount point sit at the top level, and any folder expands in place — so you can dive into `esphome/` and pick one file without losing sight of the rest.
 
-Under the tree, **Layout** chooses where the config directory lands in the repository. `prefixed` (the default) puts it under `config/` so it cannot collide with the add-on's own files; each mount keeps its own name either way. Upgrading does not move anything — a repository synced before 1.7.2 keeps its current shape until you run **Migrate Layout** in the Danger Zone.
+Under the tree, **Layout** chooses where the config directory lands in the repository. `prefixed` (the default) puts it under `config/` so it cannot collide with the add-on's own files; each mount keeps its own name either way. Upgrading does not move anything — a repository synced before 1.7.2 keeps its current shape until you tick **Migrate from flat layout to structured** in the Danger Zone.
 
 - **Select** on a folder takes it wholesale, recursively; **Select** on a file takes just that file.
 - **`▸`** expands a folder, **`▾`** collapses it. Children load the first time you open them.

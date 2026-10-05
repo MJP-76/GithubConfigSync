@@ -40,7 +40,7 @@ If you find this project useful, and would like to help support its continued de
 - Optional dated GitHub release creation before each sync
 - Clean Upload — force full re-upload and remove remote extras
 - Clean Repo — delete only remote files genuinely missing from your local config
-- Migrate Layout — move a pre-1.7.2 repository onto the prefixed `config/` layout
+- Migrate from flat layout to structured — one-shot: clear the repository root so config lives only under `config/`, then grey itself out
 - Prefixed repository layout by default, so your config never shares a namespace with the add-on's own files
 - Repository picker with safety checks to avoid accidental overwrites
 - Sensitive-file scanning and reporting
@@ -141,7 +141,7 @@ GithubConfigSync is provided as-is. By using this add-on, you acknowledge and ag
 
 **What to sync** is a tree. The configuration folder and each mount point sit at the top level, and any folder expands in place — so you can dive into `esphome/` and pick one file without losing sight of the rest.
 
-Under the tree, **Layout** chooses where the config directory lands in the repository. `prefixed` (the default) puts it under `config/` so it cannot collide with the add-on's own files; each mount keeps its own name either way. Upgrading does not move anything — a repository synced before 1.7.2 keeps its current shape until you tick **Migrate from flat layout to structured** in the Danger Zone and run a sync. That one-shot migration clears the repository root of everything that now lives under `config/`, keeps this add-on's own marker, `README.md` and `repository.yaml`, then writes `.github-config-sync-migrated.json` and greys the tick box out. (**Migrate Layout** remains as the preview-first button for the same job.)
+Under the tree, **Layout** chooses where the config directory lands in the repository. `prefixed` (the default) puts it under `config/` so it cannot collide with the add-on's own files; each mount keeps its own name either way. Upgrading does not move anything — a repository synced before 1.7.2 keeps its current shape until you tick **Migrate from flat layout to structured** in the Danger Zone and run a sync. That one-shot migration clears the repository root of everything that now lives under `config/`, keeps this add-on's own marker, `README.md` and `repository.yaml`, then writes `.github-config-sync-migrated.json` and greys the tick box out.
 
 - **Select** on a folder takes it wholesale, recursively; **Select** on a file takes just that file.
 - **`▸`** expands a folder, **`▾`** collapses it. Children load the first time you open them.
