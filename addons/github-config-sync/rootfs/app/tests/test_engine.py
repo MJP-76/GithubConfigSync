@@ -1651,6 +1651,68 @@ class MigrationTickBoxTests(unittest.TestCase):
             engine.run(clean)
         engine._github.write_migrated_marker.assert_not_called()
 
+class EmptySelectionRefusalTests(unittest.TestCase):
+    """A selection mode with nothing selected must refuse, not report success.
+
+    That path scans nothing and used to return "Sync completed. Upserted 0,
+    deleted 0, skipped 0" - byte for byte what a healthy sync with nothing to
+    do looks like. Two such runs went unnoticed today while the real cause was
+    a selection that never reached the engine, and nothing in the product
+    could tell them apart from success.
+    """
+
+    def setUp(self) -> None:
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.root = Path(self._tmp.name)
+        (self.root / "configuration.yaml").write_text("id: 1", encoding="utf-8")
+
+    def _engine(self, mode: str, sync_paths=(), dry_run: bool = False) -> SyncEngine:
+        return SyncEngine(
+            SyncConfig(
+                repository="owner/repo",
+                branch="main",
+                token="token",
+                config_root=str(self.root),
+                dry_run=dry_run,
+                sync_mode=mode,
+                sync_paths=tuple(sync_paths),
+                repo_layout="flat",
+            ),
+            previous_hash_index={},
+        )
+
+    def _run(self, engine: SyncEngine) -> str:
+        """Run far enough to hit the guards, without touching GitHub."""
+        plan, _ = engine.plan()
+        with patch.object(SyncEngine, "_commit_batch", return_value=(0, 0, False)):
+            result = engine.run(plan)
+        return result.message
+
+    def test_whitelist_with_nothing_selected_is_refused(self) -> None:
+        with self.assertRaises(SyncError) as ctx:
+            self._run(self._engine("whitelist"))
+        self.assertIn("nothing is selected", str(ctx.exception))
+        self.assertIn("Blacklist", str(ctx.exception), "the message should offer a way forward")
+
+    def test_a_dry_run_is_refused_for_the_same_reason(self) -> None:
+        with self.assertRaises(SyncError) as ctx:
+            self._run(self._engine("whitelist", dry_run=True))
+        self.assertIn("nothing is selected", str(ctx.exception))
+
+    def test_override_is_refused_too(self) -> None:
+        with self.assertRaises(SyncError) as ctx:
+            self._run(self._engine("override"))
+        self.assertIn("Override syncs only what you pick", str(ctx.exception))
+
+    def test_blacklist_needs_no_selection_and_runs(self) -> None:
+        message = self._run(self._engine("blacklist"))
+        self.assertIn("Sync completed", message)
+
+    def test_a_selection_is_enough_for_whitelist_to_run(self) -> None:
+        message = self._run(self._engine("whitelist", sync_paths=(".",)))
+        self.assertIn("Sync completed", message)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -330,6 +330,26 @@ class SyncEngine:
                 "Refusing to delete remote files: the local scan found no files. "
                 "Nothing on GitHub was changed."
             )
+        if (
+            self._config.sync_mode in SELECTION_MODES
+            and not self._selections
+            and plan.total_files == 0
+        ):
+            # The destructive half of this is the refusal above: no files
+            # scanned, deletions pending. This is the other half. A selection
+            # mode with nothing selected scans nothing, and the run used to
+            # report "Sync completed. Upserted 0, deleted 0" - byte for byte
+            # what a healthy sync with nothing to do looks like. Two such runs
+            # went by unnoticed today while a broken selection was the reason,
+            # and nothing in the product could tell them apart from success.
+            label = (
+                "Whitelist" if self._config.sync_mode == SYNC_MODE_WHITELIST else "Override"
+            )
+            raise SyncError(
+                f"Refusing to sync: nothing is selected. {label} syncs only what "
+                "you pick, so this run would change nothing. Select files in the "
+                "tree, or switch to Blacklist."
+            )
         self._progress_callback(
             {
                 "status": "running",
