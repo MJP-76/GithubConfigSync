@@ -2189,6 +2189,20 @@ class ModeNoteTests(unittest.TestCase):
         self.assertIn("Reset Repo", inside)
         self.assertIn("Danger Zone", inside)
 
+    def test_the_danger_zone_holds_no_mode_navigation(self) -> None:
+        """A note saying "Override lives with the mode now, not here" was there.
+
+        It answered a question only users who remembered Override moving would
+        ask, and pointed at a control the same section already told you to use.
+        The Danger Zone exists to hold things that delete; cross-section
+        navigation does not belong in it.
+        """
+        html = (APP_ROOT / "static" / "index.html").read_text(encoding="utf-8")
+        danger = html.split('color: var(--err)"><strong>Danger Zone</strong>', 1)[1]
+        danger = danger.split("</details>", 1)[0]
+        self.assertNotIn("Override", danger)
+        self.assertNotIn("Sync Selection", danger)
+
     def test_the_note_does_not_read_like_a_warning_label(self) -> None:
         """Kept to a statement of fact; it is help text, not a policy page."""
         html = (APP_ROOT / "static" / "index.html").read_text(encoding="utf-8")
