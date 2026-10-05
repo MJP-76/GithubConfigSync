@@ -744,3 +744,62 @@ class UpdateCheckClientTests(unittest.TestCase):
         call = source[source.index("releases = client.list_releases") - 400 : source.index("releases = client.list_releases")]
         self.assertIn("token=\"\"", call)
         self.assertIn("isolate_rate_limits=True", call)
+
+
+class RepoMarkerWriteTests(unittest.TestCase):
+    """A sync that changed nothing must not commit anything.
+
+    The contents API creates a commit whether or not the bytes differ, so an
+    unconditional PUT meant every idle run left a "sync: add repo marker"
+    commit behind - the no-op sync dirtying the history it had just left clean.
+    """
+
+    def _client(self) -> GitHubClient:
+        return GitHubClient(repository="owner/repo", branch="main", token="token")
+
+    def test_identical_marker_content_is_not_written_again(self) -> None:
+        client = self._client()
+        desired = json.dumps(
+            {"created_by": "github-config-sync-addon", "repository": "owner/repo"},
+            indent=2, sort_keys=True,
+        ).encode()
+        with patch.object(GitHubClient, "get_content",
+                          return_value={"sha": "abc", "content": base64.b64encode(desired).decode()}):
+            with patch.object(GitHubClient, "put_content") as put:
+                result = client.write_repo_marker(
+                    {"created_by": "github-config-sync-addon", "repository": "owner/repo"}
+                )
+
+        put.assert_not_called()
+        self.assertEqual(result["sha"], "abc")
+
+    def test_different_marker_content_is_written(self) -> None:
+        client = self._client()
+        with patch.object(GitHubClient, "get_content",
+                          return_value={"sha": "abc", "content": base64.b64encode(b"{}").decode()}):
+            with patch.object(GitHubClient, "put_content") as put:
+                client.write_repo_marker(
+                    {"created_by": "github-config-sync-addon", "repository": "owner/repo"}
+                )
+
+        put.assert_called_once()
+        self.assertEqual(put.call_args.kwargs["sha"], "abc")
+
+    def test_a_missing_marker_is_written(self) -> None:
+        client = self._client()
+        with patch.object(GitHubClient, "get_content", return_value=None):
+            with patch.object(GitHubClient, "put_content") as put:
+                client.write_repo_marker()
+
+        put.assert_called_once()
+        self.assertIsNone(put.call_args.kwargs["sha"])
+
+    def test_undecodable_remote_content_falls_through_to_a_write(self) -> None:
+        """A marker that cannot be compared must be rewritten, never trusted."""
+        client = self._client()
+        with patch.object(GitHubClient, "get_content",
+                          return_value={"sha": "abc", "content": "not-base64!!"}):
+            with patch.object(GitHubClient, "put_content") as put:
+                client.write_repo_marker()
+
+        put.assert_called_once()

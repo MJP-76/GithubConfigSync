@@ -275,12 +275,31 @@ class GitHubClient:
         return created
 
     def write_repo_marker(self, payload: dict[str, Any] | None = None) -> dict[str, Any]:
+        """Ensure the marker exists, writing it only when it actually differs.
+
+        The PUT is skipped when the bytes already match. The contents API
+        creates a commit whether or not the file changed, so an unconditional
+        write meant a sync that upserted and deleted nothing still produced a
+        "sync: add repo marker" commit - a no-op run dirtying the history, and
+        one more commit to scroll past when looking for the sync that mattered.
+        """
         marker_payload = payload or {"created_by": "github-config-sync-addon"}
+        desired = json.dumps(marker_payload, indent=2, sort_keys=True).encode("utf-8")
         already_present = self.get_content(ADDON_REPO_MARKER_PATH)
+        if already_present and already_present.get("content"):
+            try:
+                # No validate=True: GitHub wraps the base64 across lines, and
+                # rejecting whitespace here would make every comparison fail
+                # and quietly reinstate the commit-per-sync behaviour.
+                current = base64.b64decode(str(already_present["content"]))
+            except (ValueError, TypeError):
+                current = b""
+            if current == desired:
+                return already_present
         sha = already_present.get("sha") if already_present else None
         return self.put_content(
             path=ADDON_REPO_MARKER_PATH,
-            content=json.dumps(marker_payload, indent=2, sort_keys=True).encode("utf-8"),
+            content=desired,
             message="sync: add repo marker",
             sha=sha,
         )
