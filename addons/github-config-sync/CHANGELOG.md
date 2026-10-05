@@ -2,6 +2,46 @@
 
 ## Latest Releases
 
+## 1.7.2
+
+Prefixed repository layout, a size cap, and selection by picking only.
+
+### Repository layout
+
+Your config directory now goes to `config/` inside the repository, and each mount keeps its own name - so `media/`, `addon_configs/`, `share/`, `ssl/` and `backups/` are unchanged:
+
+```
+repo/
+  config/
+    configuration.yaml
+    blueprints/
+    custom_components/
+  addon_configs/
+  media/
+```
+
+Flat layout put `configuration.yaml` at the repository root, in the same namespace as the add-on's own `README.md`, `.HA_VERSION` and `.github-config-sync-addon.json`. Either could have overwritten the other. **`prefixed` is the default.** `flat` is still available in Sync Selection for repositories that want the old shape.
+
+- **Existing repositories are not changed by upgrading.** Switching layout alone moves nothing: the scanner only sees `config/...` keys afterwards, and 1.7.1's out-of-scope rule correctly leaves the old root paths alone rather than deleting files that are still on disk.
+- **New: Migrate Layout, in the Danger Zone.** It moves the old root files under `config/` and removes the emptied root paths. It is the only operation that deletes remote paths which still exist locally, so it is never automatic: run a dry run first to see the list, confirm, and it reports by name anything it left in place or skipped because `config/` already had that file. A dry run does not move the baseline.
+
+### One commit per run
+
+- **A sync is now a single commit instead of one commit per file.** Per-file commits cost three API calls a file - fetch the SHA, write the content, write the commit - so a 224-file repository needed over 600 calls. That is what drove the rate-limit backoff loop, and a run that failed partway left the repository in a state matching no plan the user had been shown. Staging blobs and writing one tree, one commit and one ref update makes it N+3, and the run is now atomic: either the whole change lands or none of it does. Deletions are staged in that same commit.
+- **A concurrent push is no longer overwritten.** The branch ref is updated without force, so if someone pushes while the run is staging, the run rebuilds on the new head instead of discarding their commit. Blobs are content-addressed, so the retry re-uploads nothing.
+- **The executable bit is preserved**, which the per-file API used to lose.
+- Cancelling mid-run now leaves the repository exactly as it was, rather than partially updated.
+
+### Files GitHub will not accept
+
+- **A file larger than 50 MB is skipped and listed by name.** GitHub answers a 422 for these, and that error aborted the whole run - so one archive another add-on had written into the config directory cost every other file in the sync. They are skipped in the plan, the run message and the UI, because a silent skip is indistinguishable from a file that never existed. **Clean Repo protects them too**: deleting a file the sync can no longer upload would destroy the only copy.
+- `.gitignore` is now honoured from the config root, so `*.tar.gz` and similar keep large artifacts out of the scan.
+
+### Selection
+
+- **The free-text path box is removed.** It accepted anything and a typo matched nothing - which is how `/config` came to mean the literal folder `config` and synced zero files. Every file is reachable by expanding the tree, which cannot be mistyped. `safe_config_paths` remains as the config-file-only escape hatch for globs.
+
+
 ## 1.7.1
 
 Fixes three bugs reported in [#44](https://github.com/MJP-76/GithubConfigSync/issues/44). This replaces 1.7.0, which is withdrawn.

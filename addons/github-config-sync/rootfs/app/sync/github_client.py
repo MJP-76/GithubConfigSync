@@ -215,6 +215,23 @@ class GitHubClient:
             raise SyncError("GitHub commit tree response was incomplete")
         return tree_payload["sha"]
 
+    def create_blob(self, content: bytes) -> str:
+        """Upload one file's content and return its blob SHA.
+
+        Blob SHAs are content-addressed, so uploading the same bytes twice is
+        free of consequence: the tree just references the existing object.
+        That is what lets a whole run be staged and then committed at once.
+        """
+        payload = {
+            "content": base64.b64encode(content).decode("ascii"),
+            "encoding": "base64",
+        }
+        response = self._request_json("POST", f"{self._base}/git/blobs", payload=payload)
+        sha = response.get("sha")
+        if not isinstance(sha, str) or not sha:
+            raise SyncError("GitHub blob response was incomplete")
+        return sha
+
     def create_git_tree(self, base_tree: str | None = None, tree: list[dict[str, Any]] | None = None) -> dict[str, Any]:
         payload: dict[str, Any] = {}
         if base_tree:
@@ -229,8 +246,14 @@ class GitHubClient:
             payload["parents"] = [parent_sha]
         return self._request_json("POST", f"{self._base}/git/commits", payload=payload)
 
-    def update_branch_ref(self, commit_sha: str) -> dict[str, Any]:
-        payload = {"sha": commit_sha, "force": True}
+    def update_branch_ref(self, commit_sha: str, force: bool = True) -> dict[str, Any]:
+        """Point the branch at a commit.
+
+        force=False makes a concurrent push fail rather than be discarded, so
+        the caller can rebuild on the new head. The reset path genuinely means
+        to overwrite history and keeps force=True.
+        """
+        payload = {"sha": commit_sha, "force": force}
         return self._request_json(
             "PATCH",
             f"{self._base}/git/refs/heads/{urllib.parse.quote(self.branch, safe='')}",

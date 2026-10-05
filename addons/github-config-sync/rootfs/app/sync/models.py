@@ -2,6 +2,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+REPO_LAYOUT_FLAT = "flat"
+REPO_LAYOUT_PREFIXED = "prefixed"
+REPO_LAYOUTS = (REPO_LAYOUT_FLAT, REPO_LAYOUT_PREFIXED)
+
 
 @dataclass(frozen=True)
 class SyncConfig:
@@ -21,6 +25,11 @@ class SyncConfig:
     security_override_all_filters: bool = False
     safe_config_paths: tuple[str, ...] = ()
     sync_paths: tuple[str, ...] = ()
+    # "flat": config files sit at the repository root (pre-1.7.2 behaviour).
+    # "prefixed": config files live under config/ and each mount keeps its own
+    # name, so nothing in the repository shares a namespace with the add-on's
+    # own files or with anything else the user keeps there.
+    repo_layout: str = REPO_LAYOUT_PREFIXED
 
 
 @dataclass(frozen=True)

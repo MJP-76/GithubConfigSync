@@ -1,6 +1,6 @@
 name: "Github Config Sync"
 description: "Home Assistant app for GitHub config sync operations, not backups. Private repositories are strongly recommended; public visibility is optional."
-version: "1.7.1"
+version: "1.7.2"
 slug: "github_config_sync_web"
 url: "https://github.com/MJP-76/GithubConfigSync"
 init: false
@@ -57,3 +57,9 @@ schema:
   safe_config_paths: str?
   sync_mode: list(whitelist|blacklist|override)?
   sync_paths: str?
+  # Where the config directory lands inside the repository. "prefixed" puts it
+  # under config/ so it cannot collide with the add-on's own files; "flat"
+  # keeps it at the repository root, which is how repositories synced before
+  # 1.7.2 are laid out. Switching to prefixed needs the one-time layout
+  # migration in the Danger Zone - a normal sync will not move existing files.
+  repo_layout: list(flat|prefixed)?

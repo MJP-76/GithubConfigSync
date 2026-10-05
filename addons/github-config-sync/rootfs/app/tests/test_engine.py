@@ -16,6 +16,22 @@ from sync.hashing import MAX_SYNCABLE_BYTES
 from sync.models import SyncConfig, SyncPlan
 
 
+def _batch_client():
+    """A GitHub client stand-in wired for the batched-commit path."""
+    client = MagicMock()
+    client.get_branch_head_sha.side_effect = ["headsha", "headsha2", "headsha3"]
+    client.get_commit_tree_sha.return_value = "basetree"
+    client.create_blob.side_effect = lambda content: f"blob{abs(hash(content)) % 10000}"
+    client.create_git_tree.return_value = {"sha": "treesha"}
+    client.create_git_commit.return_value = {"sha": "commitsha"}
+    client.update_branch_ref.return_value = {"object": {"sha": "commitsha"}}
+    return client
+
+
+def _staged_entries(client) -> list:
+    return client.create_git_tree.call_args.kwargs["tree"]
+
+
 class SyncEngineTests(unittest.TestCase):
     def test_plan_detects_added_changed_removed_files(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -35,6 +51,8 @@ class SyncEngineTests(unittest.TestCase):
                 dry_run=True,
                 include_addon_configs=True,
                 sync_paths=(".",),
+                # Flat layout: this test asserts config-root paths by name.
+                repo_layout="flat",
             )
 
             previous = {
@@ -77,6 +95,8 @@ class SyncEngineTests(unittest.TestCase):
                 config_root=tmp,
                 dry_run=True,
                 sync_mode="whitelist",
+                # Flat layout: this test asserts config-root paths by name.
+                repo_layout="flat",
             )
             engine = SyncEngine(config, previous_hash_index={})
             self.assertEqual(engine._root_map, [("", Path(tmp))])
@@ -107,6 +127,8 @@ class SyncEngineTests(unittest.TestCase):
             config_root="/config",
             dry_run=True,
             sync_mode="blacklist",
+            # Flat layout: this test asserts config-root paths by name.
+            repo_layout="flat",
         )
         engine = SyncEngine(config, previous_hash_index={})
         self.assertEqual(
@@ -159,26 +181,35 @@ class SyncEngineTests(unittest.TestCase):
                 total_files=2,
             )
 
-            fake_client = MagicMock()
-            fake_client.get_content.side_effect = [
-                {"sha": "a1"},
-                {"sha": "b1"},
-                {"sha": "c1"},
-                None,
-            ]
+            fake_client = _batch_client()
 
             with patch("sync.engine.GitHubClient", return_value=fake_client):
                 engine = SyncEngine(config, previous_hash_index={})
                 result = engine.run(plan)
 
             self.assertEqual(result.synced_count, 2)
-            self.assertEqual(result.deleted_count, 1)
-            self.assertEqual(result.skipped_count, 2)
+            self.assertEqual(result.deleted_count, 2)
+            # "missing.yaml" is not on disk, so it is never staged.
+            self.assertEqual(result.skipped_count, 1)
             self.assertIn("Sync completed", result.message)
-            self.assertEqual(fake_client.put_content.call_count, 2)
-            self.assertEqual(fake_client.delete_content.call_count, 1)
+            self.assertEqual(fake_client.create_blob.call_count, 2)
+            entries = _staged_entries(fake_client)
+            self.assertEqual(
+                sorted(e["path"] for e in entries),
+                ["added.yaml", "changed.yaml", "removed.yaml", "unknown.yaml"],
+            )
+            # A whole run is one commit: one tree, one commit, one ref update.
+            fake_client.create_git_tree.assert_called_once()
+            fake_client.create_git_commit.assert_called_once()
+            fake_client.update_branch_ref.assert_called_once()
 
-    def test_run_live_retries_on_sha_conflict(self) -> None:
+    def test_run_live_retries_a_concurrent_push_without_force(self) -> None:
+        """Someone else pushed mid-run: rebuild on the new head, do not clobber it.
+
+        Per-file commits failed this with a 409 per file. The batched commit
+        refuses a non-fast-forward ref update instead, so the other commit
+        survives, and the retry reuses the blobs already uploaded.
+        """
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             (root / "a.yaml").write_text("a", encoding="utf-8")
@@ -194,14 +225,10 @@ class SyncEngineTests(unittest.TestCase):
             )
             plan = SyncPlan(added=["a.yaml"], changed=[], removed=[], total_files=1)
 
-            fake_client = MagicMock()
-            fake_client.get_content.side_effect = [
-                {"sha": "oldsha"},
-                {"sha": "newsha"},
-            ]
-            fake_client.put_content.side_effect = [
-                Exception('GitHub API error HTTP 409 for PUT https://api.github.com/repos/owner/repo/contents/a.yaml: {"status":"409"}'),
-                {"content": {"html_url": "https://example.com"}},
+            fake_client = _batch_client()
+            fake_client.update_branch_ref.side_effect = [
+                SyncError('GitHub API error HTTP 422 for PATCH ref: {"status":"422"}'),
+                {"object": {"sha": "newsha"}},
             ]
 
             with patch("sync.engine.GitHubClient", return_value=fake_client):
@@ -209,7 +236,17 @@ class SyncEngineTests(unittest.TestCase):
                 result = engine.run(plan)
 
             self.assertEqual(result.synced_count, 1)
-            self.assertEqual(fake_client.put_content.call_count, 2)
+            # The ref is never forced, or the concurrent push would be lost.
+            self.assertEqual(fake_client.update_branch_ref.call_count, 2)
+            for call in fake_client.update_branch_ref.call_args_list:
+                self.assertFalse(call.kwargs.get("force", False))
+            # The retry rebuilt the tree on a fresh head, re-uploading no blobs.
+            self.assertEqual(fake_client.create_blob.call_count, 1)
+            self.assertEqual(fake_client.get_branch_head_sha.call_count, 2)
+            parents = [
+                c.kwargs["parent_sha"] for c in fake_client.create_git_commit.call_args_list
+            ]
+            self.assertEqual(parents, ["headsha", "headsha2"])
 
     def test_put_content_retries_on_sha_conflict(self) -> None:
         from sync.github_client import GitHubClient
@@ -250,8 +287,7 @@ class SyncEngineTests(unittest.TestCase):
                 include_addon_configs=True,
             )
             plan = SyncPlan(added=["one.yaml", "two.yaml"], changed=[], removed=[], total_files=2)
-            fake_client = MagicMock()
-            fake_client.get_content.return_value = None
+            fake_client = _batch_client()
             calls = {"count": 0}
 
             def cancel_checker() -> bool:
@@ -264,8 +300,12 @@ class SyncEngineTests(unittest.TestCase):
                 result = engine.run(plan)
 
             self.assertTrue(result.cancelled)
-            self.assertEqual(result.synced_count, 1)
-            self.assertEqual(fake_client.put_content.call_count, 1)
+            # One blob was staged before the cancel, and because the run is a
+            # single commit nothing was written: a cancelled run leaves the
+            # repository exactly as it was.
+            self.assertEqual(fake_client.create_blob.call_count, 1)
+            fake_client.create_git_commit.assert_not_called()
+            fake_client.update_branch_ref.assert_not_called()
 
     def test_run_live_reports_progress_events(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -282,8 +322,7 @@ class SyncEngineTests(unittest.TestCase):
                 include_addon_configs=True,
             )
             plan = SyncPlan(added=["one.yaml"], changed=[], removed=[], total_files=1)
-            fake_client = MagicMock()
-            fake_client.get_content.return_value = None
+            fake_client = _batch_client()
 
             with patch("sync.engine.GitHubClient", return_value=fake_client):
                 engine = SyncEngine(config, previous_hash_index={})
@@ -291,10 +330,14 @@ class SyncEngineTests(unittest.TestCase):
                 engine.set_progress_callback(progress_events.append)
                 engine.run(plan)
 
+            actions = [event.get("current_action") for event in progress_events]
+            # Each file is staged with its own path, then one commit is made.
+            self.assertIn("staging", actions)
+            self.assertIn("committing", actions)
             self.assertTrue(
                 any(
-                    event.get("current_action") == "upserting"
-                    and event.get("current_path") == ""
+                    event.get("current_action") == "staging"
+                    and event.get("current_path") == "one.yaml"
                     for event in progress_events
                 )
             )
@@ -310,18 +353,16 @@ class SyncEngineTests(unittest.TestCase):
                 dry_run=False,
             )
             plan = SyncPlan(added=[], changed=[], removed=["stale.yaml"], total_files=1)
-            fake_client = MagicMock()
+            fake_client = _batch_client()
+            fake_client.update_branch_ref.side_effect = SyncError(
+                "Sync cancelled during GitHub rate-limit wait"
+            )
 
             with patch("sync.engine.GitHubClient", return_value=fake_client):
                 engine = SyncEngine(config, previous_hash_index={"stale.yaml": "h"})
                 engine.set_cancel_checker(lambda: True)
                 engine.set_progress_callback(lambda _payload: None)
-                with patch.object(
-                    engine,
-                    "_delete_one",
-                    side_effect=SyncError("Sync cancelled during GitHub rate-limit wait"),
-                ):
-                    result = engine.run(plan)
+                result = engine.run(plan)
 
             self.assertTrue(result.cancelled)
             self.assertEqual(result.deleted_count, 0)
@@ -517,6 +558,8 @@ class SyncEngineTests(unittest.TestCase):
                         dry_run=False,
                         include_www=include_www,
                         sync_paths=(".",),
+                        # Flat layout: this test asserts config-root paths by name.
+                        repo_layout="flat",
                     )
                     engine = SyncEngine(config, previous_hash_index={})
                     plan, _ = engine.plan()
@@ -584,6 +627,8 @@ class SyncEngineTests(unittest.TestCase):
                 dry_run=False,
                 include_www=True,
                 sync_paths=(".",),
+                # Flat layout: this test asserts config-root paths by name.
+                repo_layout="flat",
             )
             engine = SyncEngine(config, previous_hash_index={})
             plan, _ = engine.plan()
@@ -627,6 +672,7 @@ class SyncSelectionModesTests(unittest.TestCase):
             dry_run=True,
             sync_mode=mode,
             sync_paths=tuple(sync_paths),
+            repo_layout=kwargs.pop("repo_layout", "flat"),
             **kwargs,
         )
         engine = SyncEngine(config, previous_hash_index={})
@@ -689,6 +735,8 @@ class SyncSelectionModesTests(unittest.TestCase):
             dry_run=True,
             sync_mode="whitelist",
             include_media=True,
+            # Flat layout: this test asserts config-root paths by name.
+            repo_layout="flat",
         )
         engine = SyncEngine(config, previous_hash_index={})
         labels = [label for label, _ in engine._root_map]
@@ -713,6 +761,8 @@ class SyncSelectionModesTests(unittest.TestCase):
                     dry_run=True,
                     sync_mode="whitelist",
                     sync_paths=(selection,),
+                    # Flat layout: this test asserts config-root paths by name.
+                    repo_layout="flat",
                 )
                 engine = SyncEngine(config, previous_hash_index={})
                 walked = [label for label, _ in engine._walkable_roots()]
@@ -822,6 +872,7 @@ class OutOfScopeDeletionTests(unittest.TestCase):
             dry_run=True,
             sync_mode=mode,
             sync_paths=tuple(sync_paths),
+            repo_layout=kwargs.pop("repo_layout", "flat"),
             **kwargs,
         )
         return SyncEngine(config, previous_hash_index=previous or {})
@@ -930,6 +981,8 @@ class OversizedFileTests(unittest.TestCase):
             dry_run=True,
             sync_mode="override",
             sync_paths=tuple(sync_paths),
+            # Flat layout: this test asserts config-root paths by name.
+            repo_layout="flat",
         )
         return SyncEngine(config, previous_hash_index=previous or {})
 
@@ -973,6 +1026,373 @@ class OversizedFileTests(unittest.TestCase):
     def test_out_of_scope_oversized_file_is_not_reported(self):
         plan, _ = self._engine(sync_paths=("configuration.yaml",)).plan()
         self.assertEqual(plan.oversized, [])
+
+class RepoLayoutTests(unittest.TestCase):
+    """The config directory sits under config/ rather than sharing the repo root.
+
+    Flat layout put configuration.yaml and the add-on's own README.md in the
+    same namespace, where one could overwrite the other. Prefixed keeps the
+    mounts named as they always were and moves only the config root.
+    """
+
+    def setUp(self) -> None:
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        base = Path(tmp.name)
+        self.root = base / "config"
+        (self.root / "blueprints").mkdir(parents=True)
+        (self.root / "configuration.yaml").write_text("homeassistant:\n", encoding="utf-8")
+        (self.root / "blueprints" / "b.yaml").write_text("blueprint:\n", encoding="utf-8")
+        self.addons = base / "addon_configs"
+        (self.addons / "app").mkdir(parents=True)
+        (self.addons / "app" / "config.yaml").write_text("k: v\n", encoding="utf-8")
+
+    def _engine(self, layout, previous=None, sync_paths=(".", "addon_configs")):
+        config = SyncConfig(
+            repository="owner/repo",
+            branch="main",
+            token="t",
+            config_root=str(self.root),
+            addon_config_root=str(self.addons),
+            dry_run=True,
+            sync_mode="whitelist",
+            sync_paths=tuple(sync_paths),
+            repo_layout=layout,
+            include_addon_configs=True,
+            security_override_all_filters=True,
+        )
+        return SyncEngine(config, previous_hash_index=dict(previous or {}))
+
+    def test_prefixed_is_the_default_layout(self) -> None:
+        config = SyncConfig(
+            repository="owner/repo",
+            branch="main",
+            token="t",
+            config_root=str(self.root),
+            dry_run=True,
+        )
+        self.assertEqual(config.repo_layout, "prefixed")
+
+    def test_prefixed_puts_config_under_config_and_keeps_mount_names(self) -> None:
+        _, index = self._engine("prefixed").plan()
+        self.assertEqual(
+            sorted(index),
+            [
+                "addon_configs/app/config.yaml",
+                "config/blueprints/b.yaml",
+                "config/configuration.yaml",
+            ],
+        )
+
+    def test_flat_keeps_config_at_the_repository_root(self) -> None:
+        _, index = self._engine("flat").plan()
+        self.assertEqual(
+            sorted(index),
+            ["addon_configs/app/config.yaml", "blueprints/b.yaml", "configuration.yaml"],
+        )
+
+    def test_selecting_a_subfolder_of_the_config_root_still_works(self) -> None:
+        """A partial pick narrows the config root without breaking the prefix."""
+        _, index = self._engine("prefixed", sync_paths=("blueprints",)).plan()
+        self.assertIn("config/blueprints/b.yaml", index)
+        self.assertNotIn("config/configuration.yaml", index)
+
+    def test_a_normal_sync_does_not_delete_root_files_it_cannot_see(self) -> None:
+        """The point of the migration: switching layout alone moves nothing.
+
+        The scanner only ever sees config/... keys once the prefix is on, so
+        the old root paths look absent. The out-of-scope fix leaves them
+        alone because they are still on disk.
+        """
+        previous = {"configuration.yaml": "old", "blueprints/b.yaml": "old"}
+        plan, _ = self._engine("prefixed", previous=previous).plan()
+        self.assertEqual(plan.removed, [])
+        self.assertEqual(
+            sorted(plan.added),
+            [
+                "addon_configs/app/config.yaml",
+                "config/blueprints/b.yaml",
+                "config/configuration.yaml",
+            ],
+        )
+
+    def test_a_genuinely_deleted_file_is_still_removed_after_the_switch(self) -> None:
+        previous = {"configuration.yaml": "old", "vanished.yaml": "old"}
+        plan, _ = self._engine("prefixed", previous=previous).plan()
+        self.assertEqual(plan.removed, ["vanished.yaml"])
+
+
+class LayoutMigrationTests(unittest.TestCase):
+    """The one deliberate exception: moving a flat repo onto config/."""
+
+    def setUp(self) -> None:
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        base = Path(tmp.name)
+        self.root = base / "config"
+        (self.root / "blueprints").mkdir(parents=True)
+        (self.root / "configuration.yaml").write_text("homeassistant:\n", encoding="utf-8")
+        (self.root / "blueprints" / "b.yaml").write_text("blueprint:\n", encoding="utf-8")
+        self.addons = base / "addon_configs"
+        (self.addons / "app").mkdir(parents=True)
+        (self.addons / "app" / "config.yaml").write_text("k: v\n", encoding="utf-8")
+        self.flat_previous = {
+            "configuration.yaml": "a",
+            "blueprints/b.yaml": "b",
+            "addon_configs/app/config.yaml": "c",
+        }
+
+    def _engine(self, previous, layout="prefixed"):
+        config = SyncConfig(
+            repository="owner/repo",
+            branch="main",
+            token="t",
+            config_root=str(self.root),
+            addon_config_root=str(self.addons),
+            dry_run=True,
+            sync_mode="whitelist",
+            sync_paths=(".", "addon_configs"),
+            repo_layout=layout,
+            include_addon_configs=True,
+            security_override_all_filters=True,
+        )
+        return SyncEngine(config, previous_hash_index=dict(previous))
+
+    def test_migration_moves_config_files_and_leaves_mounts_alone(self) -> None:
+        plan, _, held = self._engine(self.flat_previous).layout_migration()
+        self.assertEqual(
+            plan.added, ["config/blueprints/b.yaml", "config/configuration.yaml"]
+        )
+        self.assertEqual(plan.removed, ["blueprints/b.yaml", "configuration.yaml"])
+        # The mount already has the right name, so it must not be touched.
+        self.assertNotIn("addon_configs/app/config.yaml", plan.added + plan.removed)
+        self.assertEqual(held, {"left_behind": [], "conflicts": []})
+
+    def test_migration_on_an_already_migrated_repo_does_nothing(self) -> None:
+        plan, _, held = self._engine(
+            {"config/configuration.yaml": "a", "config/blueprints/b.yaml": "b"}
+        ).layout_migration()
+        self.assertEqual((plan.added, plan.removed), ([], []))
+        self.assertEqual(held["conflicts"], [])
+
+    def test_migration_refuses_when_the_destination_is_occupied(self) -> None:
+        """Deleting the old path would destroy the only copy of the file."""
+        plan, _, held = self._engine(
+            {"configuration.yaml": "a", "config/configuration.yaml": "other"}
+        ).layout_migration()
+        self.assertEqual(held["conflicts"], ["configuration.yaml"])
+        self.assertNotIn("configuration.yaml", plan.removed)
+        self.assertNotIn("config/configuration.yaml", plan.added)
+
+    def test_a_root_path_missing_from_disk_is_left_not_moved(self) -> None:
+        plan, _, held = self._engine(
+            dict(self.flat_previous, **{"vanished.yaml": "z"})
+        ).layout_migration()
+        self.assertEqual(held["left_behind"], ["vanished.yaml"])
+        self.assertNotIn("vanished.yaml", plan.removed)
+
+    def test_migration_is_refused_when_the_layout_is_already_flat(self) -> None:
+        with self.assertRaises(SyncError) as caught:
+            self._engine(self.flat_previous, layout="flat").layout_migration()
+        self.assertIn("prefixed layout", str(caught.exception))
+
+    def test_the_baseline_after_a_migration_produces_no_further_work(self) -> None:
+        engine = self._engine(self.flat_previous)
+        _, index, _ = engine.layout_migration()
+        follow_up = SyncEngine(engine._config, previous_hash_index=index).plan()[0]  # pylint: disable=protected-access
+        self.assertEqual((follow_up.added, follow_up.changed, follow_up.removed), ([], [], []))
+
+class PrefixedParityTests(unittest.TestCase):
+    """The rules that must hold in both layouts.
+
+    The suites above assert config-root paths by name, so they are written
+    against the flat layout. Prefixed is the new default, so the behaviour
+    those tests protect is re-checked here with the prefix in place - a
+    selection bug that only appears under config/ would otherwise ship
+    uncaught.
+    """
+
+    def setUp(self) -> None:
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        base = Path(tmp.name)
+        self.root = base / "config"
+        (self.root / "esphome").mkdir(parents=True)
+        (self.root / "configuration.yaml").write_text("homeassistant:\n", encoding="utf-8")
+        (self.root / "esphome" / "living.yaml").write_text("sensor:\n", encoding="utf-8")
+        self.addons = base / "addon_configs"
+        (self.addons / "app").mkdir(parents=True)
+        (self.addons / "app" / "config.yaml").write_text("k: v\n", encoding="utf-8")
+
+    def _plan(self, mode, sync_paths=(), layout="prefixed", **kwargs):
+        config = SyncConfig(
+            repository="owner/repo",
+            branch="main",
+            token="token",
+            config_root=str(self.root),
+            addon_config_root=str(self.addons),
+            dry_run=True,
+            sync_mode=mode,
+            sync_paths=tuple(sync_paths),
+            repo_layout=layout,
+            include_addon_configs=True,
+            security_override_all_filters=True,
+            **kwargs,
+        )
+        plan, _ = SyncEngine(config, previous_hash_index={}).plan()
+        return set(plan.added)
+
+    def test_blacklist_still_walks_the_config_root_under_the_prefix(self) -> None:
+        keys = self._plan("blacklist")
+        self.assertIn("config/configuration.yaml", keys)
+        self.assertIn("config/esphome/living.yaml", keys)
+
+    def test_whitelist_selection_is_scoped_under_the_prefix(self) -> None:
+        keys = self._plan("whitelist", sync_paths=("esphome",))
+        self.assertIn("config/esphome/living.yaml", keys)
+        self.assertNotIn("config/configuration.yaml", keys)
+
+    def test_a_mount_selection_does_not_pull_in_the_config_root(self) -> None:
+        keys = self._plan("whitelist", sync_paths=("addon_configs",))
+        self.assertEqual(keys, {"addon_configs/app/config.yaml"})
+
+    def test_gitignore_still_applies_under_the_prefix(self) -> None:
+        (self.root / ".gitignore").write_text("*.log\n", encoding="utf-8")
+        (self.root / "noisy.log").write_text("noise\n", encoding="utf-8")
+        keys = self._plan("override", sync_paths=(".",))
+        self.assertIn("config/configuration.yaml", keys)
+        self.assertNotIn("config/noisy.log", keys)
+
+    def test_an_oversized_file_is_skipped_under_the_prefix(self) -> None:
+        with (self.root / "archive.tar.gz").open("wb") as handle:
+            handle.truncate(MAX_SYNCABLE_BYTES + 1)
+        config = SyncConfig(
+            repository="owner/repo",
+            branch="main",
+            token="token",
+            config_root=str(self.root),
+            dry_run=True,
+            sync_mode="override",
+            sync_paths=(".",),
+            repo_layout="prefixed",
+        )
+        plan, _ = SyncEngine(config, previous_hash_index={}).plan()
+        self.assertEqual(plan.oversized, ["config/archive.tar.gz"])
+        self.assertIn("config/configuration.yaml", plan.added)
+
+    def test_the_runtime_floor_holds_under_the_prefix(self) -> None:
+        (self.root / "home-assistant.log").write_text("log\n", encoding="utf-8")
+        (self.root / ".storage").mkdir()
+        (self.root / ".storage" / "core.config").write_text("{}", encoding="utf-8")
+        keys = self._plan("override", sync_paths=(".",))
+        self.assertNotIn("config/home-assistant.log", keys)
+        self.assertFalse([k for k in keys if k.startswith("config/.storage/")])
+
+    def test_both_layouts_select_the_same_files(self) -> None:
+        """Only the prefix differs; what gets picked must not."""
+        flat = self._plan("override", sync_paths=(".", "addon_configs"), layout="flat")
+        prefixed = self._plan("override", sync_paths=(".", "addon_configs"), layout="prefixed")
+        mounts = ("addon_configs/", "media/", "share/", "ssl/", "backups/", "www/")
+        self.assertEqual(
+            {k for k in flat if not k.startswith(mounts)},
+            {k.removeprefix("config/") for k in prefixed if not k.startswith(mounts)},
+        )
+        self.assertEqual(
+            {k for k in flat if k.startswith(mounts)},
+            {k for k in prefixed if k.startswith(mounts)},
+        )
+
+class SingleCommitTests(unittest.TestCase):
+    """A whole run is one commit, not one per file.
+
+    Per-file commits cost three API calls a file, so a 224-file repository
+    needed over 600 calls, tripped the rate limiter, and - if it failed partway
+    - left the repository in a state that matched no plan the user had seen.
+    """
+
+    def setUp(self) -> None:
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        base = Path(tmp.name)
+        self.root = base / "config"
+        (self.root / "blueprints").mkdir(parents=True)
+        for name in ("a.yaml", "b.yaml", "c.yaml"):
+            (self.root / name).write_text(name, encoding="utf-8")
+        (self.root / "blueprints" / "d.yaml").write_text("d", encoding="utf-8")
+
+    def _run(self, added, removed):
+        config = SyncConfig(
+            repository="owner/repo",
+            branch="main",
+            token="token",
+            config_root=str(self.root),
+            dry_run=False,
+            sync_mode="whitelist",
+            repo_layout="flat",
+        )
+        plan = SyncPlan(
+            added=list(added), changed=[], removed=list(removed), total_files=4
+        )
+        client = _batch_client()
+        with patch("sync.engine.GitHubClient", return_value=client):
+            engine = SyncEngine(config, previous_hash_index={})
+            return engine.run(plan), client
+
+    def test_four_files_cost_four_blobs_and_three_committing_calls(self) -> None:
+        result, client = self._run(
+            ["a.yaml", "b.yaml", "c.yaml", "blueprints/d.yaml"], []
+        )
+        self.assertEqual(result.synced_count, 4)
+        self.assertEqual(client.create_blob.call_count, 4)
+        self.assertEqual(client.create_git_tree.call_count, 1)
+        self.assertEqual(client.create_git_commit.call_count, 1)
+        self.assertEqual(client.update_branch_ref.call_count, 1)
+        # The old path called the contents API per file; nothing should.
+        client.put_content.assert_not_called()
+        client.delete_content.assert_not_called()
+
+    def test_deletes_are_staged_in_the_same_commit(self) -> None:
+        result, client = self._run(["a.yaml"], ["gone.yaml", "also-gone.yaml"])
+        self.assertEqual(result.deleted_count, 2)
+        self.assertEqual(client.create_git_commit.call_count, 1)
+        entries = _staged_entries(client)
+        deleted = [e for e in entries if e["sha"] is None]
+        self.assertEqual(
+            sorted(e["path"] for e in deleted), ["also-gone.yaml", "gone.yaml"]
+        )
+
+    def test_an_exec_bit_is_preserved(self) -> None:
+        script = self.root / "hook.sh"
+        script.write_text("#!/bin/sh\n", encoding="utf-8")
+        script.chmod(0o755)
+        _, client = self._run(["hook.sh"], [])
+        modes = {e["path"]: e["mode"] for e in _staged_entries(client)}
+        self.assertEqual(modes["hook.sh"], "100755")
+
+    def test_nothing_to_do_makes_no_commit_at_all(self) -> None:
+        result, client = self._run([], [])
+        self.assertEqual(result.synced_count, 0)
+        client.create_git_tree.assert_not_called()
+        client.create_git_commit.assert_not_called()
+        client.update_branch_ref.assert_not_called()
+
+    def test_the_commit_message_summarises_the_run(self) -> None:
+        client = _batch_client()
+        config = SyncConfig(
+            repository="owner/repo",
+            branch="main",
+            token="token",
+            config_root=str(self.root),
+            dry_run=False,
+            sync_mode="whitelist",
+            repo_layout="flat",
+        )
+        plan = SyncPlan(added=["a.yaml", "b.yaml"], changed=[], removed=["old.yaml"], total_files=4)
+        with patch("sync.engine.GitHubClient", return_value=client):
+            SyncEngine(config, previous_hash_index={}).run(plan)
+        message = client.create_git_commit.call_args.kwargs["message"]
+        self.assertIn("update 2 files", message)
+        self.assertIn("remove 1 file", message)
 
 
 if __name__ == "__main__":

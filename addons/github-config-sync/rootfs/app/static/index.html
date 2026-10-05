@@ -454,6 +454,17 @@
             <p id="syncModeHelp" class="subtle" style="margin: 6px 0 0"></p>
           </div>
 
+          <div style="margin-top: 10px">
+            <label style="display: flex; align-items: center; gap: 8px">
+              <span>Layout:</span>
+              <select id="repoLayout" style="flex: 1; max-width: 240px">
+                <option value="prefixed">Prefixed &mdash; config under config/</option>
+                <option value="flat">Flat &mdash; config at the repository root</option>
+              </select>
+            </label>
+            <p id="repoLayoutHelp" class="subtle" style="margin: 6px 0 0"></p>
+          </div>
+
           <div id="overrideWarning" style="display: none; margin-top: 10px; padding: 10px; border: 1px solid var(--err); border-radius: 6px">
             <strong style="color: var(--err)">Security checks are off in this mode.</strong>
             <p id="overrideSelection" style="margin: 6px 0 0; color: var(--err); font-weight: 600"></p>
@@ -612,7 +623,7 @@
         <details>
           <summary class="section-title" style="cursor: pointer; color: var(--err)"><strong>Danger Zone</strong></summary>
           <p class="subtle" style="margin-top: 10px; margin-bottom: 10px">
-            Clean Upload re-uploads every file from the current local config, deleting files on GitHub that no longer exist locally. Clean Repo deletes only files that are missing from the local config and leaves everything else untouched. Reset Repo empties the remote repository, replaces its whole history, and removes all releases and tags — use it to start fresh.
+            Clean Upload re-uploads every file from the current local config, deleting files on GitHub that no longer exist locally. Clean Repo deletes only files that are missing from the local config and leaves everything else untouched. Migrate Layout moves a repository synced before 1.7.2 onto the prefixed layout, so your config files sit under config/ instead of sharing the repository root with this add-on's own files. Reset Repo empties the remote repository, replaces its whole history, and removes all releases and tags — use it to start fresh.
           </p>
           <p class="subtle" style="margin-bottom: 10px; color: var(--err)">
             To sync files that the security checks would block — credentials in an ESPHome or
@@ -622,6 +633,7 @@
           <div class="row">
             <button id="cleanSyncBtn">Clean Upload</button>
             <button id="cleanRepoBtn" class="secondary">Clean Repo</button>
+            <button id="migrateLayoutBtn" class="secondary">Migrate Layout</button>
             <button id="resetRepoBtn" class="secondary">Reset Repo</button>
             <button id="cancelProcessBtn" class="secondary">Cancel Process</button>
           </div>
@@ -665,6 +677,8 @@
         updateBadge: document.getElementById("updateBadge"),
         syncMode: document.getElementById("syncMode"),
         syncModeHelp: document.getElementById("syncModeHelp"),
+        repoLayout: document.getElementById("repoLayout"),
+        repoLayoutHelp: document.getElementById("repoLayoutHelp"),
         overrideWarning: document.getElementById("overrideWarning"),
         overrideSelection: document.getElementById("overrideSelection"),
         syncSelectionPanel: document.getElementById("syncSelectionPanel"),
@@ -701,6 +715,7 @@
         syncBtn: document.getElementById("syncBtn"),
         cleanSyncBtn: document.getElementById("cleanSyncBtn"),
         cleanRepoBtn: document.getElementById("cleanRepoBtn"),
+        migrateLayoutBtn: document.getElementById("migrateLayoutBtn"),
         resetRepoBtn: document.getElementById("resetRepoBtn"),
         refreshBtn: document.getElementById("refreshBtn"),
         downloadDiagnosticsBtn: document.getElementById("downloadDiagnosticsBtn"),
@@ -1031,11 +1046,13 @@
         el.includePreReleases.checked = Boolean(data.include_pre_releases);
         loadedOptions = data;
         el.syncMode.value = data.sync_mode || "whitelist";
+        if (el.repoLayout) el.repoLayout.value = data.repo_layout || "prefixed";
         selectedPaths = String(data.sync_paths || "")
           .split(/[\n,]/)
           .map((p) => p.trim())
           .filter(Boolean);
         applySyncMode();
+        applyRepoLayout();
         renderSelection();
         loadTreeRoots();
         applyRepoMode();
@@ -1319,6 +1336,7 @@
           include_www: Boolean(loadedOptions.include_www),
           include_pre_releases: el.includePreReleases.checked,
           sync_mode: el.syncMode.value,
+          repo_layout: el.repoLayout ? el.repoLayout.value : "prefixed",
           sync_paths: selectedPaths.join("\n"),
           safe_config_paths: loadedOptions.safe_config_paths || "",
           security_override_all_filters: false,
@@ -1496,6 +1514,33 @@
         }
       }
 
+      async function migrateLayout() {
+        setButtonBusy(el.migrateLayoutBtn, true, "Migrating...");
+        try {
+          await saveOptions();
+          const data = await fetchJson(apiUrl("/api/sync/migrate-layout"), { method: "POST" });
+          const scan = data.scan || {};
+          let message = data.result || "Layout migration completed";
+          if (scan.left_behind_count) {
+            const names = scan.left_behind_files || [];
+            message +=
+              " Left in place: " + names.join(", ") +
+              (scan.left_behind_files && names.length < scan.left_behind_count
+                ? " (+" + (scan.left_behind_count - names.length) + " more)"
+                : "") + ".";
+          }
+          if (scan.conflict_count) {
+            message +=
+              " Already present under config/, so not moved: " +
+              (scan.conflict_files || []).join(", ") + ".";
+          }
+          setStatus(message);
+          await loadStatus();
+        } finally {
+          setButtonBusy(el.migrateLayoutBtn, false);
+        }
+      }
+
       async function cleanRepoSkeleton() {
         setButtonBusy(el.cleanRepoBtn, true, "Cleaning...");
         try {
@@ -1555,6 +1600,21 @@
       el.cleanRepoBtn.addEventListener("click", () => {
         if (window.confirm(`Run Clean Repo on ${el.repo.value.trim() || "the selected repository"}?\n\nDeletes only files that are missing from your local config. Existing files are left untouched and you can cancel between files.`)) {
           cleanRepoSkeleton().catch((error) => setStatus(error.message, false));
+        }
+      });
+      el.migrateLayoutBtn.addEventListener("click", () => {
+        const target = el.repo.value.trim() || "the selected repository";
+        if (
+          window.confirm(
+            `Move the config files in ${target} into config/?\n\n` +
+              "This uploads every config file under config/ and then deletes the old root-level paths. " +
+              "It only moves files that are still on disk locally, skips any path that already exists " +
+              "under config/, and leaves everything else alone.\n\n" +
+              "This is the only operation that deletes remote files which still exist locally, so run it " +
+              "with a dry run first if you want to see the list before anything changes.\n\nContinue?"
+          )
+        ) {
+          migrateLayout().catch((error) => setStatus(error.message, false));
         }
       });
       el.resetRepoBtn.addEventListener("click", () => {
@@ -1618,6 +1678,12 @@
         override:
           "Only what you select is synced, and the security checks stand aside for those paths. Databases, logs, locks and .storage still stay out.",
       };
+      const LAYOUT_HELP = {
+        prefixed:
+          "Your config goes to config/ inside the repository, and each mount keeps its own name - so your files cannot collide with the add-on's own README or marker file. Existing repositories keep their current layout until you run Migrate Layout.",
+        flat:
+          "Your config goes to the repository root, alongside the add-on's own files. This is how repositories synced before 1.7.2 are laid out.",
+      };
       let selectedPaths = [];
       let treePath = "";
       let loadedOptions = {};
@@ -1645,6 +1711,11 @@
         const rest = names.length > 6 ? ` and ${names.length - 6} more` : "";
         el.overrideSelection.textContent =
           `Publishing ${names.length} selection${names.length === 1 ? "" : "s"}: ${shown}${rest}`;
+      }
+
+      function applyRepoLayout() {
+        if (!el.repoLayoutHelp || !el.repoLayout) return;
+        el.repoLayoutHelp.textContent = LAYOUT_HELP[el.repoLayout.value] || "";
       }
 
       function applySyncMode() {
@@ -1821,11 +1892,13 @@
       }
 
       if (el.syncMode) el.syncMode.addEventListener("change", applySyncMode);
+      if (el.repoLayout) el.repoLayout.addEventListener("change", applyRepoLayout);
       [
         el.repo,
         el.authMethod,
         el.branch,
         el.syncMode,
+        el.repoLayout,
         el.versionRetention,
         el.dryRun,
         el.includePreReleases,

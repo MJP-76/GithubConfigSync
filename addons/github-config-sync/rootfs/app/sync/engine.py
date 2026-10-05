@@ -3,7 +3,6 @@ from __future__ import annotations
 import fnmatch
 from pathlib import Path
 from typing import Callable
-from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from .errors import SyncError
 from .github_client import GitHubClient, register_rate_limit_hooks
@@ -96,8 +95,13 @@ class SyncEngine:
         self._config_root = Path(config.config_root)
         addon_config_root = getattr(config, "addon_config_root", "/addon_configs")
         self._addon_config_root = Path(addon_config_root) if addon_config_root else Path("/__missing_addon_configs__")
+        # The config root's prefix is what decides whether its files land at the
+        # repository root or under config/. It was always "", which is why the
+        # config shared a namespace with the add-on's own README and marker.
+        config_prefix = "" if getattr(config, "repo_layout", "prefixed") == "flat" else "config"
+        self._config_prefix = config_prefix
         self._root_map = [
-            ("", self._config_root),
+            (config_prefix, self._config_root),
             ("addon_configs", self._addon_config_root),
             ("media", Path("/media")),
             ("share", Path("/share")),
@@ -114,7 +118,7 @@ class SyncEngine:
             self._root_map = [
                 item
                 for item in self._root_map
-                if item[0] == "" or self._root_needed(item[0])
+                if self._is_config_root(item[0]) or self._root_needed(item[0])
             ]
         self._github = GitHubClient(
             repository=config.repository,
@@ -202,6 +206,58 @@ class SyncEngine:
         )
         return plan, current_hash_index
 
+    def layout_migration(self) -> tuple[SyncPlan, dict[str, str], dict[str, list[str]]]:
+        """Move an existing flat repository onto the prefixed layout.
+
+        A normal sync cannot do this. Once the config prefix is on, the scanner
+        only ever sees ``config/...`` keys and the old root files look like
+        files the user deleted - which the out-of-scope fix now, correctly,
+        refuses to remove. That protection is doing its job; this is the
+        deliberate way to say "these really are moving".
+
+        Only a file that is still on disk *and* in the current scan is moved,
+        and only when its destination is free. Anything else is reported and
+        left exactly where it is, so a half-finished migration never loses a
+        file or overwrites one.
+        """
+        if not self._config_prefix:
+            raise SyncError(
+                "Migration only applies to the prefixed layout. This repository "
+                "is already configured to sync at the repository root."
+            )
+        current_hash_index = self._build_hash_index()
+        added: list[str] = []
+        removed: list[str] = []
+        conflicts: list[str] = []
+        left_behind: list[str] = []
+
+        for old in sorted(self._previous_hash_index):
+            if _mount_prefix(old) != "":
+                continue  # already prefixed, or a mount that never moved
+            new = f"{self._config_prefix}/{old}"
+            if old in current_hash_index:
+                left_behind.append(old)
+                continue
+            if new not in current_hash_index:
+                # Gone from disk, or out of scope. Not ours to move.
+                left_behind.append(old)
+                continue
+            if new in self._previous_hash_index:
+                # Both paths are already in the repo; moving would overwrite.
+                conflicts.append(old)
+                continue
+            added.append(new)
+            removed.append(old)
+
+        plan = SyncPlan(
+            added=added,
+            changed=[],
+            removed=removed,
+            total_files=len(current_hash_index),
+            oversized=list(self._oversized),
+        )
+        return plan, current_hash_index, {"left_behind": left_behind, "conflicts": conflicts}
+
     def run(self, plan: SyncPlan) -> SyncResult:
         if plan.removed and plan.total_files == 0:
             raise SyncError(
@@ -240,16 +296,12 @@ class SyncEngine:
                 ),
             )
 
-        synced_count = 0
-        deleted_count = 0
         skipped_count = len(plan.oversized)
-        synced_count, skipped_upserts, cancelled = self._apply_upserts(upsert_paths, removed_paths)
+        synced_count, skipped_mid_run, cancelled = self._commit_batch(upsert_paths, removed_paths)
+        deleted_count = len(removed_paths) if not cancelled else 0
+        skipped_count = len(plan.oversized) + skipped_mid_run
         if cancelled:
-            return self._cancelled_result(plan, synced_count, deleted_count, skipped_count + skipped_upserts)
-        deleted_count, skipped_deletes, cancelled = self._apply_deletes(upsert_paths, removed_paths)
-        if cancelled:
-            return self._cancelled_result(plan, synced_count, deleted_count, skipped_count + skipped_upserts + skipped_deletes)
-        skipped_count = len(plan.oversized) + skipped_upserts + skipped_deletes
+            return self._cancelled_result(plan, synced_count, deleted_count, skipped_count)
 
         too_large = (
             f" {len(plan.oversized)} too large for GitHub were skipped."
@@ -440,169 +492,117 @@ class SyncEngine:
             deletions.append({"path": item_path, "mode": "100644", "type": "blob", "sha": None})
         return deletions
 
-    def _apply_upserts(self, upsert_paths: list[str], removed_paths: list[str]) -> tuple[int, int, bool]:
-        if not upsert_paths:
-            return 0, 0, False
+    def _commit_batch(self, upsert_paths: list[str], removed_paths: list[str]) -> tuple[int, int, bool]:
+        """Apply every upsert and delete as ONE commit.
+
+        Per-file commits cost three API calls a file - get the SHA, put the
+        content, write the commit - so a 224-file repository needed over 600
+        calls, tripped the rate limiter, and left the repository half-updated
+        if it failed partway. Staging blobs and writing one tree, one commit
+        and one ref update makes it N+3, and the run is then atomic: either
+        the whole change lands or none of it does.
+
+        Blobs are content-addressed, so a retry of the tree/commit stage costs
+        nothing - it reuses blobs GitHub already has.
+        """
+        entries: list[dict[str, object]] = []
         synced_count = 0
         skipped_count = 0
-        cancelled = False
-        with ThreadPoolExecutor(max_workers=min(4, len(upsert_paths))) as executor:
-            futures = {}
-            total = len(upsert_paths)
-            for index, relative in enumerate(upsert_paths):
-                if self._cancel_requested():
-                    cancelled = True
-                    break
-                remaining = total - index
-                self._progress_callback(
-                    {
-                        "status": "running",
-                        "current_action": "upserting",
-                        "current_path": relative,
-                        "upsert_total": total,
-                        "remove_total": len(removed_paths),
-                        "upsert_remaining": remaining,
-                        "remove_remaining": len(removed_paths),
-                        "upsert_paths": upsert_paths[:50],
-                        "remove_paths": removed_paths[:50],
-                    }
-                )
-                local_path = self._local_path_for(relative)
-                if not local_path.exists():
-                    skipped_count += 1
-                    continue
-                futures[executor.submit(self._put_with_retry, relative, local_path.read_bytes())] = relative
+        total = len(upsert_paths)
+
+        for index, relative in enumerate(upsert_paths):
+            if self._cancel_requested():
+                return synced_count, skipped_count, True
             self._progress_callback(
                 {
                     "status": "running",
-                    "current_action": "upserting",
-                    "current_path": "",
+                    "current_action": "staging",
+                    "current_path": relative,
                     "upsert_total": total,
                     "remove_total": len(removed_paths),
-                    "upsert_remaining": len(futures),
+                    "upsert_remaining": total - index,
                     "remove_remaining": len(removed_paths),
                     "upsert_paths": upsert_paths[:50],
                     "remove_paths": removed_paths[:50],
                 }
             )
-            for future in as_completed(futures):
-                try:
-                    future.result()
-                except SyncError:
-                    if not self._cancel_requested():
-                        raise
-                    for pending in futures:
-                        pending.cancel()
-                    cancelled = True
-                    break
-                synced_count += 1
-                self._progress_callback(
-                    {
-                        "status": "running",
-                        "current_action": "upserting",
-                        "current_path": "",
-                        "upsert_total": total,
-                        "remove_total": len(removed_paths),
-                        "upsert_remaining": len(futures) - synced_count,
-                        "remove_remaining": len(removed_paths),
-                        "upsert_paths": upsert_paths[:50],
-                        "remove_paths": removed_paths[:50],
-                    }
-                )
-        self._drain_future_results(futures)
-        if self._cancel_requested():
-            cancelled = True
-        return synced_count, skipped_count, cancelled
-
-    def _apply_deletes(self, upsert_paths: list[str], removed_paths: list[str]) -> tuple[int, int, bool]:
-        if not removed_paths:
-            return 0, 0, False
-        deleted_count = 0
-        skipped_count = 0
-        cancelled = False
-        with ThreadPoolExecutor(max_workers=min(4, len(removed_paths))) as executor:
-            futures = {}
-            total = len(removed_paths)
-            for index, relative in enumerate(removed_paths):
-                if self._cancel_requested():
-                    cancelled = True
-                    break
-                remaining = total - index
-                self._progress_callback(
-                    {
-                        "status": "running",
-                        "current_action": "deleting",
-                        "current_path": relative,
-                        "upsert_total": len(upsert_paths),
-                        "remove_total": total,
-                        "upsert_remaining": 0,
-                        "remove_remaining": remaining,
-                        "upsert_paths": [],
-                        "remove_paths": removed_paths[:50],
-                    }
-                )
-                futures[executor.submit(self._delete_one, relative)] = relative
-            self._progress_callback(
+            local_path = self._local_path_for(relative)
+            if not local_path.exists():
+                skipped_count += 1
+                continue
+            blob_sha = self._github.create_blob(local_path.read_bytes())
+            entries.append(
                 {
-                    "status": "running",
-                    "current_action": "deleting",
-                    "current_path": "",
-                    "upsert_total": len(upsert_paths),
-                    "remove_total": total,
-                    "upsert_remaining": 0,
-                    "remove_remaining": len(futures),
-                    "upsert_paths": [],
-                    "remove_paths": removed_paths[:50],
+                    "path": relative,
+                    # Preserve the exec bit; the per-file API used to lose it.
+                    "mode": "100755" if local_path.stat().st_mode & 0o111 else "100644",
+                    "type": "blob",
+                    "sha": blob_sha,
                 }
             )
-            for future in as_completed(futures):
-                try:
-                    did_delete = future.result()
-                except SyncError:
-                    if not self._cancel_requested():
-                        raise
-                    for pending in futures:
-                        pending.cancel()
-                    cancelled = True
-                    break
-                if did_delete:
-                    deleted_count += 1
-                else:
-                    skipped_count += 1
-                self._progress_callback(
-                    {
-                        "status": "running",
-                        "current_action": "deleting",
-                        "current_path": "",
-                        "upsert_total": len(upsert_paths),
-                        "remove_total": total,
-                        "upsert_remaining": 0,
-                        "remove_remaining": len(futures) - deleted_count - skipped_count,
-                        "upsert_paths": [],
-                        "remove_paths": removed_paths[:50],
-                    }
-                )
-        self._drain_future_results(futures)
-        if self._cancel_requested():
-            cancelled = True
-        return deleted_count, skipped_count, cancelled
+            synced_count += 1
 
-    def _drain_future_results(self, futures: dict) -> None:
-        """Retrieve any unhandled future exceptions so nothing is GC-logged."""
-        for future in futures:
-            if future.done() and not future.cancelled():
-                future.exception()
+        for relative in removed_paths:
+            # A null SHA is how the tree API is told to drop a path, so a
+            # delete is staged in the same commit as everything else.
+            entries.append({"path": relative, "mode": "100644", "type": "blob", "sha": None})
 
-    def _delete_one(self, relative: str) -> bool:
-        remote = self._github.get_content(relative)
-        if not remote or "sha" not in remote:
-            return False
-        self._github.delete_content(
-            path=relative,
-            sha=remote["sha"],
-            message=f"sync: delete {relative}",
+        if not entries:
+            return synced_count, skipped_count, False
+
+        self._progress_callback(
+            {
+                "status": "running",
+                "current_action": "committing",
+                "current_path": "",
+                "upsert_total": total,
+                "remove_total": len(removed_paths),
+                "upsert_remaining": 0,
+                "remove_remaining": 0,
+                "upsert_paths": upsert_paths[:50],
+                "remove_paths": removed_paths[:50],
+            }
         )
-        return True
+
+        message = self._commit_message(synced_count, len(removed_paths))
+        last_err: Exception | None = None
+        for attempt in range(3):
+            head_sha = self._github.get_branch_head_sha()
+            base_tree = self._github.get_commit_tree_sha(head_sha)
+            try:
+                tree = self._github.create_git_tree(base_tree=base_tree, tree=entries)
+                tree_sha = tree.get("sha")
+                if not isinstance(tree_sha, str) or not tree_sha:
+                    raise SyncError("GitHub tree response was incomplete")
+                commit = self._github.create_git_commit(
+                    message=message, tree_sha=tree_sha, parent_sha=head_sha
+                )
+                commit_sha = commit.get("sha")
+                if not isinstance(commit_sha, str) or not commit_sha:
+                    raise SyncError("GitHub commit response was incomplete")
+                # force=False: if someone pushed while we were staging, that
+                # push is not discarded - the retry rebuilds on top of it.
+                self._github.update_branch_ref(commit_sha, force=False)
+                return synced_count, skipped_count, False
+            except SyncError as err:
+                last_err = err
+                if self._cancel_requested():
+                    return synced_count, skipped_count, True
+                if attempt == 2:
+                    raise
+                import time
+
+                time.sleep(0.5 * (attempt + 1))
+        raise last_err  # type: ignore[misc]  # pragma: no cover
+
+    def _commit_message(self, synced_count: int, removed_count: int) -> str:
+        parts = []
+        if synced_count:
+            parts.append(f"update {synced_count} file{'s' if synced_count != 1 else ''}")
+        if removed_count:
+            parts.append(f"remove {removed_count} file{'s' if removed_count != 1 else ''}")
+        detail = ", ".join(parts) if parts else "no changes"
+        return f"sync: {detail}"
 
     def _restore_repo_skeleton(self) -> None:
         repo_root = Path(__file__).resolve().parents[1]
@@ -634,7 +634,10 @@ class SyncEngine:
             return True
 
     def _local_path_for(self, relative: str, roots: list[tuple[str, Path]] | None = None) -> Path:
-        if relative.startswith("media/"):
+        if self._config_prefix and relative.startswith(self._config_prefix + "/"):
+            # Prefixed layout: the key carries config/, the filesystem does not.
+            candidate = self._config_root / relative.removeprefix(self._config_prefix + "/")
+        elif relative.startswith("media/"):
             candidate = Path("/media") / relative.removeprefix("media/")
         elif relative.startswith("share/"):
             candidate = Path("/share") / relative.removeprefix("share/")
@@ -657,8 +660,16 @@ class SyncEngine:
             raise SyncError(f"Path escapes allowed sync roots: {relative}")
         return candidate
 
+    def _is_config_root(self, name: str) -> bool:
+        """Whether a root-map name refers to the config directory.
+
+        The name is "" in flat layout and "config" in prefixed, and several
+        checks care about which root rather than the literal string.
+        """
+        return name == self._config_prefix
+
     def _root_enabled(self, name: str) -> bool:
-        if name == "":
+        if self._is_config_root(name):
             return True
         if name == "addon_configs":
             return self._config.include_addon_configs
@@ -696,7 +707,19 @@ class SyncEngine:
         seen: set[str] = set()
         for entry in entries:
             normalised = _normalise_selection(entry)
-            if normalised is None or normalised in seen:
+            if normalised is None:
+                continue
+            # Selections name local paths; index keys carry the root prefix.
+            # Rewriting here means the rest of the engine - matching, the
+            # .gitignore check, upserts, deletes - only ever deals in key
+            # space, and layout stays a decision made in exactly one place.
+            if self._config_prefix and _mount_prefix(normalised) == "":
+                normalised = (
+                    self._config_prefix
+                    if normalised == WHOLE_CONFIG_ROOT
+                    else f"{self._config_prefix}/{normalised}"
+                )
+            if normalised in seen:
                 continue
             seen.add(normalised)
             selections.append(normalised)
@@ -717,7 +740,7 @@ class SyncEngine:
 
     def _root_needed(self, name: str) -> bool:
         """Whether a root has to be walked for the current selection."""
-        if name == "":
+        if self._is_config_root(name):
             return any(_mount_prefix(str(sel)) == "" for sel in self._selections)
         return self._root_enabled(name) or self._mount_has_selection(name)
 

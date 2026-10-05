@@ -26,11 +26,40 @@ mount-point control to include it, with `.gitignore` patterns such as the HACS
 
 | Action | What it does |
 |---|---|
-| **Clean Upload** | Force a full re-upload and remove remote extras |
-| **Clean Repo** | Wipe the remote repo and restore starter files in one step |
+| **Clean Upload** | Re-upload every local file and remove anything on the remote that is no longer local |
+| **Clean Repo** | Delete only remote files that are genuinely missing from your local config, and leave everything else untouched |
+| **Migrate Layout** | Move a repository synced before 1.7.2 onto the prefixed layout, putting your config under `config/` |
 
-Both are destructive. The repository picker includes safety checks to help you
-avoid accidentally overwriting the wrong repository.
+**Migrate Layout** is the only one that deletes remote paths which still exist
+locally, so it never runs on its own. Dry-run it first to see the exact list,
+and it reports by name anything it left in place or skipped because `config/`
+already held that file.
+
+The first two are destructive. The repository picker includes safety checks to
+help you avoid accidentally overwriting the wrong repository.
+
+## Repository layout
+
+Your config directory syncs to `config/` inside the repository, and each mount
+keeps its own name:
+
+```
+repo/
+  config/
+    configuration.yaml
+    blueprints/
+    custom_components/
+  addon_configs/
+  media/
+```
+
+Set `repo_layout: flat` in `options.yaml` to keep the config at the repository
+root instead — that is how repositories synced before 1.7.2 are laid out, and
+it means your config shares a namespace with the add-on's own `README.md`,
+`.HA_VERSION` and `.github-config-sync-addon.json`.
+
+Changing this does not move anything on its own. Use **Migrate Layout** when
+you do want the files moved.
 
 ## Notes
 
@@ -95,9 +124,11 @@ GithubConfigSync is provided as-is. By using this add-on, you acknowledge and ag
 
 **What to sync** is a tree. The configuration folder and each mount point sit at the top level, and any folder expands in place — so you can dive into `esphome/` and pick one file without losing sight of the rest.
 
+Under the tree, **Layout** chooses where the config directory lands in the repository. `prefixed` (the default) puts it under `config/` so it cannot collide with the add-on's own files; each mount keeps its own name either way. Upgrading does not move anything — a repository synced before 1.7.2 keeps its current shape until you run **Migrate Layout** in the Danger Zone.
+
 - **Select** on a folder takes it wholesale, recursively; **Select** on a file takes just that file.
 - **`▸`** expands a folder, **`▾`** collapses it. Children load the first time you open them.
-- The field under the tree takes a path or glob directly — `zigbee2mqtt/*.yaml` — for anything quicker to type than click.
+- There is no free-text path box. Every file is reachable by expanding the tree, which cannot be mistyped — a typo used to match nothing and sync zero files silently. For globs, `safe_config_paths` in `options.yaml` still works.
 - Mount points are browsable too, so `media/photos` can be picked without taking all of `/media`.
 - Everything selected is listed under **Selected**, with **Remove** on each row.
 

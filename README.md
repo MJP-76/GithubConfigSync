@@ -39,7 +39,9 @@ If you find this project useful, and would like to help support its continued de
 - Scheduled syncs (day-of-week + time-of-day selection)
 - Optional dated GitHub release creation before each sync
 - Clean Upload — force full re-upload and remove remote extras
-- Clean Repo — wipe remote repo and restore starter files in one step
+- Clean Repo — delete only remote files genuinely missing from your local config
+- Migrate Layout — move a pre-1.7.2 repository onto the prefixed `config/` layout
+- Prefixed repository layout by default, so your config never shares a namespace with the add-on's own files
 - Repository picker with safety checks to avoid accidental overwrites
 - Sensitive-file scanning and reporting
 
@@ -139,9 +141,11 @@ GithubConfigSync is provided as-is. By using this add-on, you acknowledge and ag
 
 **What to sync** is a tree. The configuration folder and each mount point sit at the top level, and any folder expands in place — so you can dive into `esphome/` and pick one file without losing sight of the rest.
 
+Under the tree, **Layout** chooses where the config directory lands in the repository. `prefixed` (the default) puts it under `config/` so it cannot collide with the add-on's own files; each mount keeps its own name either way. Upgrading does not move anything — a repository synced before 1.7.2 keeps its current shape until you run **Migrate Layout** in the Danger Zone.
+
 - **Select** on a folder takes it wholesale, recursively; **Select** on a file takes just that file.
 - **`▸`** expands a folder, **`▾`** collapses it. Children load the first time you open them.
-- The field under the tree takes a path or glob directly — `zigbee2mqtt/*.yaml` — for anything quicker to type than click.
+- There is no free-text path box. Every file is reachable by expanding the tree, which cannot be mistyped — a typo used to match nothing and sync zero files silently. For globs, `safe_config_paths` in `options.yaml` still works.
 - Mount points are browsable too, so `media/photos` can be picked without taking all of `/media`.
 - Everything selected is listed under **Selected**, with **Remove** on each row.
 

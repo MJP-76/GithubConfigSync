@@ -17,7 +17,7 @@ from urllib.parse import quote
 
 from flask import Flask, jsonify, request, send_from_directory
 
-from sync import SyncConfig, SyncEngine, SyncPlan
+from sync import REPO_LAYOUT_PREFIXED, SyncConfig, SyncEngine, SyncPlan
 from sync.engine import SYNC_MODES
 from sync.errors import SyncError
 from sync.github_client import GitHubClient
@@ -88,6 +88,7 @@ SUPERVISOR_OPTION_KEYS = frozenset(
         "security_override_all_filters",
         "safe_config_paths",
         "sync_paths",
+        "repo_layout",
     }
 )
 
@@ -282,6 +283,7 @@ def _repo_sync_config(options: dict[str, Any], repository: str) -> SyncConfig:
         security_override_all_filters=bool(options.get("security_override_all_filters", False)),
         safe_config_paths=_parse_path_list(options.get("safe_config_paths")),
         sync_paths=_parse_path_list(options.get("sync_paths")),
+        repo_layout=str(options.get("repo_layout", REPO_LAYOUT_PREFIXED) or REPO_LAYOUT_PREFIXED),
     )
 
 
@@ -989,6 +991,7 @@ def _sync_config(options: dict[str, Any]) -> SyncConfig:
         security_override_all_filters=bool(options.get("security_override_all_filters", False)),
         safe_config_paths=_parse_path_list(options.get("safe_config_paths")),
         sync_paths=_parse_path_list(options.get("sync_paths")),
+        repo_layout=str(options.get("repo_layout", REPO_LAYOUT_PREFIXED) or REPO_LAYOUT_PREFIXED),
     )
 
 
@@ -1202,6 +1205,7 @@ class _SyncScheduler:
                 security_override_all_filters=bool(options.get("security_override_all_filters", False)),
                 safe_config_paths=_parse_path_list(options.get("safe_config_paths")),
                 sync_paths=_parse_path_list(options.get("sync_paths")),
+                repo_layout=str(options.get("repo_layout", REPO_LAYOUT_PREFIXED) or REPO_LAYOUT_PREFIXED),
             )
             now = dt.datetime.now(dt.timezone.utc)
             local_now = now.astimezone()
@@ -1958,6 +1962,7 @@ def create_repo():
                 security_override_all_filters=bool(options.get("security_override_all_filters", False)),
                 safe_config_paths=_parse_path_list(options.get("safe_config_paths")),
                 sync_paths=_parse_path_list(options.get("sync_paths")),
+                repo_layout=str(options.get("repo_layout", REPO_LAYOUT_PREFIXED) or REPO_LAYOUT_PREFIXED),
             ),
             previous_hash_index={},
         )
@@ -2326,6 +2331,113 @@ def trigger_clean_repo():
         {
             "ok": True,
             "result": message,
+            "summary": {
+                "synced_count": result.synced_count,
+                "deleted_count": result.deleted_count,
+                "skipped_count": result.skipped_count,
+                "total_files": result.total_files,
+            },
+            "state": state,
+        }
+    )
+
+
+@app.post("/api/sync/migrate-layout")
+def trigger_layout_migration():
+    """Move an existing flat repository onto the prefixed layout.
+
+    Config files stop sharing the repository root with the add-on's own files
+    and land under config/ instead. This is the one operation that deletes
+    remote paths which still exist locally, so it is never automatic: it runs
+    only when asked, honours dry_run, and reports what moved and what it
+    deliberately left behind.
+    """
+    if not _require_auth():
+        return jsonify({"ok": False, "error": "Unauthorized"}), 401
+    options = _merge_options()
+    sync_config = _sync_config(options)
+
+    if not sync_config.repository:
+        return jsonify({"ok": False, "error": "github_repository is required"}), 400
+
+    started = dt.datetime.now(dt.timezone.utc).isoformat()
+    _save_state({"status": "running", "last_run": started, "last_error": None, **_clear_sync_progress_state()})
+    _set_cancel_requested(False)
+    _append_log(f"Layout migration requested for {sync_config.repository}")
+
+    scan: dict[str, Any] | None = None
+    try:
+        previous_index = _load_json(HASH_INDEX_PATH, {})
+        engine = SyncEngine(sync_config, previous_hash_index=previous_index)
+        engine.set_progress_callback(lambda payload: _save_state(_sync_progress_payload(payload)))
+        engine.set_cancel_checker(_is_cancel_requested)
+        plan, current_hash_index, held_back = engine.layout_migration()
+        scan = _plan_summary(plan)
+        scan["left_behind_files"] = held_back["left_behind"][:50]
+        scan["left_behind_count"] = len(held_back["left_behind"])
+        scan["conflict_files"] = held_back["conflicts"][:50]
+        scan["conflict_count"] = len(held_back["conflicts"])
+
+        if not plan.added and not plan.removed:
+            message = "Layout migration: nothing to move. This repository already uses the prefixed layout."
+            _append_log(message)
+            state = _save_state(
+                {
+                    "status": "ok",
+                    "last_result": message,
+                    "last_scan": scan,
+                    "last_error": None,
+                    **_clear_sync_progress_state(),
+                }
+            )
+            return jsonify({"ok": True, "result": message, "scan": scan, "state": state})
+
+        _append_log(
+            f"Layout migration: moving {len(plan.removed)} file(s) into config/, "
+            f"leaving {len(held_back['left_behind'])} and skipping "
+            f"{len(held_back['conflicts'])} conflicting"
+        )
+        result = engine.run(plan)
+        # The baseline has to follow the repository, so it records the new
+        # keys. Without this the next sync would see the moved files as new.
+        # A preview must not move it at all, for the same reason every other
+        # preview does not.
+        if not sync_config.dry_run:
+            _save_json(HASH_INDEX_PATH, current_hash_index)
+    except SyncError as err:
+        state = _save_state(
+            {
+                "status": "error",
+                "last_error": str(err),
+                "last_result": None,
+                "last_scan": scan,
+                **_clear_sync_progress_state(),
+            }
+        )
+        _append_log(f"Layout migration failed: {err}")
+        return jsonify({"ok": False, "error": str(err), "state": state}), 502
+
+    prefix = f" Layout migration: {len(held_back['left_behind'])} file(s) left in place, {len(held_back['conflicts'])} skipped as already present under config/."
+    message = f"Layout migration completed. Moved {result.synced_count} file(s) into config/ and removed {result.deleted_count} old root path(s).{prefix}"
+    if sync_config.dry_run:
+        message = f"Layout migration dry run. Would move {len(plan.added)} file(s) into config/ and remove {len(plan.removed)} old root path(s).{prefix}"
+    state = _save_state(
+        {
+            "status": "ok",
+            "last_success": dt.datetime.now(dt.timezone.utc).isoformat(),
+            "last_result": message,
+            "last_scan": scan,
+            "last_error": None,
+            **_clear_sync_progress_state(),
+        }
+    )
+    _append_log(message)
+    return jsonify(
+        {
+            "ok": True,
+            "result": message,
+            "dry_run": sync_config.dry_run,
+            "scan": scan,
             "summary": {
                 "synced_count": result.synced_count,
                 "deleted_count": result.deleted_count,

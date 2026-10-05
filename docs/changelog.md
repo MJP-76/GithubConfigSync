@@ -6,6 +6,15 @@ The full 71-release history lives in
 [GitHub Releases](https://github.com/MJP-76/GithubConfigSync/releases)).
 The last 5 releases are kept at the top, per the project's changelog rules.
 
+## 1.7.2
+
+Prefixed repository layout, a size cap, and selection by picking only.
+
+- **The config directory now syncs to `config/` inside the repository**, so it no longer shares a namespace with the add-on's own files. Mounts keep their existing names. Prefixed is the default; `flat` remains available. Upgrading does not move anything - **Migrate Layout** in the Danger Zone does, after a dry run showing exactly what will move.
+- **Files over 50 MB are skipped and listed by name** instead of failing the entire run with a 422, and are protected from Clean Repo deletion.
+- **The free-text path box is removed.** Every file is reachable from the tree, which cannot be mistyped; `safe_config_paths` remains for globs.
+- **A sync is now one commit instead of one per file.** Per-file commits cost three API calls a file, so a 224-file repository needed over 600 calls - enough to trip the rate limiter and, if a run failed partway, leave the repository in a state matching no plan the user had seen. Staging blobs and writing one tree, commit and ref update makes it N+3 and the run atomic. Deletes are staged in the same commit, a concurrent push is no longer overwritten, and the executable bit is preserved.
+
 ## 1.7.1
 
 Fixes three bugs reported in [#44](https://github.com/MJP-76/GithubConfigSync/issues/44). This replaces 1.7.0, which is withdrawn.

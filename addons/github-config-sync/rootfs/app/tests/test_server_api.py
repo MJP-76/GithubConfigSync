@@ -1351,6 +1351,136 @@ class ServerApiTests(unittest.TestCase):
         self.assertEqual(call_plan.removed, ["stale.yaml", "old/cache.json"])
         engine._github.write_repo_marker.assert_called_once()
 
+    def test_migrate_layout_moves_root_files_under_config(self) -> None:
+        self._write_options(
+            {
+                "github_repository": "owner/repo",
+                "github_branch": "main",
+                "github_token": "gho_test",
+                "dry_run": True,
+            }
+        )
+
+        with patch("server.SyncEngine") as engine_cls:
+            engine = engine_cls.return_value
+            engine.layout_migration.return_value = (
+                unittest.mock.MagicMock(
+                    added=["config/configuration.yaml"],
+                    changed=[],
+                    removed=["configuration.yaml"],
+                    total_files=2,
+                    oversized=[],
+                ),
+                {"config/configuration.yaml": "aaa"},
+                {"left_behind": ["secrets.yaml"], "conflicts": ["automations.yaml"]},
+            )
+            engine.run.return_value = unittest.mock.MagicMock(
+                synced_count=1, deleted_count=1, skipped_count=0, total_files=2, message="moved"
+            )
+            response = self.client.post("/api/sync/migrate-layout")
+
+        body = response.get_json()
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(body["ok"])
+        # Left-behind and conflicting paths are reported by name, never silently
+        # dropped - the point of this operation is that it is visible.
+        self.assertEqual(body["scan"]["left_behind_files"], ["secrets.yaml"])
+        self.assertEqual(body["scan"]["conflict_files"], ["automations.yaml"])
+        self.assertEqual(body["scan"]["added_count"], 1)
+        self.assertEqual(body["scan"]["removed_count"], 1)
+        self.assertEqual(engine.layout_migration.call_count, 1)
+
+    def test_migrate_layout_does_not_move_the_baseline_on_a_dry_run(self) -> None:
+        """A preview must not leave the next real sync believing it is done."""
+        self._write_options(
+            {
+                "github_repository": "owner/repo",
+                "github_branch": "main",
+                "github_token": "gho_test",
+                "dry_run": True,
+            }
+        )
+
+        with patch("server.SyncEngine") as engine_cls, patch.object(
+            server, "_save_json"
+        ) as save_json:
+            engine = engine_cls.return_value
+            engine.layout_migration.return_value = (
+                unittest.mock.MagicMock(
+                    added=["config/configuration.yaml"],
+                    changed=[],
+                    removed=["configuration.yaml"],
+                    total_files=1,
+                    oversized=[],
+                ),
+                {"config/configuration.yaml": "aaa"},
+                {"left_behind": [], "conflicts": []},
+            )
+            engine.run.return_value = unittest.mock.MagicMock(
+                synced_count=0, deleted_count=0, skipped_count=0, total_files=1, message="dry"
+            )
+            response = self.client.post("/api/sync/migrate-layout")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.get_json()["dry_run"])
+        self.assertFalse(
+            any(
+                call.args[0] == server.HASH_INDEX_PATH
+                for call in save_json.call_args_list
+                if call.args
+            ),
+            "a dry run must not persist the migration baseline",
+        )
+
+    def test_migrate_layout_reports_a_no_op_rather_than_failing(self) -> None:
+        self._write_options(
+            {
+                "github_repository": "owner/repo",
+                "github_branch": "main",
+                "github_token": "gho_test",
+                "dry_run": True,
+            }
+        )
+
+        with patch("server.SyncEngine") as engine_cls:
+            engine = engine_cls.return_value
+            engine.layout_migration.return_value = (
+                unittest.mock.MagicMock(
+                    added=[], changed=[], removed=[], total_files=2, oversized=[]
+                ),
+                {"config/configuration.yaml": "aaa"},
+                {"left_behind": [], "conflicts": []},
+            )
+            response = self.client.post("/api/sync/migrate-layout")
+
+        body = response.get_json()
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(body["ok"])
+        self.assertIn("nothing to move", body["result"])
+        engine.run.assert_not_called()
+
+    def test_migrate_layout_surfaces_an_engine_refusal(self) -> None:
+        self._write_options(
+            {
+                "github_repository": "owner/repo",
+                "github_branch": "main",
+                "github_token": "gho_test",
+                "repo_layout": "flat",
+                "dry_run": True,
+            }
+        )
+
+        with patch("server.SyncEngine") as engine_cls:
+            engine_cls.return_value.layout_migration.side_effect = server.SyncError(
+                "Migration only applies to the prefixed layout."
+            )
+            response = self.client.post("/api/sync/migrate-layout")
+
+        self.assertEqual(response.status_code, 502)
+        body = response.get_json()
+        self.assertFalse(body["ok"])
+        self.assertIn("prefixed layout", body["error"])
+
     def test_nuke_repo_requires_typed_confirmation(self) -> None:
         self._write_options(
             {
