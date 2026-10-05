@@ -1221,6 +1221,7 @@ class ServerApiTests(unittest.TestCase):
                     changed=[],
                     removed=[],
                     total_files=1,
+                    oversized=[],
                 ),
                 {"one.txt": "abc"},
             )
@@ -1258,6 +1259,7 @@ class ServerApiTests(unittest.TestCase):
                     changed=[],
                     removed=[],
                     total_files=1,
+                    oversized=[],
                 ),
                 {"one.txt": "abc"},
             )
@@ -1293,6 +1295,7 @@ class ServerApiTests(unittest.TestCase):
                     changed=[],
                     removed=[],
                     total_files=1,
+                    oversized=[],
                 ),
                 {"one.txt": "abc"},
             )
@@ -1326,6 +1329,7 @@ class ServerApiTests(unittest.TestCase):
                     changed=[],
                     removed=["stale.yaml", "old/cache.json"],
                     total_files=3,
+                    oversized=[],
                 ),
                 {"one.txt": "aaa", "stale.yaml": "bbb", "old/cache.json": "ccc"},
             )
@@ -1416,6 +1420,7 @@ class ServerApiTests(unittest.TestCase):
                     changed=[],
                     removed=[],
                     total_files=1,
+                    oversized=[],
                 ),
                 {"one.txt": "abc"},
             )
@@ -1449,6 +1454,7 @@ class ServerApiTests(unittest.TestCase):
                     changed=[],
                     removed=[],
                     total_files=1,
+                    oversized=[],
                 ),
                 {"one.txt": "abc"},
             )
@@ -1480,6 +1486,7 @@ class ServerApiTests(unittest.TestCase):
                     changed=[],
                     removed=[],
                     total_files=1,
+                    oversized=[],
                 ),
                 {"one.txt": "abc"},
             )

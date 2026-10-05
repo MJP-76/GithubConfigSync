@@ -112,6 +112,15 @@ SENSITIVE_CONTENT_PATTERNS = (
 
 MAX_CONTENT_SCAN_BYTES = 2 * 1024 * 1024
 
+# Largest file a sync will try to upload. GitHub's contents API rejects
+# anything this size outright ("Sorry, the file is too large to be processed")
+# and base64-encodes the payload on the way, making it a third larger again.
+# Nothing in a configuration directory legitimately reaches this - the biggest
+# real offender seen was a 286 MB archive another add-on had written into the
+# config root - so the cap costs nothing and turns a total run failure into a
+# reported skip.
+MAX_SYNCABLE_BYTES = 50 * 1024 * 1024
+
 
 class GitIgnoreMatcher:
     """Match repo-relative paths against a .gitignore file's patterns.
@@ -304,10 +313,29 @@ def sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
+def _file_size(path: Path) -> int:
+    """Size in bytes, or 0 if the file cannot be stat'ed.
+
+    A file that disappears mid-walk is not a reason to abort the scan; the
+    read that follows will fail on its own if it is somehow still there.
+    """
+    try:
+        return path.stat().st_size
+    except OSError:
+        return 0
+
+
 def build_hash_index(
     root: Path,
     override: bool = False,
+    oversized: list[str] | None = None,
 ) -> dict[str, str]:
+    """Digest every syncable file under ``root``, keyed by relative path.
+
+    Pass ``oversized`` to collect the paths skipped for being too large to
+    upload. It is optional because the walk already knows which files those
+    are, and a second walk to find them again would be pure cost.
+    """
     if not root.exists():
         return {}
 
@@ -316,6 +344,15 @@ def build_hash_index(
         if not path.is_file():
             continue
         relative = path.relative_to(root).as_posix()
+        if _file_size(path) > MAX_SYNCABLE_BYTES:
+            # Skipped rather than attempted. GitHub answers with a 422 for a
+            # file this size, and that error used to abort the whole run, so a
+            # single archive dropped in the config directory cost the user
+            # every other file too. Skipping it also avoids hashing hundreds
+            # of megabytes to find out nothing can be done with the digest.
+            if oversized is not None:
+                oversized.append(relative)
+            continue
         if _is_file_sensitive(root, path, override=override):
             continue
         index[relative] = sha256_file(path)

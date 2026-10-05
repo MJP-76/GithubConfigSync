@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 
 @dataclass(frozen=True)
@@ -29,6 +29,9 @@ class SyncPlan:
     changed: list[str]
     removed: list[str]
     total_files: int
+    # In scope, but too large for GitHub to accept. Skipped with a report
+    # rather than attempted, so one oversized file cannot fail the run.
+    oversized: list[str] = field(default_factory=list)
 
 
 @dataclass(frozen=True)

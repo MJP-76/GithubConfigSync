@@ -1036,11 +1036,13 @@ def _plan_summary(plan) -> dict[str, Any]:
         "added_count": len(plan.added),
         "changed_count": len(plan.changed),
         "removed_count": len(plan.removed),
+        "oversized_count": len(plan.oversized),
         "unchanged_count": plan.total_files - changed_count - len(plan.removed),
         "total_files": plan.total_files,
         "added_files": plan.added[:50],
         "changed_files": plan.changed[:50],
         "removed_files": plan.removed[:50],
+        "oversized_files": plan.oversized[:50],
     }
 
 

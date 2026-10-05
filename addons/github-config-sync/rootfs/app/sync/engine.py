@@ -122,6 +122,7 @@ class SyncEngine:
             token=config.token,
         )
         self._sensitive_files: list[str] = []
+        self._oversized: list[str] = []
         self._cancel_requested: Callable[[], bool] = lambda: False
         self._progress_callback: Callable[[dict[str, object]], None] = lambda _payload: None
         self._last_progress: dict[str, object] = {}
@@ -176,18 +177,28 @@ class SyncEngine:
             changed=changed,
             removed=self._genuinely_gone(removed),
             total_files=len(current_hash_index),
+            oversized=list(self._oversized),
         )
         return plan, current_hash_index
 
     def clean_plan(self) -> tuple[SyncPlan, dict[str, str]]:
         current_hash_index = self._build_hash_index()
         all_paths = sorted(current_hash_index.keys())
-        removed_paths = sorted(path for path in self._previous_hash_index.keys() if path not in current_hash_index)
+        # A file skipped for being too large is missing from the scan but not
+        # gone from disk. Deleting it here would destroy the only copy there
+        # is, because no later sync could upload it either.
+        protected = set(self._oversized)
+        removed_paths = sorted(
+            path
+            for path in self._previous_hash_index
+            if path not in current_hash_index and path not in protected
+        )
         plan = SyncPlan(
             added=all_paths,
             changed=[],
             removed=removed_paths,
             total_files=len(current_hash_index),
+            oversized=list(self._oversized),
         )
         return plan, current_hash_index
 
@@ -215,26 +226,36 @@ class SyncEngine:
             return SyncResult(
                 synced_count=len(plan.added) + len(plan.changed),
                 deleted_count=len(plan.removed),
-                skipped_count=0,
+                skipped_count=len(plan.oversized),
                 total_files=plan.total_files,
                 message=(
                     "Dry run completed. "
                     f"Would upsert {len(plan.added) + len(plan.changed)} files "
                     f"and delete {len(plan.removed)} files."
+                    + (
+                        f" {len(plan.oversized)} too large for GitHub would be skipped."
+                        if plan.oversized
+                        else ""
+                    )
                 ),
             )
 
         synced_count = 0
         deleted_count = 0
-        skipped_count = 0
+        skipped_count = len(plan.oversized)
         synced_count, skipped_upserts, cancelled = self._apply_upserts(upsert_paths, removed_paths)
         if cancelled:
             return self._cancelled_result(plan, synced_count, deleted_count, skipped_count + skipped_upserts)
         deleted_count, skipped_deletes, cancelled = self._apply_deletes(upsert_paths, removed_paths)
         if cancelled:
             return self._cancelled_result(plan, synced_count, deleted_count, skipped_count + skipped_upserts + skipped_deletes)
-        skipped_count = skipped_upserts + skipped_deletes
+        skipped_count = len(plan.oversized) + skipped_upserts + skipped_deletes
 
+        too_large = (
+            f" {len(plan.oversized)} too large for GitHub were skipped."
+            if plan.oversized
+            else ""
+        )
         return SyncResult(
             synced_count=synced_count,
             deleted_count=deleted_count,
@@ -243,6 +264,7 @@ class SyncEngine:
             message=(
                 "Sync completed. "
                 f"Upserted {synced_count}, deleted {deleted_count}, skipped {skipped_count}."
+                f"{too_large}"
             ),
         )
 
@@ -720,6 +742,7 @@ class SyncEngine:
             # "sync everything unfiltered" has to be a deliberate selection, not
             # the side effect of an empty list.
             self._sensitive_files = []
+            self._oversized = []
             return {}
 
         # The warning list only covers paths the user actually picked, so it
@@ -731,11 +754,13 @@ class SyncEngine:
         )
         ignore_matcher = GitIgnoreMatcher.from_file(self._config_root / ".gitignore")
         index: dict[str, str] = {}
+        oversized: list[str] = []
         roots = self._walkable_roots() if selection_mode else self._root_map
         for prefix, root in roots:
             if not root.exists():
                 continue
-            current = build_hash_index(root, override=override)
+            too_large: list[str] = []
+            current = build_hash_index(root, override=override, oversized=too_large)
             for relative, digest in current.items():
                 key = f"{prefix}/{relative}" if prefix else relative
                 if selection_mode and not self._path_selected(key):
@@ -743,6 +768,16 @@ class SyncEngine:
                 if ignore_matcher.has_rules and ignore_matcher.match(key):
                     continue
                 index[key] = digest
+            # Reported on the same terms as the index: a file that was out of
+            # scope or ignored is not something the sync would have tried.
+            for relative in too_large:
+                key = f"{prefix}/{relative}" if prefix else relative
+                if selection_mode and not self._path_selected(key):
+                    continue
+                if ignore_matcher.has_rules and ignore_matcher.match(key):
+                    continue
+                oversized.append(key)
+        self._oversized = sorted(oversized)
         return index
 
 

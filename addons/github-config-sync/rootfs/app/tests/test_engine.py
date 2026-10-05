@@ -12,6 +12,7 @@ if str(APP_ROOT) not in sys.path:
 
 from sync.engine import SyncEngine
 from sync.errors import SyncError
+from sync.hashing import MAX_SYNCABLE_BYTES
 from sync.models import SyncConfig, SyncPlan
 
 
@@ -899,6 +900,79 @@ class OutOfScopeDeletionTests(unittest.TestCase):
         engine = self._engine("override", ["media"])
         self.assertEqual(engine._selections, ("media",))
         self.assertTrue(engine._path_selected("media/note.txt"))
+
+
+class OversizedFileTests(unittest.TestCase):
+    """A file too large for GitHub is skipped, never attempted.
+
+    GitHub answers a 422 for a file this size, and that error used to abort
+    the entire run - so one archive another add-on had dropped into the config
+    directory cost the user every other file in the sync.
+    """
+
+    def setUp(self) -> None:
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        root = Path(tmp.name) / "config"
+        self.root = root
+        root.mkdir()
+        (root / "configuration.yaml").write_text("homeassistant:\n", encoding="utf-8")
+        # Sparse, so the fixture stays small on disk while the file is huge.
+        with (root / "archive.tar.gz").open("wb") as handle:
+            handle.truncate(MAX_SYNCABLE_BYTES + 1)
+
+    def _engine(self, sync_paths=(".",), previous=None):
+        config = SyncConfig(
+            repository="owner/repo",
+            branch="main",
+            token="token",
+            config_root=str(self.root),
+            dry_run=True,
+            sync_mode="override",
+            sync_paths=tuple(sync_paths),
+        )
+        return SyncEngine(config, previous_hash_index=previous or {})
+
+    def test_oversized_file_is_skipped_and_reported(self):
+        plan, index = self._engine().plan()
+        self.assertEqual(plan.oversized, ["archive.tar.gz"])
+        self.assertNotIn("archive.tar.gz", index)
+
+    def test_oversized_file_does_not_sink_the_rest_of_the_run(self):
+        plan, index = self._engine().plan()
+        self.assertIn("configuration.yaml", index)
+        self.assertEqual(plan.added, ["configuration.yaml"])
+        self.assertEqual(plan.total_files, 1)
+
+    def test_dry_run_message_names_the_skip(self):
+        plan, _ = self._engine().plan()
+        result = self._engine().run(plan)
+        self.assertIn("too large for GitHub", result.message)
+        self.assertEqual(result.skipped_count, 1)
+
+    def test_oversized_file_already_in_the_repo_is_not_removed(self):
+        previous = {"archive.tar.gz": "digest", "configuration.yaml": "digest"}
+        plan, _ = self._engine(previous=previous).plan()
+        self.assertEqual(plan.removed, [])
+
+    def test_clean_repo_does_not_delete_an_oversized_file(self):
+        """Deleting it would destroy the only copy - it cannot be re-uploaded."""
+        previous = {"archive.tar.gz": "digest", "configuration.yaml": "digest"}
+        plan, _ = self._engine(previous=previous).clean_plan()
+        self.assertNotIn("archive.tar.gz", plan.removed)
+
+    def test_clean_repo_still_deletes_files_that_really_are_gone(self):
+        (self.root / "removed.yaml").write_text("x: 1\n", encoding="utf-8")
+        previous = {"archive.tar.gz": "digest", "removed.yaml": "digest"}
+        _, index = self._engine(previous=previous).plan()
+        self.assertIn("removed.yaml", index)
+        (self.root / "removed.yaml").unlink()
+        plan, _ = self._engine(previous=previous).clean_plan()
+        self.assertEqual(plan.removed, ["removed.yaml"])
+
+    def test_out_of_scope_oversized_file_is_not_reported(self):
+        plan, _ = self._engine(sync_paths=("configuration.yaml",)).plan()
+        self.assertEqual(plan.oversized, [])
 
 
 if __name__ == "__main__":
