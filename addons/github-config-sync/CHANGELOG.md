@@ -2,6 +2,12 @@
 
 ## Latest Releases
 
+## 1.7.4
+
+Fixes 1.7.3's own logging, which never reached the log.
+
+- **The sync lifecycle lines added in 1.7.3 were discarded.** The app configured no logging at all - it silenced `werkzeug` and left the rest to Python's fallback handler, which emits `WARNING` and above only. The start and finish lines are `INFO`, so they were dropped before reaching the add-on log. A sync that started and finished cleanly was therefore indistinguishable in the log from one that never started, which is precisely the ambiguity 1.7.3 set out to remove. The entrypoint now enables `INFO`; `werkzeug` stays silenced so per-request logging does not appear.
+
 ## 1.7.3
 
 Fixes a sync that reports itself as running and then does nothing.

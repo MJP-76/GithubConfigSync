@@ -2,6 +2,12 @@
 
 ## Latest Releases
 
+## 1.7.4
+
+Fixes 1.7.3's own logging, which never reached the log.
+
+- **The sync lifecycle lines added in 1.7.3 were discarded.** The app configured no logging at all, so Python's fallback handler dropped everything below WARNING - including the new start and finish lines. A sync that ran cleanly was indistinguishable in the log from one that never started, which is the exact ambiguity 1.7.3 was meant to remove.
+
 ## 1.7.3
 
 Fixes a sync that reports itself as running and then does nothing.

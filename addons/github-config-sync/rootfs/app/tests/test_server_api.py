@@ -1959,6 +1959,34 @@ class AuthBehaviorTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertTrue(response.get_json()["ok"])
 
+class AppLoggingTests(unittest.TestCase):
+    """The sync lifecycle has to be able to reach the add-on log.
+
+    server.py silences werkzeug but never configures logging, so Python's
+    fallback handler dropped everything below WARNING. The sync engine's start
+    and finish lines are INFO, so a sync that ran perfectly was indistinguishable
+    in the log from one that never started - the precise ambiguity that made a
+    stalled sync undiagnosable.
+    """
+
+    def test_the_entrypoint_enables_info_level_logging(self) -> None:
+        source = (Path(__file__).resolve().parents[1] / "server.py").read_text(
+            encoding="utf-8"
+        )
+        entrypoint = source.split('if __name__ == "__main__":', 1)[1]
+        self.assertIn("logging.basicConfig(", entrypoint)
+        self.assertIn("level=logging.INFO", entrypoint)
+
+    def test_werkzeug_stays_silenced(self) -> None:
+        """Turning on INFO must not turn on per-request logging."""
+        import logging
+
+        source = (Path(__file__).resolve().parents[1] / "server.py").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn('logging.getLogger("werkzeug").setLevel(logging.ERROR)', source)
+        self.assertEqual(logging.getLogger("werkzeug").level, logging.ERROR)
+
 
 if __name__ == "__main__":
     unittest.main()

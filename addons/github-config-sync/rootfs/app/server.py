@@ -2519,4 +2519,15 @@ def trigger_nuke_repo():
 
 if __name__ == "__main__":
     DATA_DIR.mkdir(parents=True, exist_ok=True)
+    # Python's fallback handler emits WARNING and above only, so without this
+    # every INFO line the sync engine writes is discarded before it reaches the
+    # add-on log. A sync that started and finished cleanly was therefore
+    # indistinguishable from one that never ran - which is exactly the ambiguity
+    # that made a stalled sync impossible to tell from a successful one.
+    # werkzeug is silenced above, so this does not turn on request logging.
+    logging.basicConfig(
+        level=logging.INFO,
+        format="[%(asctime)s] %(levelname)s %(name)s: %(message)s",
+        datefmt="%H:%M:%S",
+    )
     app.run(host="0.0.0.0", port=APP_PORT, debug=False)
