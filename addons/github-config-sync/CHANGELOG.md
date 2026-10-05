@@ -2,6 +2,18 @@
 
 ## Latest Releases
 
+## 1.7.6
+
+Fixes the Sync button, which was reporting success without syncing anything.
+
+- **Manual sync ignored your selection.** `/api/sync/manual` re-created its config from a field list copied from a much older version, and four fields were dropped: `sync_paths`, `safe_config_paths`, `security_override_all_filters` and `repo_layout`. Whitelist with an empty selection scans nothing, so every manual sync returned `Sync completed. Upserted 0, deleted 0` for a run that touched no files. Nothing reported an error, because the engine was doing exactly what it had been told - just told nothing. The scheduled sync does not rebuild, which is why the 03:00 run kept committing and made the fault look intermittent rather than total.
+
+- **Clean Upload carried the same copy and is worse for it.** It forces `dry_run` off to do real work, and dropping `repo_layout` alongside it meant a flat repository would have staged files under `config/` beside the ones already at the root - an active corruption of a working repository rather than a silent no-op.
+
+- Both rebuilds are gone. Three tests now pin it shut: any config construction outside the two builders must carry the selection fields, and neither endpoint may re-create the config. A fourth posts to the endpoint the Sync button actually calls and asserts a selected file reaches the plan - every existing sync test posted to a different endpoint, which is why 250 tests passed throughout.
+
+**Upgrading from 1.7.1 or earlier:** repositories synced before 1.7.2 are laid out flat, but `repo_layout` now defaults to `prefixed`. Set **Layout** to `Flat` - or run **Migrate Layout** if you want the new layout - before your next sync, or files will be written under `config/` beside the originals.
+
 ## 1.7.5
 
 Fixes the cause of a sync that hangs while reporting itself as running.

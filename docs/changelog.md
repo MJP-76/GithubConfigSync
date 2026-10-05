@@ -6,6 +6,18 @@ The full 71-release history lives in
 [GitHub Releases](https://github.com/MJP-76/GithubConfigSync/releases)).
 The last 5 releases are kept at the top, per the project's changelog rules.
 
+## 1.7.6
+
+Fixes the Sync button, which was reporting success without syncing anything.
+
+- **Manual sync ignored your selection.** It re-created its config from a field list copied from a much older version and dropped `sync_paths`, `safe_config_paths`, `security_override_all_filters` and `repo_layout`. Whitelist with an empty selection scans nothing, so every manual sync returned "Sync completed" for a run that touched no files - while the scheduled sync, which does not rebuild, kept working.
+
+- **Clean Upload had the same bug and is worse for it:** it forces `dry_run` off while dropping `repo_layout`, so a flat repository would have staged files under `config/` beside the originals.
+
+- Both rebuilds are gone, pinned by a structural test, an endpoint test, and a regression test that posts to the endpoint the Sync button actually calls.
+
+**Upgrading from 1.7.1 or earlier:** set **Layout** to `Flat` (or run **Migrate Layout**) before your next sync - `repo_layout` now defaults to `prefixed`.
+
 ## 1.7.5
 
 Fixes the cause of a sync that hangs while reporting itself as running.
