@@ -59,8 +59,7 @@ it means your config shares a namespace with the add-on's own `README.md`,
 `.HA_VERSION` and `.github-config-sync-addon.json`.
 
 Changing this does not move anything on its own. To move the files, tick
-**Migrate from flat layout to structured** in the Danger Zone and run a sync
-(see below).
+**Migrate from flat layout to structured** and run a sync (see below).
 
 ### Migrating an existing repository
 
@@ -70,9 +69,9 @@ at the repository root beside this add-on's own files. Tick
 the migration is performed as part of that sync's single commit, so the root is
 cleared and the config is uploaded together, atomically.
 
-- It requires **Layout** to be `prefixed` — config files have to land under
-  `config/` before the root can be cleared. The tick box is unavailable while
-  Layout is `flat`.
+- Ticking it also sets the layout to `prefixed`, because there is no longer a
+  control to do that with. An un-ticked save leaves your stored layout alone —
+  nothing resets behind your back.
 - It removes every file at the repository root that is not under `config/` or a
   mount, **including files with no local counterpart** — the point is that the
   repository ends up mirroring your configuration, not halfway between two
@@ -151,7 +150,7 @@ GithubConfigSync is provided as-is. By using this add-on, you acknowledge and ag
 
 **What to sync** is a tree. The configuration folder and each mount point sit at the top level, and any folder expands in place — so you can dive into `esphome/` and pick one file without losing sight of the rest.
 
-Under the tree, **Layout** chooses where the config directory lands in the repository. `prefixed` (the default) puts it under `config/` so it cannot collide with the add-on's own files; each mount keeps its own name either way. Upgrading does not move anything — a repository synced before 1.7.2 keeps its current shape until you tick **Migrate from flat layout to structured** in the Danger Zone.
+Under the tree, **Layout** says where the configuration directory lands: everything syncs under `config/`, so it can never collide with the add-on's own `README.md`, marker or skeleton, and each mount keeps its own name. There is no longer a layout choice to make — a repository synced before 1.7.2 keeps its old shape until you tick **Migrate from flat layout to structured** and run a sync.
 
 - **Select** on a folder takes it wholesale, recursively; **Select** on a file takes just that file.
 - **`▸`** expands a folder, **`▾`** collapses it. Children load the first time you open them.

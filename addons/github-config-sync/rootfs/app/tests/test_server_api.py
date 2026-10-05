@@ -2128,6 +2128,45 @@ class LayoutOptionTests(ServerApiSetup, unittest.TestCase):
         self.assertEqual(response.status_code, 200, response.get_json())
         self.assertNotIn("layout_migrated", state, "a preview must not spend the tick box")
 
+class LayoutControlTests(unittest.TestCase):
+    """The UI must always be able to reach a prefixed layout.
+
+    The Layout dropdown and the migration tick box both answered "where do
+    files land?", so the dropdown went. That leaves one control carrying the
+    whole requirement, and one of them - the dropdown - had already been dead
+    for months without anything noticing. These read the markup itself: a
+    control that no longer exists but is still wired up is precisely the kind
+    of defect that passes every functional test, because nothing exercises it.
+    """
+
+    def _html(self) -> str:
+        return (APP_ROOT / "static" / "index.html").read_text(encoding="utf-8")
+
+    def test_the_dropdown_is_replaced_by_exactly_one_tick_box(self) -> None:
+        html = self._html()
+        self.assertNotIn('id="repoLayout"', html, "the dropdown should be gone")
+        self.assertEqual(html.count('id="migrateLayoutChk"'), 1)
+        self.assertEqual(html.count('id="migrateLayoutHelp"'), 1)
+
+    def test_nothing_still_reaches_for_the_removed_dropdown(self) -> None:
+        html = self._html()
+        for dead in ("repoLayout", "LAYOUT_HELP", "applyRepoLayout"):
+            self.assertNotIn(dead, html, f"{dead} is referenced but no longer defined")
+
+    def test_ticking_is_the_only_way_the_layout_becomes_prefixed(self) -> None:
+        """An un-ticked save must not change a stored flat layout."""
+        html = self._html()
+        self.assertIn('repo_layout: migrating ? "prefixed" : undefined', html)
+        self.assertIn("const migrating = Boolean(el.migrateLayoutChk", html)
+
+    def test_the_tick_box_lives_with_the_selection_controls(self) -> None:
+        """It used to be in the Danger Zone, where nothing explains the layout."""
+        html = self._html()
+        danger = html.split('summary class="section-title" style="cursor: pointer; color: var(--err)"', 1)[1]
+        self.assertNotIn('id="migrateLayoutChk"', danger, "tick box should have moved out")
+        layout_block = html.split("<span>Layout:</span>", 1)[1]
+        self.assertIn('id="migrateLayoutChk"', layout_block.split("</div>", 1)[0])
+
 
 if __name__ == "__main__":
     unittest.main()
