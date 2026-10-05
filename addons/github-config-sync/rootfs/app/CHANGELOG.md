@@ -2,6 +2,12 @@
 
 ## Latest Releases
 
+## 1.7.9
+
+- **The Layout dropdown is gone; the migration tick box replaces it**, sitting beside Mode in the main settings rather than in the Danger Zone. Both answered "where do files land?", and only one of them could be right.
+- **Ticking now sets the layout to `prefixed`** — removing the last way to choose `flat` would otherwise have left the tick box refusing with nothing left to change.
+- **An un-ticked save leaves your stored layout alone**, so a plain settings save can never flip it behind your back. The option itself still reads, stores and defaults to `prefixed`.
+
 ## 1.7.8
 
 - **An idle sync no longer commits.** The repository marker was written unconditionally, and GitHub's contents API creates a commit whether or not the bytes differ — so a sync that upserted and deleted nothing still produced a `sync: add repo marker` commit. The marker is now compared first and written only when it differs.

@@ -2,6 +2,18 @@
 
 ## Latest Releases
 
+## 1.7.9
+
+The Layout dropdown is gone — the migration tick box takes its place.
+
+- **One control instead of two.** Both the dropdown and the tick box answered "where do files land?", and only one answer can be true: config goes under `config/`, or the repository root still holds an older layout waiting to be cleared. The dropdown's only meaningful choice was `flat`, which is precisely what the tick box exists to move away from. It now sits beside **Mode** in the main settings, where the layout is discussed, and the Danger Zone keeps only the destructive buttons.
+
+- **Ticking it sets the layout to `prefixed`.** Removing the last way to choose `flat` created a dead end: the tick box refused to run unless the layout was `prefixed` and told you to change a control that no longer existed. An install still sitting on `flat` could never migrate again. Ticking now implies "structured", so there is one control with one meaning.
+
+- **Nothing resets silently.** An un-ticked save omits `repo_layout` entirely, so the server keeps whatever is stored and a plain save can never flip your layout behind your back. The option itself is untouched — it still reads, stores, defaults to `prefixed`, and remains settable in `options.yaml` if anyone wants the root layout back.
+
+- Four tests read the markup rather than driving it: a control that exists but is wired to nothing passes every functional test, because nothing exercises it.
+
 ## 1.7.8
 
 A small release: a sync that changes nothing no longer leaves a commit behind.
