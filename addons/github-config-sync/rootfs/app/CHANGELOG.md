@@ -2,6 +2,14 @@
 
 ## Latest Releases
 
+## 1.7.1
+
+Fixes three bugs reported in [#44](https://github.com/MJP-76/GithubConfigSync/issues/44). This replaces 1.7.0, which is withdrawn.
+
+- **Fix: changing the selection no longer deletes files from the repository.** Deletion was computed as "in the previous scan but not this one", which cannot tell a file removed from disk from a file the current selection no longer covers. Narrowing a selection therefore reclassified everything outside it as deleted and removed it. Out of scope now means leave alone: a previously synced path is removed only when it is genuinely absent from disk. **Clean Repo is unchanged** - it is an explicitly destructive action and keeps removing everything the scan does not cover.
+- **Fix: dry run no longer writes the scan baseline.** The preview was persisting the very index the next sync diffs against, so the two stopped agreeing about what would change.
+- **Fix: `/config` now selects the config root.** It normalised to the literal folder `config` and matched none of the keys it was meant to cover, so it silently synced nothing.
+
 ## 1.7.0
 
 First stable release of the sync selection rework, consolidating the 1.6.16-1.6.21 pre-releases.
