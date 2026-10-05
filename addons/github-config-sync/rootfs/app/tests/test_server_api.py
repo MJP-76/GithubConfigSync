@@ -2167,6 +2167,35 @@ class LayoutControlTests(unittest.TestCase):
         layout_block = html.split("<span>Layout:</span>", 1)[1]
         self.assertIn('id="migrateLayoutChk"', layout_block.split("</div>", 1)[0])
 
+class ModeNoteTests(unittest.TestCase):
+    """A mode change never un-syncs anything, and the UI has to say so once.
+
+    Everything else in the app is silent on it: a file that leaves scope stays
+    in the repository, and no clean-up reaches GitHub history. The note is a
+    statement of fact rather than advice - the consequences are the user's to
+    weigh, but the fact is not something they can discover by using the
+    product, because nothing visibly happens.
+    """
+
+    def test_the_note_sits_under_the_mode_control(self) -> None:
+        html = (APP_ROOT / "static" / "index.html").read_text(encoding="utf-8")
+        mode_block = html.split("<span>Mode:</span>", 1)[1]
+        inside = mode_block.split("</div>", 1)[0]
+        self.assertIn("it does not", inside)
+        self.assertIn("its history", inside)
+        # Both controls live in a collapsed section, so naming one without
+        # saying where it is leaves the reader with a control they cannot find.
+        self.assertIn("Clean Repo", inside)
+        self.assertIn("Reset Repo", inside)
+        self.assertIn("Danger Zone", inside)
+
+    def test_the_note_does_not_read_like_a_warning_label(self) -> None:
+        """Kept to a statement of fact; it is help text, not a policy page."""
+        html = (APP_ROOT / "static" / "index.html").read_text(encoding="utf-8")
+        note = html.split("<span>Mode:</span>", 1)[1].split("</div>", 1)[0]
+        note = note.split("Switching mode", 1)[1]
+        self.assertLess(len(note), 400, "the note should stay short")
+
 
 if __name__ == "__main__":
     unittest.main()
