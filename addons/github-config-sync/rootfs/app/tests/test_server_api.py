@@ -2149,6 +2149,115 @@ class ConfigConstructionTests(unittest.TestCase):
                 "SyncConfig(", body, f"{name} sync re-creates SyncConfig from a stale field list"
             )
 
+class LayoutOptionTests(ServerApiSetup, unittest.TestCase):
+    """The Layout dropdown and the migration tick box have to reach disk.
+
+    _persist_options replaces the options file wholesale, so any key missing
+    from the candidate is erased on every save. repo_layout was missing
+    entirely: the dropdown changed the value in the browser and lost it on the
+    way to disk, silently reverting to the prefixed default - which is why a
+    repository could be restructured without anybody choosing it.
+    """
+
+    def _base_options(self) -> dict[str, object]:
+        return {
+            "github_repository": "owner/repo",
+            "github_branch": "main",
+            "github_token": "gho_test",
+            "dry_run": True,
+            "repo_layout": "flat",
+            "sync_mode": "whitelist",
+            "sync_paths": ".",
+        }
+
+    def test_a_layout_the_user_already_set_survives_a_save(self) -> None:
+        """A payload without the key must not reset what is stored."""
+        self._write_options(self._base_options())
+
+        response = self.client.post("/api/options", json={"github_repository": "owner/repo"})
+
+        self.assertEqual(response.status_code, 200, response.get_json())
+        self.assertEqual(server._merge_options().get("repo_layout"), "flat")
+
+    def test_the_layout_can_be_changed_and_is_stored(self) -> None:
+        self._write_options(self._base_options())
+
+        self.client.post("/api/options", json={"repo_layout": "prefixed"})
+
+        self.assertEqual(server._merge_options().get("repo_layout"), "prefixed")
+
+    def test_an_unknown_layout_never_takes_hold(self) -> None:
+        self._write_options(self._base_options())
+
+        self.client.post("/api/options", json={"repo_layout": "../../etc"})
+
+        self.assertEqual(server._merge_options().get("repo_layout"), "prefixed")
+
+    def test_the_migration_flag_round_trips(self) -> None:
+        self._write_options(self._base_options())
+
+        self.client.post("/api/options", json={"migrate_layout": True})
+        self.assertTrue(server._merge_options().get("migrate_layout"))
+
+        self.client.post("/api/options", json={"migrate_layout": False})
+        self.assertFalse(server._merge_options().get("migrate_layout"))
+
+    def test_status_exposes_the_migration_marker(self) -> None:
+        """The tick box greys out from state, which status polls two seconds apart."""
+        self._write_options(self._base_options())
+
+        body = self.client.get("/api/status").get_json()
+        self.assertFalse(body.get("layout_migrated"))
+
+        server.STATE_PATH.write_text(json.dumps({"layout_migrated": True}), encoding="utf-8")
+        body = self.client.get("/api/status").get_json()
+        self.assertTrue(body.get("layout_migrated"))
+
+    def _post_manual(self, options: dict[str, object]) -> tuple[object, object, object]:
+        """Run /api/sync/manual with the engine stubbed; return (config, response, state)."""
+        self._write_options(options)
+        with patch("server.SyncEngine") as engine_cls:
+            engine = engine_cls.return_value
+            engine.plan.return_value = (
+                unittest.mock.MagicMock(
+                    added=["one.txt"], changed=[], removed=["old.txt"],
+                    total_files=1, oversized=[],
+                ),
+                {"one.txt": "abc"},
+            )
+            engine._github.probe_repository.return_value = (True, "ok")
+            engine.run.return_value = unittest.mock.MagicMock(
+                synced_count=1, deleted_count=1, skipped_count=0,
+                total_files=1, message="Sync completed.",
+            )
+            response = self.client.post("/api/sync/manual")
+        return engine_cls.call_args.args[0], response, server._load_state()
+
+    def test_a_live_migration_is_recorded_once_it_has_run(self) -> None:
+        (self._config_root / "one.txt").write_text("one", encoding="utf-8")
+        options = {
+            **self._base_options(),
+            "dry_run": False,
+            "repo_layout": "prefixed",
+            "migrate_layout": True,
+            "existing_repo_confirmed_for": "owner/repo",
+        }
+
+        config, response, state = self._post_manual(options)
+
+        self.assertEqual(response.status_code, 200, response.get_json())
+        self.assertTrue(config.migrate_layout, "the engine must be told the migration is armed")
+        self.assertTrue(state.get("layout_migrated"), "the tick box would never grey out")
+
+    def test_a_dry_run_greys_nothing_out(self) -> None:
+        (self._config_root / "one.txt").write_text("one", encoding="utf-8")
+        options = {**self._base_options(), "migrate_layout": True, "dry_run": True}
+
+        config, response, state = self._post_manual(options)
+
+        self.assertEqual(response.status_code, 200, response.get_json())
+        self.assertNotIn("layout_migrated", state, "a preview must not spend the tick box")
+
 
 if __name__ == "__main__":
     unittest.main()

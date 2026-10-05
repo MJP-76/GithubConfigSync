@@ -630,6 +630,13 @@
             Zigbee2MQTT config, for example — use <strong>Override</strong> in Sync Selection above.
             That control lives with the mode now, not here.
           </p>
+          <div class="row" style="margin-bottom: 8px; align-items: flex-start">
+            <label for="migrateLayoutChk" style="display: flex; gap: 8px; align-items: flex-start; cursor: pointer">
+              <input type="checkbox" id="migrateLayoutChk" style="margin-top: 3px" />
+              <span>Migrate from flat layout to structured (config/)</span>
+            </label>
+          </div>
+          <p id="migrateLayoutHelp" class="subtle" style="margin: 0 0 10px"></p>
           <div class="row">
             <button id="cleanSyncBtn">Clean Upload</button>
             <button id="cleanRepoBtn" class="secondary">Clean Repo</button>
@@ -716,6 +723,8 @@
         cleanSyncBtn: document.getElementById("cleanSyncBtn"),
         cleanRepoBtn: document.getElementById("cleanRepoBtn"),
         migrateLayoutBtn: document.getElementById("migrateLayoutBtn"),
+        migrateLayoutChk: document.getElementById("migrateLayoutChk"),
+        migrateLayoutHelp: document.getElementById("migrateLayoutHelp"),
         resetRepoBtn: document.getElementById("resetRepoBtn"),
         refreshBtn: document.getElementById("refreshBtn"),
         downloadDiagnosticsBtn: document.getElementById("downloadDiagnosticsBtn"),
@@ -1047,6 +1056,7 @@
         loadedOptions = data;
         el.syncMode.value = data.sync_mode || "whitelist";
         if (el.repoLayout) el.repoLayout.value = data.repo_layout || "prefixed";
+        if (el.migrateLayoutChk) el.migrateLayoutChk.checked = Boolean(data.migrate_layout);
         selectedPaths = String(data.sync_paths || "")
           .split(/[\n,]/)
           .map((p) => p.trim())
@@ -1111,6 +1121,7 @@
         updateTokenBadge(data.token_health);
         const progress = data.state && data.state.sync_progress;
         const state = data.state || {};
+        applyMigratedState(Boolean(data.layout_migrated));
         if (progress) {
           el.progressStatus.textContent = `${progress.current_action || "running"} (${progress.status || "running"})`;
           el.activityDetail.textContent = `Active file: ${progress.current_path || progress.current_action || "running"}`;
@@ -1337,6 +1348,7 @@
           include_pre_releases: el.includePreReleases.checked,
           sync_mode: el.syncMode.value,
           repo_layout: el.repoLayout ? el.repoLayout.value : "prefixed",
+          migrate_layout: el.migrateLayoutChk ? el.migrateLayoutChk.checked : false,
           sync_paths: selectedPaths.join("\n"),
           safe_config_paths: loadedOptions.safe_config_paths || "",
           security_override_all_filters: false,
@@ -1713,9 +1725,37 @@
           `Publishing ${names.length} selection${names.length === 1 ? "" : "s"}: ${shown}${rest}`;
       }
 
+      // Set from status, which records the marker only after a live sync that
+      // actually ran the migration - never from a GitHub read, because status
+      // polls every two seconds.
+      let layoutMigrated = false;
+      function applyMigratedState(migrated) {
+        if (typeof migrated === "boolean") layoutMigrated = migrated;
+        const box = el.migrateLayoutChk;
+        if (!box) return;
+        const flat = Boolean(el.repoLayout && el.repoLayout.value === "flat");
+        // Only ever ticks it. A poll must not undo what the user just chose.
+        if (layoutMigrated) box.checked = true;
+        else if (flat) box.checked = false;
+        // Armed-in-flat would make the sync fail, so the box is not usable there.
+        box.disabled = layoutMigrated || flat;
+        if (!el.migrateLayoutHelp) return;
+        if (layoutMigrated) {
+          el.migrateLayoutHelp.textContent =
+            "Done. .github-config-sync-migrated.json is in the repository root, so this one-shot migration is spent.";
+        } else if (flat) {
+          el.migrateLayoutHelp.textContent =
+            "Set Layout to Prefixed first - config files have to land under config/ before the repository root can be cleared.";
+        } else {
+          el.migrateLayoutHelp.textContent =
+            "On your next sync, every file at the repository root that is not this add-on's own marker and skeleton is removed, so the repository mirrors your config under config/. It runs once and greys out.";
+        }
+      }
+
       function applyRepoLayout() {
         if (!el.repoLayoutHelp || !el.repoLayout) return;
         el.repoLayoutHelp.textContent = LAYOUT_HELP[el.repoLayout.value] || "";
+        applyMigratedState();
       }
 
       function applySyncMode() {

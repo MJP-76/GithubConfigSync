@@ -1529,6 +1529,154 @@ class RateGateLifecycleTests(unittest.TestCase):
         self.assertIn("Sync failed", text)
         self.assertIn("tree refused", text)
 
+def _temp_root():
+    import tempfile
+    from pathlib import Path as _P
+    holder = getattr(_temp_root, "holder", None)
+    if holder is None:
+        holder = tempfile.TemporaryDirectory()
+        _temp_root.holder = holder
+        import unittest as _u
+        _u.addCleanup  # noqa: B018
+    root = _P(holder.name)
+    (root / "configuration.yaml").write_text("id: 1", encoding="utf-8")
+    return root
+
+
+def _result() -> SyncResult:
+    return SyncResult(
+        synced_count=1, deleted_count=0, skipped_count=0,
+        total_files=1, message="Sync completed.",
+    )
+
+
+class MigrationTickBoxTests(unittest.TestCase):
+    """The one-shot "migrate flat -> structured" tick box.
+
+    Driven by the remote tree rather than the scan baseline, because a baseline
+    only holds what a previous sync recorded - and a run that scanned nothing
+    recorded nothing, which is exactly how the root-level leftovers became
+    unreachable by every other operation in the add-on.
+    """
+
+    REMOTE = [
+        ".HA_VERSION",
+        ".github-config-sync-addon.json",
+        ".github-config-sync-migrated.json",
+        ".gitignore",
+        "AGENTS.md",
+        "README.md",
+        "repository.yaml",
+        "configuration.yaml",
+        "automations.yaml",
+        "blueprints/automation/homeassistant/motion_light.yaml",
+        "custom_components/github_config_sync/__init__.py",
+        "test_db.py",
+        "config/configuration.yaml",
+        "config/automations.yaml",
+        "config/blueprints/automation/homeassistant/motion_light.yaml",
+        "addon_configs/example/x.yaml",
+        "media/photos/a.jpg",
+        "share/thing",
+        "ssl/cert.pem",
+        "backups/b.tar.gz",
+    ]
+
+    def setUp(self) -> None:
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self._root = Path(self._tmp.name)
+        (self._root / "configuration.yaml").write_text("id: 1", encoding="utf-8")
+
+    def _engine(self, armed: bool = True, dry_run: bool = False) -> SyncEngine:
+        engine = SyncEngine(
+            SyncConfig(
+                repository="owner/repo",
+                branch="main",
+                token="token",
+                config_root=str(self._root),
+                dry_run=dry_run,
+                sync_mode="whitelist",
+                sync_paths=(".",),
+                migrate_layout=armed,
+            ),
+            previous_hash_index={},
+        )
+        engine._github = unittest.mock.MagicMock()
+        engine._github.list_all_paths.return_value = list(self.REMOTE)
+        return engine
+
+    def _result(self) -> SyncResult:
+        return SyncResult(
+            synced_count=1, deleted_count=0, skipped_count=0,
+            total_files=1, message="Sync completed.",
+        )
+
+    def test_the_root_is_cleared_and_the_addons_furniture_survives(self) -> None:
+        removals = self._engine()._migration_removals(self.REMOTE)
+
+        for kept in (
+            ".github-config-sync-addon.json",
+            "README.md",
+            "repository.yaml",
+            ".github-config-sync-migrated.json",
+        ):
+            self.assertNotIn(kept, removals, f"{kept} must survive the migration")
+        self.assertNotIn("config/configuration.yaml", removals, "config/ is the destination")
+        for mount in ("addon_configs/example/x.yaml", "media/photos/a.jpg", "share/thing",
+                      "ssl/cert.pem", "backups/b.tar.gz"):
+            self.assertNotIn(mount, removals, "mounts are already structured")
+        for gone in ("configuration.yaml", "AGENTS.md", "test_db.py",
+                     "custom_components/github_config_sync/__init__.py"):
+            self.assertIn(gone, removals)
+
+    def test_flat_layout_is_refused_rather_than_misinterpreted(self) -> None:
+        engine = self._engine()
+        engine._config_prefix = ""
+        with self.assertRaises(SyncError) as ctx:
+            engine._migration_removals(self.REMOTE)
+        self.assertIn("prefixed", str(ctx.exception))
+
+    def test_plan_adds_the_migration_removals_to_the_same_commit(self) -> None:
+        engine = self._engine(armed=True)
+        plan, _ = engine.plan()
+
+        self.assertIn("configuration.yaml", plan.removed)
+        self.assertIn("test_db.py", plan.removed)
+        self.assertNotIn("config/configuration.yaml", plan.removed)
+        self.assertTrue(engine._migration_applied)
+
+    def test_an_unarmed_sync_never_touches_the_network_for_this(self) -> None:
+        engine = self._engine(armed=False)
+        plan, _ = engine.plan()
+
+        engine._github.list_all_paths.assert_not_called()
+        self.assertFalse(engine._migration_applied)
+        self.assertNotIn("configuration.yaml", plan.removed)
+
+    def test_a_live_migration_writes_the_marker(self) -> None:
+        engine = self._engine(armed=True)
+        plan, _ = engine.plan()
+        with patch.object(SyncEngine, "_run_plan", return_value=self._result()):
+            engine.run(plan)
+        engine._github.write_migrated_marker.assert_called_once()
+
+    def test_a_dry_run_writes_nothing(self) -> None:
+        engine = self._engine(armed=True, dry_run=True)
+        plan, _ = engine.plan()
+        with patch.object(SyncEngine, "_run_plan", return_value=self._result()):
+            engine.run(plan)
+        engine._github.write_migrated_marker.assert_not_called()
+
+    def test_clean_upload_cannot_claim_a_migration_it_never_ran(self) -> None:
+        """clean_plan() computes no migration removals, so it must not grey the box."""
+        engine = self._engine(armed=True)
+        clean, _ = engine.clean_plan()
+        self.assertFalse(engine._migration_applied)
+        with patch.object(SyncEngine, "_run_plan", return_value=self._result()):
+            engine.run(clean)
+        engine._github.write_migrated_marker.assert_not_called()
+
 
 if __name__ == "__main__":
     unittest.main()

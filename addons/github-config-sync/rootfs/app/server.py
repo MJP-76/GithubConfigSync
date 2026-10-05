@@ -18,7 +18,7 @@ from urllib.parse import quote
 
 from flask import Flask, jsonify, request, send_from_directory
 
-from sync import REPO_LAYOUT_PREFIXED, SyncConfig, SyncEngine, SyncPlan
+from sync import REPO_LAYOUT_PREFIXED, REPO_LAYOUTS, SyncConfig, SyncEngine, SyncPlan
 from sync.engine import SYNC_MODES
 from sync.errors import SyncError
 from sync.github_client import GitHubClient
@@ -90,6 +90,7 @@ SUPERVISOR_OPTION_KEYS = frozenset(
         "safe_config_paths",
         "sync_paths",
         "repo_layout",
+        "migrate_layout",
     }
 )
 
@@ -249,6 +250,8 @@ DEFAULT_OPTIONS: dict[str, Any] = {
     "sync_mode": "whitelist",
     "safe_config_paths": "",
     "sync_paths": "",
+    "repo_layout": REPO_LAYOUT_PREFIXED,
+    "migrate_layout": False,
 }
 
 
@@ -285,6 +288,7 @@ def _repo_sync_config(options: dict[str, Any], repository: str) -> SyncConfig:
         safe_config_paths=_parse_path_list(options.get("safe_config_paths")),
         sync_paths=_parse_path_list(options.get("sync_paths")),
         repo_layout=str(options.get("repo_layout", REPO_LAYOUT_PREFIXED) or REPO_LAYOUT_PREFIXED),
+        migrate_layout=bool(options.get("migrate_layout", False)),
     )
 
 
@@ -491,6 +495,33 @@ def _clear_sync_progress_state() -> dict[str, Any]:
         "sync_progress_current_path_started_at": None,
         "sync_progress_last_seen_at": None,
     }
+
+
+def _pick_repo_layout(payload: dict[str, Any]) -> str:
+    """Accept flat|prefixed, otherwise keep what is stored.
+
+    Falling straight back to the default instead of the stored value is what
+    made the dropdown decorative: a payload without the key - any older client,
+    any hand-rolled call - silently reset the layout to prefixed.
+    """
+    value = str(payload.get("repo_layout", _merge_options().get("repo_layout", "")) or "").strip().lower()
+    if value in REPO_LAYOUTS:
+        return value
+    return REPO_LAYOUT_PREFIXED
+
+
+def _migrated_flag(armed: bool, dry_run: bool) -> dict[str, Any]:
+    """State to record after a successful live sync.
+
+    The tick box greys out from this rather than from a GitHub read: status
+    polls every two seconds, and an API call a poll would spend the
+    authenticated budget answering a question the repository already answered.
+    The marker itself is written by the engine, so state and repository cannot
+    disagree - a run that failed never reaches this.
+    """
+    if not armed or dry_run:
+        return {}
+    return {"layout_migrated": True}
 
 
 def _persist_options(payload: dict[str, Any]) -> None:
@@ -1001,6 +1032,7 @@ def _sync_config(options: dict[str, Any]) -> SyncConfig:
         safe_config_paths=_parse_path_list(options.get("safe_config_paths")),
         sync_paths=_parse_path_list(options.get("sync_paths")),
         repo_layout=str(options.get("repo_layout", REPO_LAYOUT_PREFIXED) or REPO_LAYOUT_PREFIXED),
+        migrate_layout=bool(options.get("migrate_layout", False)),
     )
 
 
@@ -1215,6 +1247,7 @@ class _SyncScheduler:
                 safe_config_paths=_parse_path_list(options.get("safe_config_paths")),
                 sync_paths=_parse_path_list(options.get("sync_paths")),
                 repo_layout=str(options.get("repo_layout", REPO_LAYOUT_PREFIXED) or REPO_LAYOUT_PREFIXED),
+                migrate_layout=bool(options.get("migrate_layout", False)),
             )
             now = dt.datetime.now(dt.timezone.utc)
             local_now = now.astimezone()
@@ -1264,6 +1297,7 @@ class _SyncScheduler:
                     "last_result": result.message,
                     "last_scan": scan,
                     "last_error": None,
+                    **_migrated_flag(sync_config.migrate_layout, sync_config.dry_run),
                     **_clear_sync_progress_state(),
                 })
                 _append_log(f"Scheduler: {result.message}")
@@ -1423,6 +1457,7 @@ def trigger_manual_sync():
             "last_result": result.message,
             "last_scan": scan,
             "last_error": None,
+            **_migrated_flag(sync_config.migrate_layout, sync_config.dry_run),
             **_clear_sync_progress_state(),
         }
     )
@@ -1503,6 +1538,17 @@ def set_options():
         "security_override_all_filters": bool(payload.get("security_override_all_filters", False)),
         "safe_config_paths": _safe_config_paths_to_text(payload.get("safe_config_paths")),
         "sync_paths": _safe_config_paths_to_text(payload.get("sync_paths")),
+        # Both of these used to be missing. _persist_options replaces the file
+        # wholesale, so a key left out here was erased on every save: the
+        # Layout dropdown changed the value in the browser and lost it on the
+        # way to disk, silently reverting to the prefixed default. A key absent
+        # from the payload keeps what is stored rather than resetting it.
+        "repo_layout": _pick_repo_layout(payload),
+        "migrate_layout": (
+            bool(payload["migrate_layout"])
+            if "migrate_layout" in payload
+            else bool(_merge_options().get("migrate_layout", False))
+        ),
     }
 
     valid, message = _validate_payload(candidate)
@@ -1524,6 +1570,7 @@ def get_status():
         {
             "ok": True,
             "state": state,
+            "layout_migrated": bool(state.get("layout_migrated")),
             "auth": _auth_diagnostics(options),
             "version": APP_VERSION,
             "token_health": _cached_token_health_only(options),
@@ -1965,6 +2012,7 @@ def create_repo():
                 safe_config_paths=_parse_path_list(options.get("safe_config_paths")),
                 sync_paths=_parse_path_list(options.get("sync_paths")),
                 repo_layout=str(options.get("repo_layout", REPO_LAYOUT_PREFIXED) or REPO_LAYOUT_PREFIXED),
+                migrate_layout=bool(options.get("migrate_layout", False)),
             ),
             previous_hash_index={},
         )
@@ -2106,6 +2154,7 @@ def trigger_sync():
             "last_result": result.message,
             "last_scan": scan,
             "last_error": None,
+            **_migrated_flag(sync_config.migrate_layout, sync_config.dry_run),
             **_clear_sync_progress_state(),
         }
     )

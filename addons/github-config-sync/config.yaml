@@ -63,3 +63,7 @@ schema:
   # 1.7.2 are laid out. Switching to prefixed needs the one-time layout
   # migration in the Danger Zone - a normal sync will not move existing files.
   repo_layout: list(flat|prefixed)?
+  # One-shot: clear the repository root so config files live only under
+  # config/. The sync records a marker in the repository root, and the UI
+  # greys the tick box out once that marker exists.
+  migrate_layout: bool?

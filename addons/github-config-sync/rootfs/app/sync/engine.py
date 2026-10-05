@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Callable
 
 from .errors import SyncError
-from .github_client import GitHubClient
+from .github_client import ADDON_REPO_MARKER_PATH, GitHubClient, MIGRATED_MARKER_PATH
 
 _LOGGER = logging.getLogger(__name__)
 from .hashing import GitIgnoreMatcher, build_hash_index, diff_hash_indexes, scan_sensitive_files
@@ -37,6 +37,14 @@ MOUNT_KEYS = ("addon_configs", "media", "share", "ssl", "backups")
 # The selection entry meaning "everything under /config". Stored as "." because
 # an empty string would otherwise silently mean "everything".
 WHOLE_CONFIG_ROOT = "."
+
+# The add-on's own furniture at the repository root. A migration makes the
+# repository mirror /config under config/, but these belong to the add-on, not
+# to the configuration - deleting them would break the marker check and lose
+# the skeleton that a reset restores.
+MIGRATION_KEEP_AT_ROOT = frozenset(
+    {ADDON_REPO_MARKER_PATH, "README.md", "repository.yaml", MIGRATED_MARKER_PATH}
+)
 # Filesystem name of the config directory. Selections are repo-relative, so a
 # leading "/config" on an absolute path is stripped rather than searched for.
 CONFIG_ROOT_NAME = "config"
@@ -134,6 +142,10 @@ class SyncEngine:
         self._cancel_requested: Callable[[], bool] = lambda: False
         self._progress_callback: Callable[[dict[str, object]], None] = lambda _payload: None
         self._last_progress: dict[str, object] = {}
+        # Set only by plan(), so a run driven by clean_plan() - which never
+        # computes migration removals - cannot write the marker and grey the
+        # tick box out with the repository still un-migrated.
+        self._migration_applied = False
 
     def set_cancel_checker(self, cancel_requested: Callable[[], bool]) -> None:
         self._cancel_requested = cancel_requested
@@ -180,14 +192,48 @@ class SyncEngine:
     def plan(self) -> tuple[SyncPlan, dict[str, str]]:
         current_hash_index = self._build_hash_index()
         added, changed, removed = diff_hash_indexes(self._previous_hash_index, current_hash_index)
+        removed_paths = self._genuinely_gone(removed)
+        if self._config.migrate_layout:
+            self._migration_applied = True
+            # Deliberately outside _genuinely_gone: a migration clears paths
+            # whose local copy very much still exists, which is the one case
+            # where a remote path with a live file behind it should go.
+            removed_paths = sorted(
+                set(removed_paths)
+                | set(self._migration_removals(self._github.list_all_paths()))
+            )
         plan = SyncPlan(
             added=added,
             changed=changed,
-            removed=self._genuinely_gone(removed),
+            removed=removed_paths,
             total_files=len(current_hash_index),
             oversized=list(self._oversized),
         )
         return plan, current_hash_index
+
+    def _migration_removals(self, remote_paths: list[str]) -> list[str]:
+        """Repository-root paths a migration should clear.
+
+        Driven by the remote tree, not the scan baseline. A baseline only ever
+        holds what a previous sync recorded, so after a run that scanned
+        nothing it holds nothing - and every other operation reading it becomes
+        a silent no-op. The repository itself is the authority on what it
+        contains.
+        """
+        if not self._config_prefix:
+            raise SyncError(
+                "Migration only applies to the prefixed layout. Set Layout to "
+                "Prefixed first - config files must land under config/ before "
+                "the repository root can be cleared."
+            )
+        # Anything under config/ or a mount is already where it belongs.
+        structured = {self._config_prefix, *MOUNT_KEYS}
+        return sorted(
+            path
+            for path in remote_paths
+            if path not in MIGRATION_KEEP_AT_ROOT
+            and path.split("/", 1)[0] not in structured
+        )
 
     def clean_plan(self) -> tuple[SyncPlan, dict[str, str]]:
         current_hash_index = self._build_hash_index()
@@ -303,6 +349,14 @@ class SyncEngine:
         finally:
             # Never leave a stale gate behind for the next run to wait on.
             self._github.reset_rate_gate()
+        if self._migration_applied and not self._config.dry_run:
+            try:
+                self._github.write_migrated_marker()
+            except SyncError as err:
+                # The migration itself landed. Failing the run because the
+                # marker could not be written would make a successful
+                # migration read as a failure - the tick box simply stays on.
+                _LOGGER.warning("Migration marker not written: %s", err)
         _LOGGER.info(
             "Sync finished in %.1fs: %s",
             time.monotonic() - started,

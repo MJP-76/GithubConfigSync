@@ -18,6 +18,10 @@ _LOGGER = logging.getLogger(__name__)
 API_BASE = "https://api.github.com"
 OAUTH_BASE = "https://github.com"
 ADDON_REPO_MARKER_PATH = ".github-config-sync-addon.json"
+# Written to the repository root once a flat -> structured migration has run.
+# It lives in the repository rather than in local state on purpose: it survives
+# a reinstall, it is visible in the repo, and it travels with a cloned copy.
+MIGRATED_MARKER_PATH = ".github-config-sync-migrated.json"
 
 
 @dataclass
@@ -429,6 +433,40 @@ class GitHubClient:
         if not isinstance(payload, list):
             raise SyncError("GitHub directory listing response was not a list")
         return [item for item in payload if isinstance(item, dict)]
+
+    def list_all_paths(self) -> list[str]:
+        """Every path in the repository's current tree, in one request.
+
+        Migrations need the remote tree rather than the scan baseline: a
+        baseline only ever records what a previous sync saw, and a run that
+        scanned nothing records nothing at all - which is exactly how the
+        root-level leftovers became unreachable by every other operation.
+        """
+        sha = self.get_branch_head_sha()
+        payload = self._request_json("GET", f"{self._base}/git/trees/{sha}?recursive=1")
+        tree = payload.get("tree") if isinstance(payload, dict) else None
+        if not isinstance(tree, list):
+            raise SyncError("GitHub tree response was incomplete")
+        return [
+            str(item.get("path"))
+            for item in tree
+            if isinstance(item, dict) and item.get("path") and item.get("type") == "blob"
+        ]
+
+    def write_migrated_marker(self) -> dict[str, Any]:
+        """Record that the migration has run, unless it is already recorded.
+
+        Written only after the commit landed, so a run that failed partway
+        leaves the tick box usable and the user can simply try again.
+        """
+        if self.get_content(MIGRATED_MARKER_PATH):
+            return {"path": MIGRATED_MARKER_PATH}
+        payload = {"migrated_from": "flat", "layout": "prefixed"}
+        return self.put_content(
+            path=MIGRATED_MARKER_PATH,
+            content=json.dumps(payload, indent=2, sort_keys=True).encode("utf-8"),
+            message="chore: record that the layout migration has run",
+        )
 
     def create_release(self, tag_name: str, name: str, body: str = "") -> dict[str, Any]:
         payload: dict[str, Any] = {

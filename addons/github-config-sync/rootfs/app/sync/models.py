@@ -30,6 +30,11 @@ class SyncConfig:
     # name, so nothing in the repository shares a namespace with the add-on's
     # own files or with anything else the user keeps there.
     repo_layout: str = REPO_LAYOUT_PREFIXED
+    # Armed by the "migrate from flat" tick box. While set, a sync also clears
+    # the repository root of files that now live under config/, then writes the
+    # marker that greys the tick box out. Never automatic - it is the one thing
+    # that deletes remote paths which still exist locally.
+    migrate_layout: bool = False
 
 
 @dataclass(frozen=True)

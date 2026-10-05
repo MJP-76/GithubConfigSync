@@ -29,6 +29,7 @@ mount-point control to include it, with `.gitignore` patterns such as the HACS
 | **Clean Upload** | Re-upload every local file and remove anything on the remote that is no longer local |
 | **Clean Repo** | Delete only remote files that are genuinely missing from your local config, and leave everything else untouched |
 | **Migrate Layout** | Move a repository synced before 1.7.2 onto the prefixed layout, putting your config under `config/` |
+| **Migrate from flat layout to structured** (tick box) | One-shot: clear the repository root so config lives only under `config/`, then grey itself out |
 
 **Migrate Layout** is the only one that deletes remote paths which still exist
 locally, so it never runs on its own. Dry-run it first to see the exact list,
@@ -58,8 +59,35 @@ root instead — that is how repositories synced before 1.7.2 are laid out, and
 it means your config shares a namespace with the add-on's own `README.md`,
 `.HA_VERSION` and `.github-config-sync-addon.json`.
 
-Changing this does not move anything on its own. Use **Migrate Layout** when
-you do want the files moved.
+Changing this does not move anything on its own. To move the files, tick
+**Migrate from flat layout to structured** in the Danger Zone and run a sync
+(see below).
+
+### Migrating an existing repository
+
+Repositories synced before 1.7.2 are laid out flat, with config files sitting
+at the repository root beside this add-on's own files. Tick
+**Migrate from flat layout to structured** in the Danger Zone and run a sync:
+the migration is performed as part of that sync's single commit, so the root is
+cleared and the config is uploaded together, atomically.
+
+- It requires **Layout** to be `prefixed` — config files have to land under
+  `config/` before the root can be cleared. The tick box is unavailable while
+  Layout is `flat`.
+- It removes every file at the repository root that is not under `config/` or a
+  mount, **including files with no local counterpart** — the point is that the
+  repository ends up mirroring your configuration, not halfway between two
+  layouts.
+- It deliberately keeps this add-on's own furniture: `.github-config-sync-addon.json`,
+  `README.md` and `repository.yaml`.
+- It is driven by the repository's own contents rather than by the scan
+  baseline, so it works even after a sync that found nothing to record.
+- A dry run previews it and writes nothing.
+
+Once it has run successfully, the add-on writes
+`.github-config-sync-migrated.json` to the repository root and the tick box
+greys out — permanently, because the marker travels with the repository and
+survives a reinstall.
 
 ## Notes
 
