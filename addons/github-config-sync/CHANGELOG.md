@@ -24,6 +24,20 @@ Prefer files at the root instead? Set `repo_layout: flat` in the add-on's option
 
 ## Latest Releases
 
+## 1.7.12
+
+Two fixes, both about a preview meaning a preview.
+
+- **A dry run no longer writes state.** Clean Repo wrote the scan baseline and could write the repository marker even when previewing. The baseline is what the next real sync diffs against, so a preview that replaced it made the following run agree with its own preview instead of with the repository — everything about to change would suddenly look already done. A preview that reaches GitHub has previewed nothing. The scheduler had the same shape. Every baseline write is now either inside a `dry_run` guard or in a function that forces live by design, and a test audits that invariant so a fourth unguarded write fails the build.
+
+  Worth knowing: the existing clean-repo test ran with `dry_run: True` and asserted the marker *was* written. The bug was pinned as expected behaviour, which is how it survived — an assertion that "this happened" reads as coverage even when what happened was wrong.
+
+- **The custom component's duplicate ignore list is gone.** Two ignore lists existed; the component's had no consumer anywhere, yet the tests imported it through a path five parents up and asserted on it. So the suite validated a constant nothing reads while the add-on's own lists went untested by them. Those assertions now exercise `is_ignored()` directly.
+
+- **Documentation aligned.** Every version block, `manifest.json` and `hacs.json` now read `1.7.12` — README had been advertising `1.5.22`, five versions behind. The migration process is documented at the top of this changelog. False claims about the integration's architecture were corrected: it is a redirect whose config flow aborts with `addon_only`, not a source of button and sensor entities. And `scripts/sync_versions.py` is now named in both release workflows, since nothing runs it automatically.
+
+
+
 ## 1.7.11
 
 Three fixes. One of them is a behaviour change you will notice.

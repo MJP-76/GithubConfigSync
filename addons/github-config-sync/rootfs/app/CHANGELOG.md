@@ -2,6 +2,12 @@
 
 ## Latest Releases
 
+## 1.7.12
+
+- **A dry run no longer writes state.** Clean Repo rewrote the scan baseline and could write the repository marker while previewing, so the next real sync agreed with its own preview instead of with the repository. The scheduler had the same shape. Every baseline write is now guarded or documented as forcing live, and a test audits it.
+- **The custom component's duplicate ignore list is removed.** It had no consumer, but the tests imported and asserted on it — validating a constant nothing reads while the add-on's own lists went untested. Those assertions now exercise `is_ignored()` directly.
+- **Documentation aligned** across README, PROJECT, project-guide and both changelogs; version blocks were five versions apart.
+
 ## 1.7.11
 
 - **A selection mode with nothing selected now refuses instead of reporting success.** It used to return `Sync completed. Upserted 0, deleted 0` — identical to a healthy sync with nothing to do. It now fails with `Refusing to sync: nothing is selected`, in live and dry run alike. **Visible change:** anyone whose selection was silently empty gets a failure where they used to get a success.
