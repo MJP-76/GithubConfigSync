@@ -86,10 +86,6 @@ You can add extra patterns in the app UI. Live uploads also write a root `SECURI
 Development happens on [`main`](https://github.com/MJP-76/GithubConfigSync). There is one
 version line and releases are cut from it.
 
-The old `-dev` repository is retired and has not been touched since September 2026. It used to
-be advertised here, with instructions for adding it under **Settings → Add-ons → Add-on Store →
-Repositories** — following that now would point your Add-on Store at an abandoned copy.
-
 The release workflow, architecture and milestone history live in
 [PROJECT.md](PROJECT.md). What is planned next lives in [TODO.md](TODO.md), and the
 changes themselves in [CHANGELOG.md](CHANGELOG.md).

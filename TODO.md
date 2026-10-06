@@ -73,10 +73,5 @@ says.
       Still open: **the milestone history stops at 1.6.0** while the add-on has
       shipped through 1.7.11.
 
-      (An earlier note here claimed the `-dev` line was still live. That was
-      wrong — `GithubConfigSync-dev` was last pushed 2026-09-07 while main is
-      active daily, so PROJECT.md was right about it. It was confused with
-      `ha-github-config-sync-dev`, the config sync target, which is a different
-      repository entirely.)
 
 - [ ] **Open issues to work through** — #36, #30, #8

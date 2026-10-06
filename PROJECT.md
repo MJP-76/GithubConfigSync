@@ -13,7 +13,7 @@ Single source of truth for project status, architecture, security, and workflow.
 - Release tag: `v1.7.11`
 <!-- VERSION:END -->
 - **Last updated:** 2026-10-06
-- **Repo:** `MJP-76/GithubConfigSync` (single repo, single version on `main`; the `-dev` repo is decommissioned)
+- **Repo:** `MJP-76/GithubConfigSync` — single repo, single version on `main`
 - **Add-on path:** `addons/github-config-sync/`
 - **Integration path:** `custom_components/github_config_sync/`
 - **App source:** `addons/github-config-sync/rootfs/app/`
@@ -77,7 +77,7 @@ Home Assistant add-on with ingress web UI. Runs a Flask server that handles:
 - Token/client ID should not be front-and-center for normal users.
 - Repository selection is guided (picker/create) instead of manual-only typing.
 - The Add-on Store is the supported distribution path; the legacy HACS integration is kept only to redirect installs to the add-on.
-- A single version line ships on the main repo; the legacy `-dev` line is retired.
+- A single version line ships on the main repo.
 
 ---
 

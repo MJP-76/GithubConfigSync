@@ -12,7 +12,7 @@ status, architecture, security, and workflow.
 - Release tag: `v1.7.11`
 <!-- VERSION:END -->
 
-- **Repo:** `MJP-76/GithubConfigSync` — single version on `main` (the `-dev` repo is decommissioned)
+- **Repo:** `MJP-76/GithubConfigSync` — single version on `main`
 - **Add-on path:** `addons/github-config-sync/`
 - **Integration path:** `custom_components/github_config_sync/`
 - **App source:** `addons/github-config-sync/rootfs/app/`
@@ -51,8 +51,7 @@ status, architecture, security, and workflow.
    carries the version into `manifest.json`, `hacs.json` and every version
    block. Nothing runs this automatically.
 4. Update the changelog (last 5 releases at the top).
-5. Commit and push to `main` (single-version repo; the `-dev` repo is
-   decommissioned).
+5. Commit and push to `main` (single version, single repo).
 6. Tag `vX.Y.Z` and create the GitHub release (pre-release until confirmed).
 
 The full [PROJECT.md](https://github.com/MJP-76/GithubConfigSync/blob/main/PROJECT.md) contains the milestone history and the
