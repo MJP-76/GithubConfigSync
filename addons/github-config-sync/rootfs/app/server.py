@@ -1290,7 +1290,10 @@ class _SyncScheduler:
                 result = engine.run(plan)
                 if not sync_config.dry_run:
                     _ensure_repo_marker(engine, sync_config.repository)
-                _save_json(HASH_INDEX_PATH, current_hash_index)
+                    # A preview must not move the baseline the next real sync
+                    # diffs against, or the two stop agreeing about what would
+                    # change - the next run would then see everything as new.
+                    _save_json(HASH_INDEX_PATH, current_hash_index)
                 _save_state({
                     "status": "ok",
                     "last_success": dt.datetime.now(dt.timezone.utc).isoformat(),
@@ -2341,8 +2344,12 @@ def trigger_clean_repo():
             if not probe_ok:
                 raise SyncError(probe_message)
         result = engine.run(delete_plan)
-        _ensure_repo_marker(engine, sync_config.repository)
-        _save_json(HASH_INDEX_PATH, current_hash_index)
+        if not sync_config.dry_run:
+            # A preview must not move the baseline the next real sync diffs
+            # against, and must not write the repository marker - a preview
+            # that has reached GitHub has previewed nothing.
+            _ensure_repo_marker(engine, sync_config.repository)
+            _save_json(HASH_INDEX_PATH, current_hash_index)
     except SyncError as err:
         state = _save_state(
             {

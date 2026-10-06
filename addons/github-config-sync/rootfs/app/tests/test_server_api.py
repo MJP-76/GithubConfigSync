@@ -1358,7 +1358,10 @@ class ServerApiTests(ServerApiSetup, unittest.TestCase):
         self.assertEqual(call_plan.added, [])
         self.assertEqual(call_plan.changed, [])
         self.assertEqual(call_plan.removed, ["stale.yaml", "old/cache.json"])
-        engine._github.write_repo_marker.assert_called_once()
+        # This run is dry_run:True, and it used to assert the marker WAS
+        # written - the endpoint's bug, pinned by its own test. A preview that
+        # has reached GitHub has previewed nothing.
+        engine._github.write_repo_marker.assert_not_called()
 
     def test_nuke_repo_requires_typed_confirmation(self) -> None:
         self._write_options(
@@ -2286,6 +2289,89 @@ class BlacklistPanelTests(unittest.TestCase):
         panel = self._panel()
         self.assertIn("/config", panel)
         self.assertIn("/addon_configs", panel)
+
+class BaselineWriteGuardTests(ServerApiSetup, unittest.TestCase):
+    """A preview must never move the scan baseline.
+
+    The baseline is what the next real sync diffs against, so a dry run that
+    rewrites it makes the following run agree with its own preview instead of
+    with the repository - everything that was about to change is suddenly
+    "already done". _ensure_repo_marker is guarded alongside it for the same
+    reason: a preview that has reached GitHub has previewed nothing.
+
+    Two endpoints were unguarded: the scheduler and Clean Repo. Clean Upload
+    and Reset are listed because they force dry_run off or reset deliberately,
+    and the manual sync returns before it reaches its write.
+    """
+
+    # Function -> why an unguarded write here is correct.
+    FORCED_LIVE = {
+        "trigger_manual_sync": "returns on dry_run before reaching the write",
+        "trigger_clean_sync": "replace(sync_config, dry_run=False) - Clean Upload is always live",
+        "trigger_nuke_repo": "a reset deliberately empties the baseline",
+    }
+
+    @staticmethod
+    def _enclosing_function(lines: list[str], index: int) -> str:
+        for line in reversed(lines[:index]):
+            stripped = line.lstrip()
+            if line.startswith(("def ", "    def ")) and stripped.startswith("def "):
+                return stripped[4:stripped.index("(")]
+        return "?"
+
+    def test_every_baseline_write_is_guarded_or_known_live(self) -> None:
+        source = (APP_ROOT / "server.py").read_text(encoding="utf-8")
+        lines = source.splitlines()
+        unguarded: list[str] = []
+        for i, line in enumerate(lines):
+            if "_save_json(HASH_INDEX_PATH" not in line:
+                continue
+            indent = len(line) - len(line.lstrip())
+            guarded = any(
+                previous.strip().startswith("if not sync_config.dry_run")
+                and (len(previous) - len(previous.lstrip())) < indent
+                for previous in lines[max(0, i - 6):i]
+            )
+            if guarded:
+                continue
+            fn = self._enclosing_function(lines, i)
+            if fn not in self.FORCED_LIVE:
+                unguarded.append(f"{fn} line {i + 1}")
+        self.assertEqual(
+            unguarded, [],
+            "a dry run would rewrite the baseline here: " + ", ".join(unguarded),
+        )
+
+    def test_clean_repo_preview_writes_nothing(self) -> None:
+        """The endpoint that was actually reachable as a preview."""
+        baseline = server.HASH_INDEX_PATH
+        baseline.write_text(json.dumps({"sentinel": "abc"}), encoding="utf-8")
+        self._write_options(
+            {"github_repository": "owner/repo", "github_branch": "main",
+             "github_token": "gho_test", "dry_run": True}
+        )
+
+        with patch("server.SyncEngine") as engine_cls:
+            engine = engine_cls.return_value
+            engine._github.write_repo_marker.return_value = {"ok": True}
+            engine.clean_plan.return_value = (
+                unittest.mock.MagicMock(added=[], changed=[], removed=["stale.yaml"],
+                                        total_files=1, oversized=[]),
+                {"stale.yaml": "bbb"},
+            )
+            engine.run.return_value = unittest.mock.MagicMock(
+                synced_count=0, deleted_count=1, skipped_count=0,
+                total_files=1, message="Clean repo completed. Deleted 1 file(s).",
+            )
+            response = self.client.post("/api/sync/clean-repo")
+
+        self.assertEqual(response.status_code, 200, response.get_json())
+        engine._github.write_repo_marker.assert_not_called()
+        self.assertEqual(
+            json.loads(baseline.read_text(encoding="utf-8")),
+            {"sentinel": "abc"},
+            "a preview rewrote the baseline the next real sync diffs against",
+        )
 
 
 if __name__ == "__main__":
