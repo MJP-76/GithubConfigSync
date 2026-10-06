@@ -91,6 +91,27 @@ https://github.com/MJP-76/GithubConfigSync-dev
 
 Development happens on the `dev` repo. When ready, changes are pushed to both repos.
 
+## Migration
+
+Repositories synced before the structured layout have configuration files at the
+repository root, alongside this add-on's own files. One tick moves them under
+`config/`:
+
+1. Find **Migrate from flat layout to structured**, beside **Mode**.
+2. Tick it.
+3. Click **Sync**.
+
+The root is cleared **inside that sync's single commit**, so uploads and
+deletions land together and the repository is never left half-migrated. This
+add-on's `.github-config-sync-addon.json`, `README.md` and `repository.yaml`
+stay; files with no local counterpart go; and **nothing is deleted from disk** —
+only the repository changes. A dry run previews the exact list first.
+
+Afterwards `.github-config-sync-migrated.json` is written to the repository root
+and the tick box greys out permanently. The marker lives in the repository, so it
+survives a reinstall. Prefer files at the root? Set `repo_layout: flat` in the
+add-on's options file.
+
 ## Documentation
 
 - **[Project Guide](PROJECT.md)** — architecture, security, milestones, and release workflow.

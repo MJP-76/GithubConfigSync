@@ -51,7 +51,7 @@ Fixes the Sync button, which was reporting success without syncing anything.
 
 - Both rebuilds are gone, pinned by a structural test, an endpoint test, and a regression test that posts to the endpoint the Sync button actually calls.
 
-**Upgrading from 1.7.1 or earlier:** set **Layout** to `Flat` (or run **Migrate Layout**) before your next sync - `repo_layout` now defaults to `prefixed`.
+**Upgrading from 1.7.1 or earlier:** tick **Migrate from flat layout to structured** and sync once to move onto the `prefixed` layout, or set `repo_layout: flat` in the add-on's options file to keep files at the root.
 
 ## 1.7.5
 

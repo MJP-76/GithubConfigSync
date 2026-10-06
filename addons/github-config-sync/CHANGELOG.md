@@ -1,5 +1,27 @@
 # Changelog
 
+## Migration — moving onto the structured layout
+
+If your repository was synced before the structured layout, your config files sit at the repository root beside this add-on's own files, while the sync now writes them under `config/`. That leaves both copies until you decide otherwise — nothing is removed without you asking.
+
+**To move across:**
+
+1. Open the add-on and find **Migrate from flat layout to structured**, beside **Mode**.
+2. Tick it.
+3. Click **Sync**.
+
+What that sync does:
+
+- The repository root is cleared **inside that same commit** — uploads and deletions land together, so the repository is never left half-migrated.
+- This add-on's own `.github-config-sync-addon.json`, `README.md` and `repository.yaml` stay at the root. Everything else there goes, including files with no local counterpart, so the repository ends up mirroring your configuration rather than sitting between two layouts.
+- **Nothing is deleted from disk.** Only the repository changes.
+- A dry run previews the exact list first and writes nothing.
+- Afterwards `.github-config-sync-migrated.json` is written to the repository root and the tick box greys out permanently. The marker lives in the repository, so it survives an add-on reinstall.
+
+Prefer files at the root instead? Set `repo_layout: flat` in the add-on's options file — the Layout dropdown was removed, so this is no longer a UI choice.
+
+---
+
 ## Latest Releases
 
 ## 1.7.11
@@ -75,7 +97,7 @@ Fixes the Sync button, which was reporting success without syncing anything.
 
 - Both rebuilds are gone. Three tests now pin it shut: any config construction outside the two builders must carry the selection fields, and neither endpoint may re-create the config. A fourth posts to the endpoint the Sync button actually calls and asserts a selected file reaches the plan - every existing sync test posted to a different endpoint, which is why 250 tests passed throughout.
 
-**Upgrading from 1.7.1 or earlier:** repositories synced before 1.7.2 are laid out flat, but `repo_layout` now defaults to `prefixed`. Set **Layout** to `Flat` - or run **Migrate Layout** if you want the new layout - before your next sync, or files will be written under `config/` beside the originals.
+**Upgrading from 1.7.1 or earlier:** repositories synced before 1.7.2 are laid out flat, but `repo_layout` now defaults to `prefixed`. Tick **Migrate from flat layout to structured** and sync once to move onto the new layout, or set `repo_layout: flat` in the add-on's options file to keep files at the root. Until you choose, both copies coexist - nothing is deleted.
 
 ## 1.7.5
 
