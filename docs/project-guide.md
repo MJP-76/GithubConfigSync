@@ -6,10 +6,10 @@ status, architecture, security, and workflow.
 ## Current status
 
 <!-- VERSION:START -->
-- Integration version: `1.6.1`
-- Add-on version: `1.6.1`
+- Integration version: `1.7.11`
+- Add-on version: `1.7.11`
 - Channel: `stable`
-- Release tag: `v1.6.1`
+- Release tag: `v1.7.11`
 <!-- VERSION:END -->
 
 - **Repo:** `MJP-76/GithubConfigSync` — single version on `main` (the `-dev` repo is decommissioned)
@@ -20,15 +20,15 @@ status, architecture, security, and workflow.
 
 ## Architecture
 
-1. **Integration** (`custom_components/github_config_sync/`) — config flow for
-   GitHub token setup, button entities for sync/clean actions, sensor entities
-   for sync status.
+1. **Integration** (`custom_components/github_config_sync/`) — a redirect: its
+   config flow aborts with `addon_only` to send the user to the add-on, and it
+   has no entity platforms.
 2. **Add-on** (`addons/github-config-sync/`) — ingress web UI running a Flask
    server that handles OAuth Device Flow, repository management (list, create,
    adopt), config sync (upload, clean-upload, clean-repo), and settings
    persistence via the HA options API.
 3. **Sync engine** (`rootfs/app/sync/`) — core logic in `engine.py` (planning,
-   diffing, upload, clean, version snapshots), `github_client.py` (GitHub API
+   diffing, upload, clean, layout migration), `github_client.py` (GitHub API
    with rate-limit retry/backoff), `models.py`, `errors.py`, and `hashing.py`
    (content hashing for change detection).
 
@@ -47,7 +47,9 @@ status, architecture, security, and workflow.
 
 1. Update code.
 2. Bump the single version in `config.yaml` (source of truth).
-3. Bump version in `manifest.json` and `hacs.json`.
+3. Run `scripts/sync_versions.py --integration X.Y.Z --channel stable` — it
+   carries the version into `manifest.json`, `hacs.json` and every version
+   block. Nothing runs this automatically.
 4. Update the changelog (last 5 releases at the top).
 5. Commit and push to `main` (single-version repo; the `-dev` repo is
    decommissioned).

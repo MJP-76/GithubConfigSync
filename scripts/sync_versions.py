@@ -16,6 +16,10 @@ DOC_PATHS = [
     REPO_ROOT / "README.md",
     REPO_ROOT / "addons/github-config-sync/README.md",
     REPO_ROOT / "PROJECT.md",
+    # Was missing, so it drifted on its own: PROJECT.md sat at 1.6.0 and this
+    # at 1.6.1 while the add-on shipped 1.7.11. A summary of the single source
+    # of truth that does not update with it is a second source of truth.
+    REPO_ROOT / "docs/project-guide.md",
 ]
 
 VERSION_BLOCK_PATTERN = re.compile(

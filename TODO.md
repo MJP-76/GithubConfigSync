@@ -65,8 +65,18 @@ says.
 
 - [ ] **Refresh PROJECT.md**
 
-      It calls itself the single source of truth and currently says version
-      `1.6.0`, says the `-dev` repository is decommissioned (it is not — it is
-      the live sync target), and is dated 2026-08-07.
+      Version blocks, the date and the architecture section were corrected on
+      2026-10-06: the integration section described a config flow, button
+      entities and sensor entities that do not exist — it is a redirect whose
+      config flow aborts with `addon_only`.
+
+      Still open: **the milestone history stops at 1.6.0** while the add-on has
+      shipped through 1.7.11.
+
+      (An earlier note here claimed the `-dev` line was still live. That was
+      wrong — `GithubConfigSync-dev` was last pushed 2026-09-07 while main is
+      active daily, so PROJECT.md was right about it. It was confused with
+      `ha-github-config-sync-dev`, the config sync target, which is a different
+      repository entirely.)
 
 - [ ] **Open issues to work through** — #36, #30, #8

@@ -7,12 +7,12 @@ Single source of truth for project status, architecture, security, and workflow.
 ## Current Status
 
 <!-- VERSION:START -->
-- Integration version: `1.6.0`
-- Add-on version: `1.6.0`
+- Integration version: `1.7.11`
+- Add-on version: `1.7.11`
 - Channel: `stable`
-- Release tag: `v1.6.0`
+- Release tag: `v1.7.11`
 <!-- VERSION:END -->
-- **Last updated:** 2026-08-07
+- **Last updated:** 2026-10-06
 - **Repo:** `MJP-76/GithubConfigSync` (single repo, single version on `main`; the `-dev` repo is decommissioned)
 - **Add-on path:** `addons/github-config-sync/`
 - **Integration path:** `custom_components/github_config_sync/`
@@ -25,7 +25,12 @@ Single source of truth for project status, architecture, security, and workflow.
 
 ### Integration (`custom_components/github_config_sync/`)
 
-Home Assistant integration that provides config flow for GitHub token setup, button entities for sync/clean actions, and sensor entities for sync status.
+A redirect, not a working integration. Its config flow opens and immediately
+aborts with `addon_only`, sending the user to the add-on, and `async_setup_entry`
+returns `True` without doing anything. **There are no sensor or button
+entities** — which is what the Product Decisions line below ("kept only to
+redirect installs to the add-on") means in practice. It exists so a HACS install
+or an existing config entry leads somewhere useful instead of failing.
 
 ### Add-on (`addons/github-config-sync/`)
 
@@ -38,7 +43,7 @@ Home Assistant add-on with ingress web UI. Runs a Flask server that handles:
 
 ### Sync Engine (`addons/github-config-sync/rootfs/app/sync/`)
 
-- `engine.py` — Core sync logic: planning, diffing, upload, clean, version snapshots
+- `engine.py` — Core sync logic: planning, diffing, upload, clean, layout migration
 - `github_client.py` — GitHub API client with rate-limit retry and backoff
 - `models.py` — Data models for sync config and results
 - `errors.py` — Sync error types
@@ -95,7 +100,11 @@ Home Assistant add-on with ingress web UI. Runs a Flask server that handles:
 
 1. Update code.
 2. Bump version in `config.yaml` (single source of truth — `server.py` auto-reads it at startup).
-3. Bump version in `manifest.json` and `hacs.json`.
+3. Run `python3 scripts/sync_versions.py --integration X.Y.Z --channel stable`.
+   It carries the version into `manifest.json`, `hacs.json`, `server.py` and
+   every `<!-- VERSION -->` block. A document with a version block that is not
+   in that script's `DOC_PATHS` drifts on its own — README once read 1.5.22
+   while the add-on shipped 1.7.11.
 4. Update changelog (last 5 releases at top).
 5. Commit and push to main (single-version workflow).
 6. Tag `vX.Y.Z` and create the GitHub release (pre-release until confirmed).
@@ -207,7 +216,11 @@ Home Assistant add-on with ingress web UI. Runs a Flask server that handles:
 
 ## Immediate Next Steps
 
-- [ ] Keep this file aligned with the active release track.
+- [ ] Record the 1.7.x milestones below — the history stops at 1.6.0 while the
+      add-on has shipped through 1.7.11: selection and deletion safety, layout
+      migration, batched commits, the mode rework.
+- [ ] Wire `scripts/sync_versions.py --check` into CI so version drift fails a
+      build instead of being found by reading a file.
 
 ---
 
