@@ -81,15 +81,18 @@ You can add extra patterns in the app UI. Live uploads also write a root `SECURI
 - Keep the repository private if your config contains sensitive data.
 - After a release, Home Assistant may need a rebuild/reinstall to pick up UI changes from the add-on image.
 
-## Development Track
+## Development
 
-To use the dev branch, add the dev repository URL in **Settings → Add-ons → Add-on Store → Repositories**:
+Development happens on [`main`](https://github.com/MJP-76/GithubConfigSync). There is one
+version line and releases are cut from it.
 
-```
-https://github.com/MJP-76/GithubConfigSync-dev
-```
+The old `-dev` repository is retired and has not been touched since September 2026. It used to
+be advertised here, with instructions for adding it under **Settings → Add-ons → Add-on Store →
+Repositories** — following that now would point your Add-on Store at an abandoned copy.
 
-Development happens on the `dev` repo. When ready, changes are pushed to both repos.
+The release workflow, architecture and milestone history live in
+[PROJECT.md](PROJECT.md). What is planned next lives in [TODO.md](TODO.md), and the
+changes themselves in [CHANGELOG.md](CHANGELOG.md).
 
 ## Migration
 
