@@ -4,22 +4,12 @@ import tempfile
 import unittest
 from pathlib import Path
 import sys
-import importlib.util
 
 APP_ROOT = Path(__file__).resolve().parents[1]
 if str(APP_ROOT) not in sys.path:
     sys.path.insert(0, str(APP_ROOT))
 
 from sync.hashing import GitIgnoreMatcher, SECURITY_DIRS, build_hash_index, diff_hash_indexes, _is_file_sensitive, scan_sensitive_files, is_ignored, IGNORE_DIRS, IGNORE_PATTERNS
-
-CONST_PATH = Path(__file__).resolve().parents[5] / "custom_components/github_config_sync/const.py"
-CONST_SPEC = importlib.util.spec_from_file_location("github_config_sync_const", CONST_PATH)
-if CONST_SPEC is None or CONST_SPEC.loader is None:
-    raise unittest.SkipTest("Could not load const module")
-_const = importlib.util.module_from_spec(CONST_SPEC)
-CONST_SPEC.loader.exec_module(_const)
-DEFAULT_IGNORE_PATTERNS = _const.DEFAULT_IGNORE_PATTERNS
-
 
 class HashingTests(unittest.TestCase):
     def test_build_hash_index_ignores_runtime_and_cache_files(self) -> None:
@@ -136,15 +126,28 @@ class HashingTests(unittest.TestCase):
 
             self.assertEqual(flagged, [])
 
-    def test_default_ignore_patterns_cover_common_home_assistant_files(self) -> None:
-        self.assertIn("secrets.yaml", DEFAULT_IGNORE_PATTERNS)
-        self.assertIn("ip_bans.yaml", DEFAULT_IGNORE_PATTERNS)
-        self.assertIn("known_devices.yaml", DEFAULT_IGNORE_PATTERNS)
-        self.assertIn(".storage/", DEFAULT_IGNORE_PATTERNS)
-        self.assertIn(".cloud/", DEFAULT_IGNORE_PATTERNS)
-        self.assertIn(".ruff.toml", DEFAULT_IGNORE_PATTERNS)
-        self.assertIn("core.config_entries", DEFAULT_IGNORE_PATTERNS)
-        self.assertIn(".env", DEFAULT_IGNORE_PATTERNS)
+    def test_common_home_assistant_files_are_excluded_by_the_addon(self) -> None:
+        """Asserted against the code that runs, not a copy of its list.
+
+        There was a second, flat DEFAULT_IGNORE_PATTERNS in the custom
+        component that nothing read anywhere - no import, no consumer - and
+        these assertions pointed at it through an importlib path five parents
+        up. They validated a constant with no consumer while the add-on's own
+        lists went untested by them. Removed rather than kept in step by hand,
+        because two lists kept in step by hand are still two lists.
+        """
+        for path in (
+            "secrets.yaml",
+            "ip_bans.yaml",
+            "known_devices.yaml",
+            ".storage/core.entity_registry",
+            ".cloud/ass.cloud",
+            ".ruff.toml",
+            "core.config_entries",
+            ".env",
+        ):
+            with self.subTest(path=path):
+                self.assertTrue(is_ignored(path), f"{path} should be excluded")
 
     def test_key_and_certificate_material_is_hard_ignored(self) -> None:
         for path in (
