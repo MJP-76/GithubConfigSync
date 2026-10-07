@@ -18,8 +18,11 @@
 1. Open the app UI from the Add-on page.
 2. Complete GitHub Device Flow login.
 3. Pick an existing repository or create a new one.
-4. Run a **dry run** first to confirm the scan looks correct.
-5. Switch to a **live run** when ready.
+4. Check the **mode**. Blacklist is the default and needs nothing selected —
+   it walks your configuration directory and add-on configurations. Switch to
+   Whitelist or Override only if you want to choose files yourself.
+5. Run a **dry run** first to confirm the scan looks correct.
+6. Switch to a **live run** when ready.
 
 !!! tip "Why start with a dry run?"
 

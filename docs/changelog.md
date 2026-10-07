@@ -1,10 +1,11 @@
 # Changelog
 
-The full 71-release history lives in
+Recent releases are listed here; the complete history lives in
 [CHANGELOG.md](https://github.com/MJP-76/GithubConfigSync/blob/main/CHANGELOG.md)
-(and on
-[GitHub Releases](https://github.com/MJP-76/GithubConfigSync/releases)).
-The last 5 releases are kept at the top, per the project's changelog rules.
+and on [GitHub Releases](https://github.com/MJP-76/GithubConfigSync/releases).
+
+Counts are deliberately not stated — this file used to claim a release total
+that drifted the moment the repository grew past it.
 
 ## 1.7.12
 

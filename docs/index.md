@@ -20,14 +20,17 @@ a **config sync tool, not a backup tool**.
 - GitHub OAuth Device Flow login (approve on github.com)
 - Create a new repository or use an existing one
 - Sync your Home Assistant config folder to GitHub
+- Three sync modes: **Blacklist** (default — nothing to select), **Whitelist** (only what you pick, with the security checks on) and **Override** (only what you pick, with them off)
 - Auto-generate a Home Assistant-friendly `.gitignore`
 - Customizable ignore patterns
 - Manual sync button in Home Assistant
 - Scheduled syncs (day-of-week + time-of-day selection)
 - Optional dated GitHub release creation before each sync
 - Clean Upload — force full re-upload and remove remote extras
-- Clean Repo — wipe remote repo and restore starter files in one step
+- Clean Repo — delete only files missing from your local config, leaving the rest untouched
+- Reset Repo — wipe the remote repository, replace its whole history, and restore the starter files
 - Repository picker with safety checks to avoid accidental overwrites
+- One-shot **migration** that moves an existing repository onto the `config/` layout
 - Sensitive-file scanning and reporting
 
 ## Where to go next
@@ -44,7 +47,7 @@ a **config sync tool, not a backup tool**.
 [badge-hassfest]: https://img.shields.io/github/actions/workflow/status/MJP-76/GithubConfigSync/hassfest.yml?branch=main&label=Hassfest
 [workflow-hassfest]: https://github.com/MJP-76/GithubConfigSync/actions/workflows/hassfest.yml
 [badge-ci]: https://github.com/MJP-76/GithubConfigSync/actions/workflows/ci.yml/badge.svg
-[workflow-ci]: https://github.com/MJP-76/GithubConfigSync/actions/workflows/ci.yml
+[workflow-ci]: https://github.com/MJP-76/GithubConfigSync/actions/workflows/validate.yml
 [badge-release]: https://img.shields.io/github/v/release/MJP-76/GithubConfigSync?style=flat&label=Release
 [releases]: https://github.com/MJP-76/GithubConfigSync/releases
 [badge-built-with-ai]: https://img.shields.io/badge/Built%20with-AI-black?logo=openai&logoColor=white
