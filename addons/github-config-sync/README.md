@@ -116,9 +116,9 @@ steps, changelog rules and the per-tag checklist.
 
 ### Sync Selection and `.gitignore`
 
-**Settings → 5. Sync Selection** holds the three modes: **Whitelist** (only what you pick, security checks on), **Blacklist** (default folders, security checks on) and **Override** (only what you pick, security checks off). Nothing selected means nothing synced.
+**Settings → Sync Selection** holds the three modes, simplest first: **Blacklist** *(default)* — nothing to select, walking your configuration directory and add-on configurations with the security checks on; **Whitelist** — only what you pick, checks on; **Override** — only what you pick, checks off. Whitelist or Override with nothing selected **refuses to sync** rather than reporting success for a run that changed nothing.
 
-Pick paths in the tree beside it — folders expand in place, and **Select** takes either a whole folder or a single file. Type a glob directly for anything quicker to enter than click.
+Pick paths in the tree beside it — folders expand in place, and **Select** takes either a whole folder or a single file. There is no free-text box, so a path cannot be mistyped; for globs, set `safe_config_paths` in `options.yaml`.
 
 The add-on reads and writes `/config/.gitignore`, offered under **Recommended .gitignore entries** in that section. Use it to keep unwanted trees such as `custom_components/` out of version control.
 
