@@ -93,10 +93,9 @@ If you find this project useful, and would like to help support its continued de
 
 ## Release checklist
 
-1. Bump the version in `config.yaml` (single source of truth).
-2. Run the app unit tests.
-3. Update the changelog.
-4. Commit and push to dev, then to main for stable.
+The release process lives in
+[AGENTS.md](https://github.com/MJP-76/GithubConfigSync/blob/main/AGENTS.md) —
+steps, changelog rules and the per-tag checklist.
 
 ## First run
 

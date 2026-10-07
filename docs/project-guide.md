@@ -45,14 +45,9 @@ status, architecture, security, and workflow.
 
 ## Release workflow
 
-1. Update code.
-2. Bump the single version in `config.yaml` (source of truth).
-3. Run `scripts/sync_versions.py --integration X.Y.Z --channel stable` — it
-   carries the version into `manifest.json`, `hacs.json` and every version
-   block. Nothing runs this automatically.
-4. Update the changelog (last 5 releases at the top).
-5. Commit and push to `main` (single version, single repo).
-6. Tag `vX.Y.Z` and create the GitHub release (pre-release until confirmed).
+Described once, in
+[AGENTS.md](https://github.com/MJP-76/GithubConfigSync/blob/main/AGENTS.md) — the ordered steps, the changelog rules and the
+per-tag checklist all live there, with the reasoning behind each rule.
 
-The full [PROJECT.md](https://github.com/MJP-76/GithubConfigSync/blob/main/PROJECT.md) contains the milestone history and the
-per-tag release checklist.
+The full [PROJECT.md](https://github.com/MJP-76/GithubConfigSync/blob/main/PROJECT.md) contains the milestone history,
+architecture and product decisions.

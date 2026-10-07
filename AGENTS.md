@@ -140,3 +140,17 @@ Changelog rules, also moved from PROJECT.md:
   tested it on their own install.
 - Keep release notes free of version numbers where a reader would have to chase
   them, and say what a change *does*, not only that it changed.
+
+### Checklist, per tag
+
+The tick-box form, moved here from PROJECT.md so the process and the checklist
+live together:
+
+- [ ] Version bumped in `config.yaml`, then `scripts/sync_versions.py` run
+- [ ] All three changelogs updated — root first; it is what the HA update page
+      reads
+- [ ] `scripts/sync_versions.py --check` passes
+- [ ] Tests green and `mkdocs build --strict` clean
+- [ ] Docs updated
+- [ ] Committed and pushed to `main`
+- [ ] GitHub release created

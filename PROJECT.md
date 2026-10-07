@@ -89,7 +89,7 @@ Home Assistant add-on with ingress web UI. Runs a Flask server that handles:
 
 ## Release workflow and changelog rules
 
-Moved to [AGENTS.md](AGENTS.md) — see *Releases*. One document owns the process so the two cannot drift apart; the reasoning behind each rule is recorded there too.
+Moved to [AGENTS.md](AGENTS.md) — see *Releases* for both the workflow and the per-tag checklist. One document owns the process so copies of it cannot drift apart; the reasoning behind each rule is recorded there too.
 
 ## Completed Milestones
 
@@ -203,13 +203,3 @@ Moved to [AGENTS.md](AGENTS.md) — see *Releases*. One document owns the proces
       build instead of being found by reading a file.
 
 ---
-
-## Release Checklist (Per Tag)
-
-- [ ] Version bumped in `config.yaml`, `manifest.json`, `hacs.json`
-- [ ] Changelog updated (last 5 releases at top)
-- [ ] Validation/CI green
-- [ ] Docs updated
-- [ ] Committed and pushed to main
-- [ ] GitHub Release created
-- [ ] This file updated
