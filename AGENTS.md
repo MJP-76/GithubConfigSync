@@ -114,13 +114,29 @@ one exception, it says so, and it reads the remote tree to decide.
 
 ## Releases
 
+The ordered workflow, moved here from PROJECT.md so one document owns it:
+
+1. Update code.
+2. Bump version in `config.yaml` — the single source of truth; `server.py` reads
+   it at startup.
+3. Run `python3 scripts/sync_versions.py --integration X.Y.Z --channel stable`.
+   It carries the version into `manifest.json`, `hacs.json`, `server.py` and
+   every `<!-- VERSION -->` block. Never edit a version by hand, and never add
+   a document with a version block without adding it to `DOC_PATHS`.
+4. Update all three changelogs.
+5. Commit and push to `main` (single version, single repo).
+6. Tag `vX.Y.Z` and create the GitHub release.
+7. Confirm `scripts/sync_versions.py ... --check` passes. **CI does not run it
+   for you.**
+
+Changelog rules, also moved from PROJECT.md:
+
+- **The root `CHANGELOG.md` is what the HA update page reads.** An unreleased-
+  looking root changelog means users read notes for an older version than the
+  one they are installing — this was 28 releases behind before anyone noticed.
+- The add-on's own `CHANGELOG.md` is what the in-app UI reads.
+- Last 5 releases at the top with full details; older releases below a divider.
 - Pre-release while refactoring; promote to stable once the maintainer has
   tested it on their own install.
-- Bump `config.yaml`, then run `scripts/sync_versions.py` — never edit a version
-  by hand, and never add a document with a version block without adding it to
-  `DOC_PATHS`.
-- Update all three changelogs. The root one is what the HA update page shows, so
-  an unreleased-looking root changelog means users read notes for an older
-  version than they are installing.
 - Keep release notes free of version numbers where a reader would have to chase
   them, and say what a change *does*, not only that it changed.

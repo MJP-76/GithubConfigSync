@@ -1,6 +1,6 @@
 # GitHub Config Sync — Project Guide
 
-Single source of truth for project status, architecture, security, and workflow.
+Single source of truth for project status, architecture, security and product decisions. How to *work* on it — commands, rules, release workflow — lives in [AGENTS.md](AGENTS.md).
 
 ---
 
@@ -87,29 +87,9 @@ Home Assistant add-on with ingress web UI. Runs a Flask server that handles:
 
 ---
 
-## Changelog Rules
+## Release workflow and changelog rules
 
-- The HA update page uses the short repo-root changelog.
-- The in-app UI uses the full app changelog.
-- Update the repo-root changelog on every pushed build/version so the HA update page stays current.
-- Last 5 releases at the top with full details; older releases below a divider.
-
----
-
-## Release Workflow
-
-1. Update code.
-2. Bump version in `config.yaml` (single source of truth — `server.py` auto-reads it at startup).
-3. Run `python3 scripts/sync_versions.py --integration X.Y.Z --channel stable`.
-   It carries the version into `manifest.json`, `hacs.json`, `server.py` and
-   every `<!-- VERSION -->` block. A document with a version block that is not
-   in that script's `DOC_PATHS` drifts on its own — README once read 1.5.22
-   while the add-on shipped 1.7.11.
-4. Update changelog (last 5 releases at top).
-5. Commit and push to main (single-version workflow).
-6. Tag `vX.Y.Z` and create the GitHub release (pre-release until confirmed).
-
----
+Moved to [AGENTS.md](AGENTS.md) — see *Releases*. One document owns the process so the two cannot drift apart; the reasoning behind each rule is recorded there too.
 
 ## Completed Milestones
 
