@@ -9,7 +9,7 @@ says.
 
 ## Correctness
 
-- [ ] **Clean Repo writes state on a dry run**
+- [x] **Clean Repo writes state on a dry run** — fixed and shipped in 1.7.12
 
       `_save_json(HASH_INDEX_PATH, ...)` and `_ensure_repo_marker()` sit outside
       the `if not sync_config.dry_run:` guard in `trigger_clean_repo`, so a
@@ -74,4 +74,9 @@ says.
       shipped through 1.7.11.
 
 
-- [ ] **Open issues to work through** — #36, #30, #8
+- [ ] **Open issues to work through** — #45, #46, #47, #36, #30, #8
+
+      #46 is partly addressed: the silent 50-entry truncation and the `.gitignore`
+      prefix break are fixed; **the first dry run showing an empty plan is not
+      reproduced**, and neither is its report that Whitelist still filters
+      esphome files containing only `!secret` references.
