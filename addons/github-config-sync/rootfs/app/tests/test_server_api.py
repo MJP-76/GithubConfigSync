@@ -2373,6 +2373,37 @@ class BaselineWriteGuardTests(ServerApiSetup, unittest.TestCase):
             "a preview rewrote the baseline the next real sync diffs against",
         )
 
+class DryRunDisclosureTests(unittest.TestCase):
+    """A preview must not show a subset as though it were the whole plan.
+
+    _plan_summary caps each file list at 50 while the counts stay complete, so
+    a plan can send 50 names beside a count of 70. A user reported exactly that
+    - "I'm absolutely sure i didn't see my config/template.yaml in the dry run
+    list", while the count said 70 - and a preview that under-reports what it
+    is asking you to approve defeats the only reason to run one.
+    """
+
+    def test_the_summary_truncates_but_the_counts_do_not(self) -> None:
+        from sync.models import SyncPlan
+
+        summary = server._plan_summary(
+            SyncPlan(added=[f"config/f{i}.yaml" for i in range(70)],
+                     changed=[], removed=[], total_files=70, oversized=[])
+        )
+        self.assertEqual(summary["added_count"], 70)
+        self.assertEqual(len(summary["added_files"]), 50)
+        self.assertLess(len(summary["added_files"]), summary["added_count"],
+                        "the test premise: names and counts do not agree")
+
+    def test_the_panel_tells_the_user_how_many_were_withheld(self) -> None:
+        html = (APP_ROOT / "static" / "index.html").read_text(encoding="utf-8")
+        panel = html.split("function renderDryRunPlan", 1)[1].split("\n      }", 1)[0]
+        self.assertIn("more not shown", panel, "truncation must be disclosed")
+        # The disclosure has to be driven by the full counts, not by the list.
+        self.assertIn("upsertTotal", panel)
+        self.assertIn("deleteTotal", panel)
+        self.assertIn("oversizedTotal", panel)
+
 
 if __name__ == "__main__":
     unittest.main()

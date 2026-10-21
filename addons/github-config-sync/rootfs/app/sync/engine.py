@@ -875,7 +875,9 @@ class SyncEngine:
             override=override,
             in_scope=self._path_selected if selection_mode else None,
         )
-        ignore_matcher = GitIgnoreMatcher.from_file(self._config_root / ".gitignore")
+        ignore_matcher = GitIgnoreMatcher.from_file(
+            self._config_root / ".gitignore", key_prefix=self._config_prefix
+        )
         index: dict[str, str] = {}
         oversized: list[str] = []
         roots = self._hash_roots(selection_mode)

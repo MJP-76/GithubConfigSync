@@ -105,7 +105,11 @@ SENSITIVE_NAME_PATTERNS = (
     re.compile(r"(password|passwd|secret|token|credential|private|api[_-]?key|oauth|cookie|session)", re.I),
 )
 SENSITIVE_CONTENT_PATTERNS = (
-    re.compile(r"(?i)\b(password|passwd|secret|token|api[_-]?key|client_secret)\b\s*[:=]"),
+    # The optional quote is for JSON. In `"password":` a quote sits between
+    # the key and the colon, so without allowing one every credential stored
+    # as JSON passed this check - which is how an add-on options file under
+    # /addon_configs could ship a password while looking protected.
+    re.compile(r"(?i)\b(password|passwd|secret|(?:[a-z]+_)*token|api[_-]?key|client_secret)\b[\x22']?\s*[:=]"),
     re.compile(r"(?i)\bbearer\s+[A-Za-z0-9._\-]{20,}"),
     re.compile(r"(?i)\bsk-[A-Za-z0-9]{20,}"),
 )
@@ -132,17 +136,21 @@ class GitIgnoreMatcher:
     Last matching rule wins; a path with no matching rule is kept.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, key_prefix: str = "") -> None:
         self._rules: list[tuple[bool, bool, str]] = []
         self._has_rules = False
+        # Repo key prefix for the directory this file lives in. A .gitignore in
+        # the config directory has patterns relative to that directory, so
+        # once keys carry the prefix both spellings have to be tried.
+        self._key_prefix = key_prefix.strip("/")
 
     @property
     def has_rules(self) -> bool:
         return self._has_rules
 
     @classmethod
-    def from_file(cls, path: Path) -> GitIgnoreMatcher:
-        matcher = cls()
+    def from_file(cls, path: Path, key_prefix: str = "") -> GitIgnoreMatcher:
+        matcher = cls(key_prefix)
         try:
             text = path.read_text(encoding="utf-8", errors="ignore")
         except OSError:
@@ -177,9 +185,21 @@ class GitIgnoreMatcher:
             relative = relative[2:]
         if not relative:
             return False
+        # The file lives in the config directory, so its anchored patterns are
+        # written relative to that directory - but repo keys carry the config
+        # prefix once the layout is prefixed. Matching only the full key
+        # silently invalidated every path-ful rule the moment a repository
+        # migrated: "custom_components/*" stopped covering
+        # "config/custom_components/...", and nothing said so. Both spellings
+        # are tried so a rule written either way still applies.
+        forms = [relative]
+        if self._key_prefix:
+            prefix = self._key_prefix + "/"
+            if relative.startswith(prefix):
+                forms.append(relative[len(prefix):])
         ignored = False
         for negate, dir_only, pattern in self._rules:
-            if _gitignore_rule_matches(relative, dir_only, pattern):
+            if any(_gitignore_rule_matches(form, dir_only, pattern) for form in forms):
                 ignored = not negate
         return ignored
 

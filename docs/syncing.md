@@ -165,6 +165,7 @@ Databases, WAL/SHM, logs, lockfiles, caches and `.storage` never appear in the t
 Regardless of mode:
 
 - Runtime artifacts are never synced — databases, WAL/SHM files, logs, lockfiles, caches, `.storage`, `.git`, `node_modules`. No mode can re-enable them.
+- **`safe_config_paths` is not an exception to that.** An entry pointing into `.storage`, `.cloud`, a database or a log matches nothing and is skipped without a word — deliberately, because those paths are out of reach of every mode including Override. `.storage` is the one people ask about: it holds the dashboards and helper definitions you want history for, but also `core.config_entries`, which carries integration credentials, and it is excluded as a directory for that reason rather than by oversight.
 - Your `.gitignore` is applied last and always wins.
 - Mount points outside `/config` (`addon_configs`, `media`, `share`, `ssl`, `backups`) are ticked as a group in Whitelist and Override. Blacklist always includes `addon_configs` alongside `/config` and picks up the other four only when you have selected them.
 

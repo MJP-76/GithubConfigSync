@@ -935,23 +935,38 @@
         const upserts = [].concat(summary?.added_files || [], summary?.changed_files || []);
         const deletes = summary?.removed_files || [];
         const tooLarge = summary?.oversized_files || [];
+        const upsertTotal = (summary?.added_count || 0) + (summary?.changed_count || 0);
+        const deleteTotal = summary?.removed_count || 0;
+        const oversizedTotal = summary?.oversized_count || 0;
+
+        // _plan_summary caps every file list at 50 while the counts stay
+        // complete, so a plan could show 30 names beside a total of 70 and look
+        // like a complete answer. A user reported exactly that - "I'm absolutely
+        // sure i didn't see my config/template.yaml in the dry run list" - and a
+        // preview that under-reports what it is asking you to approve defeats
+        // the only reason to run one. Say how many were withheld rather than let
+        // the two numbers silently disagree.
+        const list = (shown, total) => {
+          if (!shown.length) return "";
+          const text = shown.join("\n");
+          return total > shown.length ? `${text}\n… and ${total - shown.length} more not shown` : text;
+        };
+
         if (el.dryRunUpserts) {
-          el.dryRunUpserts.textContent = upserts.length ? upserts.join("\n") : "Nothing to upload.";
+          el.dryRunUpserts.textContent = list(upserts, upsertTotal) || "Nothing to upload.";
         }
         if (el.dryRunDeletes) {
-          el.dryRunDeletes.textContent = deletes.length ? deletes.join("\n") : "Nothing to delete.";
+          el.dryRunDeletes.textContent = list(deletes, deleteTotal) || "Nothing to delete.";
         }
         // Listed rather than counted: a silent skip is indistinguishable from
         // a file that was never there, which is how the 286 MB archive went
         // unnoticed until it failed the whole sync.
         if (el.dryRunOversized) {
-          el.dryRunOversized.textContent = tooLarge.length
-            ? tooLarge.join("\n")
-            : "Nothing too large.";
+          el.dryRunOversized.textContent = list(tooLarge, oversizedTotal) || "Nothing too large.";
         }
-        el.oversizedTotal.textContent = String(summary?.oversized_count || 0);
-        el.upsertTotal.textContent = String((summary?.added_count || 0) + (summary?.changed_count || 0));
-        el.removeTotal.textContent = String(summary?.removed_count || 0);
+        el.oversizedTotal.textContent = String(oversizedTotal);
+        el.upsertTotal.textContent = String(upsertTotal);
+        el.removeTotal.textContent = String(deleteTotal);
         el.unchangedTotal.textContent = String(summary?.unchanged_count || 0);
       }
 
