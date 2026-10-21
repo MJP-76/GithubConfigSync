@@ -318,6 +318,47 @@ class SecurityFloorTests(unittest.TestCase):
             self.assertNotIn("secrets.yaml", build_hash_index(root))
             self.assertIn("secrets.yaml", build_hash_index(root, override=True))
 
+class SecretReferenceTests(unittest.TestCase):
+    """A file scrubbed of secrets must not be held back for naming one.
+
+    `password: !secret wifi_password` matched on the key alone, so an esphome
+    config with every value behind a secret reference was blocked by content.
+    The person who reported it had done the right thing and was sent to Override
+    for a file containing no secret at all - which is the check working against
+    the behaviour it exists to encourage.
+    """
+
+    def _flagged(self, body: str) -> bool:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "kitchen.yaml").write_text(body, encoding="utf-8")
+            from sync.hashing import _file_contains_sensitive_content
+            return _file_contains_sensitive_content(root / "kitchen.yaml")
+
+    def test_a_fully_scrubbed_esphome_file_is_not_held_back(self) -> None:
+        body = (
+            "esphome:\n  name: kitchen\n  wifi:\n"
+            "    ssid: !secret wifi_ssid\n    password: !secret wifi_password\n"
+            "  api:\n    password: !secret api_password\n"
+        )
+        self.assertFalse(self._flagged(body))
+
+    def test_a_real_credential_still_holds_the_file_back(self) -> None:
+        self.assertTrue(self._flagged("esphome:\n  wifi:\n    password: hunter2\n"))
+
+    def test_a_reference_does_not_excuse_a_real_value_alongside_it(self) -> None:
+        """Stripping must not become a bypass."""
+        body = "esphome:\n  password: !secret x\n  api_key: REALVALUE123\n"
+        self.assertTrue(self._flagged(body))
+
+    def test_json_credentials_are_held_back(self) -> None:
+        """The quote between JSON key and colon used to let these through."""
+        self.assertTrue(self._flagged('{"password": "hunter2"}\n'))
+        self.assertTrue(self._flagged('{"access_token": "ghp_abc1234567890"}\n'))
+
+    def test_a_json_file_of_secret_references_is_not_held_back(self) -> None:
+        """No such syntax in JSON, but the rule is about values not format."""
+        self.assertFalse(self._flagged('{"timezone": "Europe/Isle_of_Man"}\n'))
 
 
 if __name__ == "__main__":

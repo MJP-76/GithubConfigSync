@@ -116,6 +116,18 @@ SENSITIVE_CONTENT_PATTERNS = (
 
 MAX_CONTENT_SCAN_BYTES = 2 * 1024 * 1024
 
+# A line whose value is `!secret name` points at secrets.yaml; it carries no
+# credential itself. Stripping those before matching matters because otherwise
+# the key alone decides: `password: !secret wifi_password` matched on
+# `password:` and blocked the file, so an esphome config scrubbed of every real
+# secret was still held back. The person who reported that had done exactly the
+# right thing and was sent to Override for a file containing no secret at all.
+#
+# Only whole lines are removed, so a real credential elsewhere in the file is
+# still matched - stripping is not a bypass, it is not counting a reference as a
+# value.
+SECRET_REFERENCE_LINE = re.compile(r"^.*:\s*!secret\s+\S.*$", flags=re.MULTILINE)
+
 # Largest file a sync will try to upload. GitHub's contents API rejects
 # anything this size outright ("Sorry, the file is too large to be processed")
 # and base64-encodes the payload on the way, making it a third larger again.
@@ -271,6 +283,7 @@ def _file_contains_sensitive_content(path: Path) -> bool:
     except OSError:
         return False
     text = sample.decode("utf-8", errors="ignore")
+    text = SECRET_REFERENCE_LINE.sub("", text)
     return any(pattern.search(text) for pattern in SENSITIVE_CONTENT_PATTERNS)
 
 
