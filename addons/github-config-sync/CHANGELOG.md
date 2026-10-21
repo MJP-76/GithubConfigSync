@@ -24,6 +24,22 @@ Prefer files at the root instead? Set `repo_layout: flat` in the add-on's option
 
 ## Latest Releases
 
+## 1.7.13
+
+Four defects fixed, two of them security-relevant, all from reports in #46 and #8.
+
+- **JSON credentials no longer bypass the sensitive-content check.** The pattern required a separator straight after the key, and JSON puts a quote in between — so `"password": "hunter2"` was never matched while `password: hunter2` was. YAML caught, JSON not. Since `/addon_configs` became a default folder in 1.7.10, an add-on writing credentials to an options file could ship them with default settings. `access_token`, `refresh_token` and `id_token` were missed too, because `_` is a word character and `token` finds no boundary inside them. A config key such as `tokenizer` still does **not** trigger it.
+
+- **`.gitignore` rules stopped matching after the layout change.** The file lives at `/config/.gitignore`, so its anchored patterns are written relative to the config directory — but they were matched against repo keys carrying the `config/` prefix. `custom_components/*` covered `custom_components/...` and silently stopped covering `config/custom_components/...`. Both spellings are tried now, and negation still wins.
+
+- **The dry-run plan showed a subset and said nothing.** `_plan_summary` caps each file list at 50 while the counts stay complete, so 70 upserts arrived as 50 names beside a count of 70. The panel now appends `… and N more not shown`. A preview that under-reports what it is asking you to approve defeats the only reason to run one.
+
+- **A file scrubbed of secrets is no longer blocked for naming one.** `password: !secret wifi_password` matched on the key alone — the value was never consulted — so a config with every credential behind a secret reference was held back, and Override was the only way through. Whole `key: !secret value` lines are stripped before matching; a real credential elsewhere in the same file still blocks it.
+
+- **Documented what `safe_config_paths` cannot do.** It is not a route into `.storage`. That directory holds the dashboards and helper definitions people want history for, but also `core.config_entries`, which carries integration credentials — so it is excluded as a directory, deliberately, and previously without saying so to whoever had just tried it.
+
+
+
 ## 1.7.12
 
 Two fixes, both about a preview meaning a preview.

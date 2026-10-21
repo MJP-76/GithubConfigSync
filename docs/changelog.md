@@ -7,6 +7,14 @@ and on [GitHub Releases](https://github.com/MJP-76/GithubConfigSync/releases).
 Counts are deliberately not stated — this file used to claim a release total
 that drifted the moment the repository grew past it.
 
+## 1.7.13
+
+- **JSON credentials no longer bypass the content check** — `"password": "hunter2"` was missed because a quote sits between key and colon; `access_token` and `refresh_token` were missed because `_` breaks the word boundary. With `/addon_configs` a default folder, this could ship credentials under default settings.
+- **`.gitignore` rules match again after the layout change** — anchored patterns stopped covering `config/...`; both spellings are tried now.
+- **The dry-run plan says when it is truncating** — lists were capped at 50 while counts were complete, so 70 upserts showed 50 names. Now `… and N more not shown`.
+- **A scrubbed esphome file is no longer blocked for containing the word `password`** — `password: !secret x` is a reference, not a value. A real credential elsewhere in the file still blocks it.
+- **Documented** that `safe_config_paths` cannot reach `.storage`, and why.
+
 ## 1.7.12
 
 - **A dry run no longer writes state.** Clean Repo rewrote the scan baseline and could write the repository marker while previewing, so the next real sync agreed with its own preview instead of with the repository. The scheduler had the same shape. Every baseline write is now guarded or documented as forcing live, and a test audits it.

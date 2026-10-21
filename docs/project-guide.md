@@ -6,10 +6,10 @@ status, architecture, security, and workflow.
 ## Current status
 
 <!-- VERSION:START -->
-- Integration version: `1.7.12`
-- Add-on version: `1.7.12`
+- Integration version: `1.7.13`
+- Add-on version: `1.7.13`
 - Channel: `stable`
-- Release tag: `v1.7.12`
+- Release tag: `v1.7.13`
 <!-- VERSION:END -->
 
 - **Repo:** `MJP-76/GithubConfigSync` — single version on `main`
