@@ -1231,6 +1231,7 @@ class ServerApiTests(ServerApiSetup, unittest.TestCase):
                     removed=[],
                     total_files=1,
                     oversized=[],
+                    unmatched=[],
                 ),
                 {"one.txt": "abc"},
             )
@@ -1269,6 +1270,7 @@ class ServerApiTests(ServerApiSetup, unittest.TestCase):
                     removed=[],
                     total_files=1,
                     oversized=[],
+                    unmatched=[],
                 ),
                 {"one.txt": "abc"},
             )
@@ -1305,6 +1307,7 @@ class ServerApiTests(ServerApiSetup, unittest.TestCase):
                     removed=[],
                     total_files=1,
                     oversized=[],
+                    unmatched=[],
                 ),
                 {"one.txt": "abc"},
             )
@@ -1339,6 +1342,7 @@ class ServerApiTests(ServerApiSetup, unittest.TestCase):
                     removed=["stale.yaml", "old/cache.json"],
                     total_files=3,
                     oversized=[],
+                    unmatched=[],
                 ),
                 {"one.txt": "aaa", "stale.yaml": "bbb", "old/cache.json": "ccc"},
             )
@@ -1433,6 +1437,7 @@ class ServerApiTests(ServerApiSetup, unittest.TestCase):
                     removed=[],
                     total_files=1,
                     oversized=[],
+                    unmatched=[],
                 ),
                 {"one.txt": "abc"},
             )
@@ -1467,6 +1472,7 @@ class ServerApiTests(ServerApiSetup, unittest.TestCase):
                     removed=[],
                     total_files=1,
                     oversized=[],
+                    unmatched=[],
                 ),
                 {"one.txt": "abc"},
             )
@@ -1499,6 +1505,7 @@ class ServerApiTests(ServerApiSetup, unittest.TestCase):
                     removed=[],
                     total_files=1,
                     oversized=[],
+                    unmatched=[],
                 ),
                 {"one.txt": "abc"},
             )
@@ -1902,13 +1909,15 @@ class ManualSyncSelectionTests(ServerApiSetup, unittest.TestCase):
             engine = engine_cls.return_value
             engine.plan.return_value = (
                 unittest.mock.MagicMock(
-                    added=[], changed=[], removed=[], total_files=1, oversized=[]
+                    added=[], changed=[], removed=[], total_files=1, oversized=[],
+                    unmatched=[],
                 ),
                 {"a": "b"},
             )
             engine.clean_plan.return_value = (
                 unittest.mock.MagicMock(
-                    added=["one.txt"], changed=[], removed=[], total_files=1, oversized=[]
+                    added=["one.txt"], changed=[], removed=[], total_files=1, oversized=[],
+                    unmatched=[],
                 ),
                 {"one.txt": "abc"},
             )
@@ -2103,6 +2112,7 @@ class LayoutOptionTests(ServerApiSetup, unittest.TestCase):
                 unittest.mock.MagicMock(
                     added=["one.txt"], changed=[], removed=["old.txt"],
                     total_files=1, oversized=[],
+                    unmatched=[],
                 ),
                 {"one.txt": "abc"},
             )
@@ -2356,7 +2366,8 @@ class BaselineWriteGuardTests(ServerApiSetup, unittest.TestCase):
             engine._github.write_repo_marker.return_value = {"ok": True}
             engine.clean_plan.return_value = (
                 unittest.mock.MagicMock(added=[], changed=[], removed=["stale.yaml"],
-                                        total_files=1, oversized=[]),
+                                        total_files=1, oversized=[],
+                                        unmatched=[]),
                 {"stale.yaml": "bbb"},
             )
             engine.run.return_value = unittest.mock.MagicMock(
@@ -2403,6 +2414,94 @@ class DryRunDisclosureTests(unittest.TestCase):
         self.assertIn("upsertTotal", panel)
         self.assertIn("deleteTotal", panel)
         self.assertIn("oversizedTotal", panel)
+
+class UnmatchedSelectionDisclosureTests(unittest.TestCase):
+    """The panel that names a dead selection has to exist and be filled.
+
+    A control that exists but is wired to nothing passes every functional
+    test, because nothing exercises it - so the markup is asserted on as
+    well as the data that feeds it.
+    """
+
+    def test_the_summary_carries_the_entries_and_the_full_count(self) -> None:
+        from sync.models import SyncPlan
+
+        summary = server._plan_summary(
+            SyncPlan(added=[], changed=[], removed=[], total_files=0,
+                     unmatched=[f"config/p{i} — no files matched" for i in range(70)])
+        )
+        self.assertEqual(summary["unmatched_count"], 70)
+        self.assertEqual(len(summary["unmatched"]), 50,
+                         "same cap as the file lists, so the panel cannot read as complete")
+
+    def test_the_grid_holds_a_field_for_them(self) -> None:
+        html = (APP_ROOT / "static" / "index.html").read_text(encoding="utf-8")
+        self.assertEqual(html.count('id="dryRunUnmatched"'), 1,
+                         "exactly one field, so there is one place to look")
+        grid = html.split('class="dry-run-grid"', 1)[1].split("</details>", 1)[0]
+        self.assertIn("Selections that matched nothing", grid)
+        self.assertIn('id="dryRunUnmatched"', grid)
+
+    def test_the_render_function_fills_the_field(self) -> None:
+        html = (APP_ROOT / "static" / "index.html").read_text(encoding="utf-8")
+        panel = html.split("function renderDryRunPlan", 1)[1].split("\n      }", 1)[0]
+        self.assertIn("dryRunUnmatched", panel)
+        # Driven by the count rather than the capped list, like the others.
+        self.assertIn("unmatched_count", panel)
+        self.assertIn("unmatchedTotal", panel)
+
+class UnmatchedSelectionEndpointTests(ServerApiSetup, unittest.TestCase):
+    """The whole chain, with the engine left unstubbed.
+
+    The pieces are covered elsewhere, but only a run through the real engine
+    proves that an option written to disk reaches the JSON the browser reads
+    - which is the path the reporter of the original problem was on when
+    nothing was said at all.
+    """
+
+    def test_a_dead_selection_reaches_the_dry_run_response(self) -> None:
+        (self._config_root / ".storage").mkdir()
+        (self._config_root / ".storage" / "lovelace").write_text("{}", encoding="utf-8")
+        self._write_options(
+            {
+                "github_repository": "owner/repo",
+                "github_branch": "main",
+                "github_token": "gho_test",
+                "dry_run": True,
+                "sync_mode": "whitelist",
+                "safe_config_paths": "config/.storage",
+            }
+        )
+
+        response = self.client.post("/api/sync/manual")
+
+        body = response.get_json()
+        self.assertEqual(response.status_code, 200, body)
+        self.assertEqual(body["summary"]["unmatched_count"], 1)
+        self.assertIn("config/.storage", body["summary"]["unmatched"][0])
+        self.assertIn("excluded in every mode", body["summary"]["unmatched"][0])
+        self.assertIn("1 selection matched nothing", body["result"])
+
+    def test_a_live_sync_carries_it_in_the_saved_result(self) -> None:
+        """The panel empties on reload; last_result is what is still there."""
+        (self._config_root / ".storage").mkdir()
+        (self._config_root / ".storage" / "lovelace").write_text("{}", encoding="utf-8")
+        self._write_options(
+            {
+                "github_repository": "owner/repo",
+                "github_branch": "main",
+                "github_token": "gho_test",
+                "dry_run": True,
+                "sync_mode": "whitelist",
+                "safe_config_paths": "config/.storage",
+            }
+        )
+
+        self.client.post("/api/sync/manual")
+
+        state = server._load_state()
+        self.assertIn("1 selection matched nothing", state.get("last_result") or "")
+        self.assertEqual(state["last_scan"]["unmatched_count"], 1)
 
 
 if __name__ == "__main__":

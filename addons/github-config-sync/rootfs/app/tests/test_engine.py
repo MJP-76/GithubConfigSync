@@ -1766,5 +1766,170 @@ class AddonConfigsRootTests(unittest.TestCase):
         self.assertIn("addon_configs/some_addon/settings.yaml", index)
 
 
+class UnmatchedSelectionTests(unittest.TestCase):
+    """A selection that matched nothing has to say so, and say why.
+
+    The counts alone cannot tell a healthy run with nothing to do from a run
+    whose selection never resolved - both read "upserted 0". A reporter added
+    ``config/.storage`` to ``safe_config_paths`` and got silence from every
+    surface: the plan, the diagnostics and the sensitive-file warning were all
+    empty, and nothing named the entry they had actually written.
+    """
+
+    def setUp(self) -> None:
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        base = Path(self._tmp.name)
+        self.root = base / "config"
+        (self.root / "esphome").mkdir(parents=True)
+        (self.root / "esphome" / "living.yaml").write_text("sensor:\n", encoding="utf-8")
+        (self.root / "configuration.yaml").write_text("id: 1", encoding="utf-8")
+        (self.root / ".storage").mkdir()
+        (self.root / ".storage" / "lovelace").write_text("{}", encoding="utf-8")
+        (self.root / "secrets.yaml").write_text("token: x\n", encoding="utf-8")
+        # A real nested directory. The tree emits config/... for it, so the
+        # spelling the double-prefix hint calls wrong is correct here.
+        (self.root / "config").mkdir()
+        (self.root / "config" / "nested.yaml").write_text("a: 1\n", encoding="utf-8")
+
+    def _plan(self, mode="whitelist", sync_paths=(), safe_paths=(), layout="prefixed"):
+        config = SyncConfig(
+            repository="owner/repo",
+            branch="main",
+            token="token",
+            config_root=str(self.root),
+            dry_run=True,
+            sync_mode=mode,
+            sync_paths=tuple(sync_paths),
+            safe_config_paths=tuple(safe_paths),
+            repo_layout=layout,
+        )
+        plan, _ = SyncEngine(config, previous_hash_index={}).plan()
+        return plan
+
+    def test_a_runtime_path_is_named_and_says_it_cannot_be_reached(self) -> None:
+        plan = self._plan(safe_paths=("config/.storage",))
+        self.assertEqual(len(plan.unmatched), 1)
+        self.assertIn("config/.storage", plan.unmatched[0])
+        self.assertIn("excluded in every mode", plan.unmatched[0])
+
+    def test_a_doubled_prefix_offers_the_spelling_that_works(self) -> None:
+        plan = self._plan(safe_paths=("config/esphome",))
+        self.assertEqual(len(plan.unmatched), 1)
+        self.assertIn("config/esphome", plan.unmatched[0])
+        self.assertIn("did you mean esphome?", plan.unmatched[0])
+
+    def test_the_hint_is_a_question_not_a_rewrite(self) -> None:
+        """The stored entry must survive untouched; only the report changes."""
+        config = SyncConfig(
+            repository="owner/repo",
+            branch="main",
+            token="token",
+            config_root=str(self.root),
+            dry_run=True,
+            sync_mode="whitelist",
+            safe_config_paths=("config/esphome",),
+            repo_layout="prefixed",
+        )
+        engine = SyncEngine(config, previous_hash_index={})
+        engine.plan()
+        self.assertEqual(engine._selections, ("config/config/esphome",))
+
+    def test_a_nested_directory_is_not_mistaken_for_a_doubled_prefix(self) -> None:
+        """The tree emits config/... for a real config/config/ folder."""
+        plan = self._plan(safe_paths=("config/nested.yaml",))
+        self.assertEqual(plan.unmatched, [])
+        self.assertEqual(plan.total_files, 1)
+
+    def test_a_selection_that_matched_files_reports_nothing(self) -> None:
+        plan = self._plan(safe_paths=("esphome",))
+        self.assertEqual(plan.unmatched, [])
+        self.assertEqual(plan.unmatched_note, "")
+
+    def test_a_typo_says_no_files_matched_without_inventing_a_reason(self) -> None:
+        plan = self._plan(safe_paths=("esphom",))
+        self.assertEqual(len(plan.unmatched), 1)
+        self.assertIn("esphom", plan.unmatched[0])
+        self.assertIn("no files matched", plan.unmatched[0])
+
+    def test_a_held_back_file_names_the_security_checks(self) -> None:
+        plan = self._plan(safe_paths=("secrets.yaml",))
+        self.assertEqual(len(plan.unmatched), 1)
+        self.assertIn("held back by the security checks", plan.unmatched[0])
+
+    def test_a_path_that_was_never_there_is_not_blamed_on_the_checks(self) -> None:
+        """The security reason is only true of a path that exists.
+
+        Without the existence gate a typo containing the word "secret" would
+        be reported as held back, sending the reader to Override to fix a file
+        that is not there in the first place.
+        """
+        plan = self._plan(safe_paths=("no_such_secrets.yaml",))
+        self.assertEqual(len(plan.unmatched), 1)
+        self.assertIn("no files matched", plan.unmatched[0])
+        self.assertNotIn("security", plan.unmatched[0])
+
+    def test_blacklist_does_not_report_what_it_never_consulted(self) -> None:
+        """Blacklist does not filter on these entries, so there is no miss."""
+        plan = self._plan(mode="blacklist", safe_paths=("config/.storage",))
+        self.assertEqual(plan.unmatched, [])
+
+    def test_an_empty_selection_is_not_reported_twice(self) -> None:
+        """The refusal already names it; the panel would just repeat it."""
+        plan = self._plan()
+        self.assertEqual(plan.total_files, 0)
+        self.assertEqual(plan.unmatched, [])
+
+    def test_a_mount_toggle_is_not_reported_as_a_failed_selection(self) -> None:
+        """Tick boxes are booleans, not paths. An empty mount is normal."""
+        config = SyncConfig(
+            repository="owner/repo",
+            branch="main",
+            token="token",
+            config_root=str(self.root),
+            dry_run=True,
+            sync_mode="whitelist",
+            include_media=True,
+            repo_layout="prefixed",
+        )
+        plan, _ = SyncEngine(config, previous_hash_index={}).plan()
+        self.assertEqual(plan.unmatched, [])
+
+    def test_a_path_picked_under_a_mount_is_reported_like_any_other(self) -> None:
+        """The tree only offers real paths, so a miss here means it changed."""
+        plan = self._plan(sync_paths=("ssl/nothing-here",))
+        self.assertEqual(len(plan.unmatched), 1)
+        self.assertIn("ssl/nothing-here", plan.unmatched[0])
+        self.assertIn("no files matched", plan.unmatched[0])
+
+    def test_flat_layout_reports_without_a_prefix_to_double(self) -> None:
+        plan = self._plan(layout="flat", safe_paths=("esphom",))
+        self.assertEqual(len(plan.unmatched), 1)
+        self.assertIn("esphom", plan.unmatched[0])
+
+    def test_the_note_reaches_the_result_message(self) -> None:
+        """The panel empties on reload; the message is what survives it."""
+        config = SyncConfig(
+            repository="owner/repo",
+            branch="main",
+            token="token",
+            config_root=str(self.root),
+            dry_run=True,
+            sync_mode="whitelist",
+            safe_config_paths=("config/.storage",),
+            repo_layout="prefixed",
+        )
+        engine = SyncEngine(config, previous_hash_index={})
+        plan, _ = engine.plan()
+        with patch.object(SyncEngine, "_commit_batch", return_value=(0, 0, False)):
+            message = engine.run(plan).message
+        self.assertIn("1 selection matched nothing", message)
+
+    def test_a_plural_count_reads_as_plural(self) -> None:
+        plan = self._plan(safe_paths=("config/.storage", "esphom"))
+        self.assertEqual(len(plan.unmatched), 2)
+        self.assertIn("2 selections matched nothing", plan.unmatched_note)
+
+
 if __name__ == "__main__":
     unittest.main()

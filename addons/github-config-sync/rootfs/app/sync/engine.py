@@ -10,7 +10,14 @@ from .errors import SyncError
 from .github_client import ADDON_REPO_MARKER_PATH, GitHubClient, MIGRATED_MARKER_PATH
 
 _LOGGER = logging.getLogger(__name__)
-from .hashing import GitIgnoreMatcher, build_hash_index, diff_hash_indexes, scan_sensitive_files
+from .hashing import (
+    GitIgnoreMatcher,
+    _is_runtime_artifact,
+    build_hash_index,
+    diff_hash_indexes,
+    is_ignored,
+    scan_sensitive_files,
+)
 from .models import SyncConfig, SyncPlan, SyncResult
 
 # The three sync modes. Each is a preset over one question: how much do you
@@ -149,6 +156,8 @@ class SyncEngine:
         )
         self._sensitive_files: list[str] = []
         self._oversized: list[str] = []
+        # Filled by _build_hash_index: typed selections that reached no file.
+        self._unmatched: list[str] = []
         self._cancel_requested: Callable[[], bool] = lambda: False
         self._progress_callback: Callable[[dict[str, object]], None] = lambda _payload: None
         self._last_progress: dict[str, object] = {}
@@ -218,6 +227,7 @@ class SyncEngine:
             removed=removed_paths,
             total_files=len(current_hash_index),
             oversized=list(self._oversized),
+            unmatched=list(self._unmatched),
         )
         return plan, current_hash_index
 
@@ -263,6 +273,7 @@ class SyncEngine:
             removed=removed_paths,
             total_files=len(current_hash_index),
             oversized=list(self._oversized),
+            unmatched=list(self._unmatched),
         )
         return plan, current_hash_index
 
@@ -377,6 +388,7 @@ class SyncEngine:
                         if plan.oversized
                         else ""
                     )
+                    + plan.unmatched_note
                 ),
             )
 
@@ -401,6 +413,7 @@ class SyncEngine:
                 "Sync completed. "
                 f"Upserted {synced_count}, deleted {deleted_count}, skipped {skipped_count}."
                 f"{too_large}"
+                f"{plan.unmatched_note}"
             ),
         )
 
@@ -785,14 +798,37 @@ class SyncEngine:
             return self._config.include_www
         return False
 
-    def _build_selections(self) -> tuple[str, ...]:
-        """Entries the sync may read from: picked paths, glob extras, mounts.
+    def _selection_key(self, entry: object) -> str | None:
+        """Normalise one raw entry into key space, or None if it names nothing.
 
-        ``safe_config_paths`` is folded in as a glob-based way to pick paths
-        without browsing for them. Note the config root is never implied -
-        whitelist with nothing selected must sync nothing.
+        Selections name local paths; index keys carry the root prefix.
+        Rewriting here means the rest of the engine - matching, the .gitignore
+        check, upserts, deletes - only ever deals in key space, and layout
+        stays a decision made in exactly one place. The unmatched report
+        normalises through here too, so what it tests is what the scan tested.
         """
-        entries: list[str] = [
+        normalised = _normalise_selection(entry)
+        if normalised is None:
+            return None
+        if self._config_prefix and _mount_prefix(normalised) == "":
+            normalised = (
+                self._config_prefix
+                if normalised == WHOLE_CONFIG_ROOT
+                else f"{self._config_prefix}/{normalised}"
+            )
+        return normalised
+
+    def _typed_entries(self) -> list[str]:
+        """The entries the user wrote, as written: picked paths plus globs.
+
+        The mount toggles are not here - those are booleans, added by
+        ``_build_selections`` from ``include_*`` rather than typed, and an
+        empty one is a normal state rather than a selection that failed. A
+        mount picked in the tree does arrive, through ``sync_paths``, and is
+        reported like any other pick: it was an explicit choice that
+        produced nothing.
+        """
+        entries = [
             # Falsy entries are dropped before str(), or a None would become
             # the literal selection "None" - which matches nothing and looks
             # like a deliberate pick.
@@ -801,29 +837,150 @@ class SyncEngine:
             if entry
         ]
         entries.extend(str(e) for e in (getattr(self._config, "safe_config_paths", ()) or ()))
+        return entries
+
+    def _build_selections(self) -> tuple[str, ...]:
+        """Entries the sync may read from: picked paths, glob extras, mounts.
+
+        ``safe_config_paths`` is folded in as a glob-based way to pick paths
+        without browsing for them. Note the config root is never implied -
+        whitelist with nothing selected must sync nothing.
+        """
+        entries = self._typed_entries()
         entries.extend(name for name in MOUNT_KEYS if self._root_enabled(name))
 
         selections: list[str] = []
         seen: set[str] = set()
         for entry in entries:
-            normalised = _normalise_selection(entry)
+            normalised = self._selection_key(entry)
             if normalised is None:
                 continue
-            # Selections name local paths; index keys carry the root prefix.
-            # Rewriting here means the rest of the engine - matching, the
-            # .gitignore check, upserts, deletes - only ever deals in key
-            # space, and layout stays a decision made in exactly one place.
-            if self._config_prefix and _mount_prefix(normalised) == "":
-                normalised = (
-                    self._config_prefix
-                    if normalised == WHOLE_CONFIG_ROOT
-                    else f"{self._config_prefix}/{normalised}"
-                )
             if normalised in seen:
                 continue
             seen.add(normalised)
             selections.append(normalised)
         return tuple(selections)
+
+    def _unmatched_entries(self, index: dict[str, str]) -> list[str]:
+        """Typed selections that reached no file, each as one reported line.
+
+        A selection matching nothing is otherwise indistinguishable from a
+        healthy run with nothing to do: the counts read the same and no
+        surface names the entry. Only selection modes are reported, because
+        Blacklist does not consult these entries for filtering - there would
+        be nothing to report beyond "ignored", which is a different sentence.
+
+        The scan is over the index rather than the disk, so a file that was
+        excluded on its way in (runtime floor, security checks, .gitignore)
+        counts as unmatched: from the selection's point of view it produced
+        nothing, which is what the reader needs explained.
+        """
+        override = self._config.sync_mode == SYNC_MODE_OVERRIDE
+        pending: dict[str, str] = {}
+        for entry in self._typed_entries():
+            normalised = self._selection_key(entry)
+            if normalised is not None:
+                pending.setdefault(normalised, entry)
+        # Checked against the index with an early exit, so the common case -
+        # every selection matched, most of them on the first file - costs
+        # nothing like the entries x keys product it would otherwise be.
+        for candidate in index:
+            if not pending:
+                break
+            for normalised in [n for n in pending if _selection_matches(n, candidate)]:
+                pending.pop(normalised)
+        return [
+            f"{entry} — {self._unmatched_reason(entry, normalised, override)}"
+            for normalised, entry in pending.items()
+        ]
+
+    def _unmatched_reason(self, entry: str, normalised: str, override: bool) -> str:
+        """Why one selection reached no file, in the order the scan asked.
+
+        Runtime first, because no mode re-enables it and the message should
+        not send the reader to Override. Existence gates everything after it:
+        a path that is not there is simply not there, and claiming otherwise
+        would send the reader after a problem that does not exist. The
+        spelling hint is checked only once the path has failed to resolve,
+        because that failure is what makes the doubled prefix the suspect.
+        """
+        if _is_runtime_artifact(normalised):
+            return "excluded in every mode"
+        if not self._selection_exists(normalised):
+            hint = self._spelling_hint(entry)
+            if hint is not None:
+                return f"no files matched; did you mean {hint}?"
+            return "no files matched"
+        if is_ignored(normalised, override=override):
+            return "held back by the security checks"
+        return "no files matched"
+
+    def _selection_exists(self, normalised: str) -> bool:
+        """Whether anything on disk sits where a normalised selection points.
+
+        Globs are expanded rather than stat'ed, so ``blueprints/*.yaml``
+        answers for the files it would have picked up. Resolved from
+        ``_all_roots`` rather than ``_root_map``: the latter is narrowed to
+        the roots being walked in a selection mode, and resolution has to
+        answer for a mount the walk never reached.
+        """
+        mount = _mount_prefix(normalised)
+        if mount:
+            root = next((r for name, r in self._all_roots if name == mount), None)
+            rest = normalised[len(mount):].lstrip("/")
+        else:
+            root = self._config_root
+            rest = normalised
+            if self._config_prefix:
+                prefix = f"{self._config_prefix}/"
+                if rest.startswith(prefix):
+                    rest = rest[len(prefix):]
+                elif rest == self._config_prefix:
+                    rest = ""
+        if root is None:
+            return False
+        if rest in ("", "."):
+            return root.exists()
+        if ".." in Path(rest).parts:
+            # Reached only from options written straight to disk, which the
+            # API validator would have refused. Not a match, and not a path
+            # to hand to glob either.
+            return False
+        try:
+            if any(ch in rest for ch in "*?["):
+                return any(root.glob(rest))
+            return (root / rest).exists()
+        except (OSError, ValueError):
+            return False
+
+    def _spelling_hint(self, entry: str) -> str | None:
+        """The config-relative spelling of ``entry``, if that one resolves.
+
+        The dry-run plan and the repository both display keys as
+        ``config/foo``, so a path copied from either arrives already carrying
+        the prefix - and the engine adds it a second time, which matches
+        nothing. Tested against disk rather than the index: the index is
+        empty in exactly the case being diagnosed, so a match there could
+        never be found.
+
+        Suggested rather than applied. Rewriting a stored selection would
+        change what it means for anyone who really does have a nested
+        ``config/`` directory, and the tree emits ``config/...`` for exactly
+        that case - so the reader is asked, not told.
+        """
+        if not self._config_prefix:
+            return None
+        prefix = f"{self._config_prefix}/"
+        base = _normalise_selection(entry)
+        if base is None or not base.startswith(prefix):
+            return None
+        stripped = base[len(prefix):]
+        alternative = self._selection_key(stripped)
+        if alternative is None:
+            return None
+        if self._selection_exists(alternative):
+            return stripped
+        return None
 
     def _path_selected(self, key: str) -> bool:
         return any(_selection_matches(selection, key) for selection in self._selections)
@@ -866,6 +1023,10 @@ class SyncEngine:
             # the side effect of an empty list.
             self._sensitive_files = []
             self._oversized = []
+            # Nothing to report either: the refusal below names the empty
+            # selection, and listing it again here would say the same thing
+            # twice in two different words.
+            self._unmatched = []
             return {}
 
         # The warning list only covers paths the user actually picked, so it
@@ -903,6 +1064,7 @@ class SyncEngine:
                     continue
                 oversized.append(key)
         self._oversized = sorted(oversized)
+        self._unmatched = self._unmatched_entries(index) if selection_mode else []
         return index
 
 
