@@ -1,14 +1,14 @@
 {
   "domain": "github_config_sync",
   "name": "Github Config Sync",
-  "version": "1.7.13",
-  "config_flow": true,
-  "dependencies": [],
   "codeowners": [
     "@MJP-76"
   ],
+  "config_flow": true,
+  "dependencies": [],
   "documentation": "https://github.com/MJP-76/GithubConfigSync#readme",
-  "issue_tracker": "https://github.com/MJP-76/GithubConfigSync/issues",
   "iot_class": "local_push",
-  "requirements": []
+  "issue_tracker": "https://github.com/MJP-76/GithubConfigSync/issues",
+  "requirements": [],
+  "version": "1.7.13"
 }
