@@ -1087,6 +1087,10 @@ def _plan_summary(plan) -> dict[str, Any]:
         "changed_files": plan.changed[:50],
         "removed_files": plan.removed[:50],
         "oversized_files": plan.oversized[:50],
+        # Same cap, same reason as the file lists above: the count stays
+        # complete so a panel truncated at 50 cannot read as a full answer.
+        "unmatched_count": len(plan.unmatched),
+        "unmatched": plan.unmatched[:50],
     }
 
 
@@ -1378,6 +1382,7 @@ def trigger_manual_sync():
         result_message = (
             "Dry run completed. "
             f"Would upsert {scan['added_count'] + scan['changed_count']} files and delete {scan['removed_count']} files."
+            f"{plan.unmatched_note}"
         )
         _save_state(
             {
@@ -2336,6 +2341,10 @@ def trigger_clean_repo():
             changed=[],
             removed=plan.removed,
             total_files=len(current_hash_index),
+            # Carried over from the scan that produced it. Without this the
+            # panel would report zero unmatched selections for a run whose
+            # selections are exactly as dead as a normal sync's.
+            unmatched=list(plan.unmatched),
         )
         scan = _plan_summary(delete_plan)
         _append_log(f"Clean repo: deleting {len(delete_plan.removed)} file(s) absent from the local config")

@@ -46,6 +46,19 @@ class SyncPlan:
     # In scope, but too large for GitHub to accept. Skipped with a report
     # rather than attempted, so one oversized file cannot fail the run.
     oversized: list[str] = field(default_factory=list)
+    # Selections the user wrote that reached no file, each as a line naming
+    # the entry and the reason. A selection matching nothing looks exactly
+    # like a healthy run with nothing to do, and that is not a difference
+    # the reader can see from the counts alone.
+    unmatched: list[str] = field(default_factory=list)
+
+    @property
+    def unmatched_note(self) -> str:
+        """Sentence for a result message, empty when every selection matched."""
+        if not self.unmatched:
+            return ""
+        count = len(self.unmatched)
+        return f" {count} selection{'s' if count != 1 else ''} matched nothing."
 
 
 @dataclass(frozen=True)

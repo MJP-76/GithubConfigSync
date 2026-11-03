@@ -621,6 +621,10 @@
               <label>Too large for GitHub (skipped)</label>
               <pre id="dryRunOversized">No dry-run yet.</pre>
             </div>
+            <div class="field">
+              <label>Selections that matched nothing</label>
+              <pre id="dryRunUnmatched">No dry-run yet.</pre>
+            </div>
           </div>
         </details>
       </div>
@@ -698,6 +702,7 @@
         dryRunOversized: document.getElementById("dryRunOversized"),
         dryRunUpserts: document.getElementById("dryRunUpserts"),
         dryRunDeletes: document.getElementById("dryRunDeletes"),
+        dryRunUnmatched: document.getElementById("dryRunUnmatched"),
         startDeviceBtn: document.getElementById("startDeviceBtn"),
         repoMode: document.querySelectorAll("input[name='repoMode']"),
         existingRepoSection: document.getElementById("existingRepoSection"),
@@ -935,9 +940,11 @@
         const upserts = [].concat(summary?.added_files || [], summary?.changed_files || []);
         const deletes = summary?.removed_files || [];
         const tooLarge = summary?.oversized_files || [];
+        const unmatched = summary?.unmatched || [];
         const upsertTotal = (summary?.added_count || 0) + (summary?.changed_count || 0);
         const deleteTotal = summary?.removed_count || 0;
         const oversizedTotal = summary?.oversized_count || 0;
+        const unmatchedTotal = summary?.unmatched_count || 0;
 
         // _plan_summary caps every file list at 50 while the counts stay
         // complete, so a plan could show 30 names beside a total of 70 and look
@@ -963,6 +970,13 @@
         // unnoticed until it failed the whole sync.
         if (el.dryRunOversized) {
           el.dryRunOversized.textContent = list(tooLarge, oversizedTotal) || "Nothing too large.";
+        }
+        // The one panel whose absence is not self-evident: a selection that
+        // matched nothing leaves every other count looking like a healthy run
+        // with nothing to do, and the entry that caused it is the only thing
+        // that tells the two apart.
+        if (el.dryRunUnmatched) {
+          el.dryRunUnmatched.textContent = list(unmatched, unmatchedTotal) || "Every selection matched files.";
         }
         el.oversizedTotal.textContent = String(oversizedTotal);
         el.upsertTotal.textContent = String(upsertTotal);
