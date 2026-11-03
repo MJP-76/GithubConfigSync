@@ -124,7 +124,10 @@ The ordered workflow, moved here from PROJECT.md so one document owns it:
    every `<!-- VERSION -->` block. Never edit a version by hand, and never add
    a document with a version block without adding it to `DOC_PATHS`.
 4. Update all three changelogs.
-5. Commit and push to `main` (single version, single repo).
+5. Commit and open a PR to `main` (single version, single repo). `main` is
+   protected — direct pushes are rejected, administrators included — and the PR
+   cannot merge until `test (3.12)` and `hassfest` are green. Auto-merge is
+   enabled, so `gh pr merge --auto` finishes it once the checks pass.
 6. Tag `vX.Y.Z` and create the GitHub release.
 7. Confirm `scripts/sync_versions.py ... --check` passes. **CI does not run it
    for you.**
@@ -152,5 +155,6 @@ live together:
 - [ ] `scripts/sync_versions.py --check` passes
 - [ ] Tests green and `mkdocs build --strict` clean
 - [ ] Docs updated
-- [ ] Committed and pushed to `main`
+- [ ] PR opened and merged on `main` — protection requires it, and green
+      `test (3.12)` + `hassfest` checks
 - [ ] GitHub release created
